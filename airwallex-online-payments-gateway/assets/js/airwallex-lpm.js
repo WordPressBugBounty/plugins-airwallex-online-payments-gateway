@@ -208,25 +208,26 @@ jQuery(function ($) {
             disablePlaceOrderButton(!canMakePayment || isLoading);
         });
 
-        let count = 0; // to prevent infinite loop in case of unexpected error
-        const firedByAirwallex = 'firedByAirwallex';
-        $(document.body).on('click', '#place_order', function (event, data) {
-            if (count < 3 && (!data || !data.includes(firedByAirwallex) ) && getSelectedPaymentMethod() in awxEmbeddedLPMData) {
-                event.preventDefault();
-                handleQuoteExpire().then(function(result) {
-                    $('#place_order').trigger('click', [ firedByAirwallex ]);
-                    count++;
-                }).catch(function(error) {
-                    console.warn(error);
-                }).finally(function() {
-                    hideQuoteExpire();
-                });
-            }
-        });
+        // temporary disable this feature as it is not working on old version of WooCommerce
+        // let count = 0; // to prevent infinite loop in case of unexpected error
+        // const firedByAirwallex = 'firedByAirwallex';
+        // $(document.body).on('click', '#place_order', function (event, data) {
+        //     if (count < 3 && (!data || !data.includes(firedByAirwallex) ) && getSelectedPaymentMethod() in awxEmbeddedLPMData) {
+        //         event.preventDefault();
+        //         handleQuoteExpire().then(function(result) {
+        //             $('#place_order').trigger('click', [ firedByAirwallex ]);
+        //             count++;
+        //         }).catch(function(error) {
+        //             console.warn(error);
+        //         }).finally(function() {
+        //             hideQuoteExpire();
+        //         });
+        //     }
+        // });
 
         $('form.woocommerce-checkout').on('checkout_place_order', function (event, wcCheckoutForm) {
             if (getSelectedPaymentMethod() in awxEmbeddedLPMData) {
-                addCustomDataToCheckoutForm(wcCheckoutForm.$checkout_form);
+                addCustomDataToCheckoutForm(wcCheckoutForm ? wcCheckoutForm.$checkout_form : 'form.checkout');
             }
             
             return true;

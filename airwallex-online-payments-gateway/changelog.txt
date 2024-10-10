@@ -1,5 +1,10 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2024-10-09 - version 1.14.1
+
+* Fix - Klarna standalone payment method is incompatible with older WooCommerce versions
+* Fix - In certain cases, the payment sheets for the 'All payment methods' do not render properly
+
 2024-09-24 - version 1.14.0
 
 * Add - 3D Secure authentication data in order notes

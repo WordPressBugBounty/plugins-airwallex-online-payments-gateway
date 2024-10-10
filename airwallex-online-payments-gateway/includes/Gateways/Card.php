@@ -135,7 +135,7 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function get_form_fields() {
-		$isEmbeddedFieldsAllowed = ( defined( 'WC_VERSION' ) && version_compare( WC_VERSION, '4.8.0', '>=' ) );
+		$isEmbeddedFieldsAllowed = ( defined( 'WC_VERSION' ) && version_compare( WC_VERSION, '5.2.0', '>=' ) );
 		return apply_filters( // phpcs:ignore
 			'wc_airwallex_settings', // phpcs:ignore
 			array(
@@ -162,7 +162,7 @@ class Card extends WC_Payment_Gateway {
 				'checkout_form_type'           => array(
 					'title'       => __( 'Checkout form', 'airwallex-online-payments-gateway' ),
 					'type'        => 'select',
-					'description' => ( ! $isEmbeddedFieldsAllowed ? ' ' . __( 'Please upgrade WooCommerce to 4.8.0+ to use embedded credit card input fields', 'airwallex-online-payments-gateway' ) : '' ),
+					'description' => ( ! $isEmbeddedFieldsAllowed ? ' ' . __( 'Please upgrade WooCommerce to 5.2.0+ to use embedded credit card input fields', 'airwallex-online-payments-gateway' ) : '' ),
 					'default'     => $isEmbeddedFieldsAllowed ? 'inline' : 'redirect',
 					'options'     =>
 						( $isEmbeddedFieldsAllowed ? array( 'inline' => __( 'Embedded', 'airwallex-online-payments-gateway' ) ) : array() )
@@ -383,7 +383,10 @@ class Card extends WC_Payment_Gateway {
 			);
 
 			$this->enqueueScriptForRedirectCard();
+
+			ob_start();
 			include AIRWALLEX_PLUGIN_PATH . '/html/card-payment-shortcode.php';
+			return ob_get_clean();
 		} catch ( Exception $e ) {
 			$this->logService->error( __METHOD__ . ' - Card payment action failed', $e->getMessage(), LogService::CARD_ELEMENT_TYPE );
 			wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );

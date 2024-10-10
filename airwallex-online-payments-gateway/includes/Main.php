@@ -82,6 +82,7 @@ class Main {
 		$this->registerSettings();
 		$this->registerExpressCheckoutButtons($this->expressCheckout);
 		$this->noticeApiKeyMissing();
+		$this->registerScripts();
 	}
 
 	public function registerEvents() {
@@ -432,7 +433,7 @@ class Main {
 		return in_array( get_option( 'airwallex_do_js_logging' ), array( 'yes', 1, true, '1' ), true );
 	}
 
-	public function enqueueScripts() {
+	public function registerScripts() {
 		// register all the scripts and styles
 		$awxHost = Util::getCheckoutUIEnvHost( Util::getEnvironment() );
 		wp_register_script(
@@ -503,7 +504,9 @@ class Main {
 			[],
 			AIRWALLEX_VERSION
 		);
+	}
 
+	public function enqueueScripts() {
 		if ( $this->isJsLoggingActive() ) {
 			wp_enqueue_script( 'airwallex-js-logging-js' );
 			wp_add_inline_script( 'airwallex-js-logging-js', "var airwallexJsLogUrl = '" . WC()->api_request_url( self::ROUTE_SLUG_JS_LOGGER ) . "';", 'before' );

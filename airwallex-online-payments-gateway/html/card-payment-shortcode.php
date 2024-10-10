@@ -62,5 +62,4 @@ $airwallexRedirectElScriptData = [
     'orderId' => $orderId,
     'paymentIntentId' => $paymentIntentId,
 ];
-wp_enqueue_script('airwallex-redirect-js');
 wp_add_inline_script('airwallex-redirect-js', 'var awxRedirectElData=' . wp_json_encode($airwallexRedirectElScriptData), 'before');

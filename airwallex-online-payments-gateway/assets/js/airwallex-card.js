@@ -39,12 +39,15 @@ jQuery(function ($) {
         });
 
         $('form.checkout').on('checkout_place_order_success', function (ele, result, form) {
-            confirmSlimCardPayment(result, airwallexSlimCard);
+            const selectedPaymentMethod = $('[name="payment_method"]:checked').val();
+            if ('airwallex_card' === selectedPaymentMethod) {
+                confirmSlimCardPayment(result, airwallexSlimCard);
+            }
             return true;
         });
 
         $(document.body).on('click', '#place_order', function (event) {
-            const selectedPaymentMethod = $('[name="payment_method"]:checked').val()
+            const selectedPaymentMethod = $('[name="payment_method"]:checked').val();
             if (awxCommonData.isOrderPayPage && 'airwallex_card' === selectedPaymentMethod) {
                 airwallexCheckoutBlock('#order_review');
                 event.preventDefault();
@@ -91,6 +94,8 @@ jQuery(function ($) {
 
         if (!data || data.error) {
             AirwallexClient.displayCheckoutError(awxCheckoutForm, String(errorMessage).replace('%s', ''));
+            $('form.checkout').unblock();
+            return;
         }
         let finalConfirmationUrl = confirmationUrl;
         finalConfirmationUrl += finalConfirmationUrl.includes('?') ? '&' : '?';

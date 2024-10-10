@@ -611,7 +611,10 @@ class Main extends WC_Payment_Gateway {
 			);
 
 			$this->enqueueScripts();
+			
+			ob_start();
 			include_once AIRWALLEX_PLUGIN_PATH . '/html/drop-in-payment-shortcode.php';
+			return ob_get_clean();
 		} catch ( Exception $e ) {
 			$this->logService->error( __METHOD__ . ' - Drop in payment page redirect failed', $e->getMessage(), LogService::CARD_ELEMENT_TYPE );
 			wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );

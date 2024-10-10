@@ -209,7 +209,10 @@ class WeChat extends WC_Payment_Gateway {
 			);
 
 			$this->enqueueScripts();
+			
+			ob_start();
 			include AIRWALLEX_PLUGIN_PATH . '/html/wechat-shortcode.php';
+			return ob_get_clean();
 		} catch ( Exception $e ) {
 			$this->logService->error(__METHOD__ . ' - Wechat payment page redirect failed', $e->getMessage(), LogService::WECHAT_ELEMENT_TYPE );
 			wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );
