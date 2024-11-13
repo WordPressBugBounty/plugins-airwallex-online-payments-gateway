@@ -168,17 +168,6 @@ class Card extends WC_Payment_Gateway {
 						( $isEmbeddedFieldsAllowed ? array( 'inline' => __( 'Embedded', 'airwallex-online-payments-gateway' ) ) : array() )
 						+ array( 'redirect' => __( 'On separate page', 'airwallex-online-payments-gateway' ) ),
 				),
-				'payment_descriptor'           => array(
-					'title'             => __( 'Statement descriptor', 'airwallex-online-payments-gateway' ),
-					'type'              => 'text',
-					'custom_attributes' => array(
-						'maxlength' => 28,
-					),
-					/* translators: Placeholder 1: Order number. */
-					'description'       => __( 'Descriptor that will be displayed to the customer. For example, in customer\'s credit card statement. Use %order% as a placeholder for the order\'s ID.', 'airwallex-online-payments-gateway' ),
-					/* translators: Placeholder 1: Order number. */
-					'default'           => __( 'Your order %order%', 'airwallex-online-payments-gateway' ),
-				),
 				'capture_immediately'          => array(
 					'title'       => __( 'Capture immediately', 'airwallex-online-payments-gateway' ),
 					'label'       => __( 'yes', 'airwallex-online-payments-gateway' ),
@@ -404,5 +393,12 @@ class Card extends WC_Payment_Gateway {
 		];
 
 		return $data;
+	}
+
+	public static function getDescriptorSetting() {
+		$settings = self::getSettings();
+		
+		/* translators: Placeholder 1: Order number. */
+		return isset($settings['payment_descriptor']) ? $settings['payment_descriptor'] : __( 'Your order %order%', 'airwallex-online-payments-gateway' );
 	}
 }

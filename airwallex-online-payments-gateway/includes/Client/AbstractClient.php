@@ -4,6 +4,7 @@ namespace Airwallex\Client;
 
 use Airwallex\Client\HttpClient;
 use Airwallex\Controllers\PaymentSessionController;
+use Airwallex\Gateways\Card;
 use Airwallex\Gateways\ExpressCheckout;
 use Airwallex\Services\CacheService;
 use Airwallex\Struct\Customer;
@@ -51,7 +52,7 @@ abstract class AbstractClient {
 		$this->clientId = Util::getClientSecret();
 		$this->apiKey = Util::getApiKey();
 		$this->isSandbox = in_array( get_option( 'airwallex_enable_sandbox' ), array( true, 'yes' ), true );
-		$this->paymentDescriptor = '';
+		$this->paymentDescriptor = (string) get_option( 'airwallex_payment_descriptor', Card::getDescriptorSetting() );
 	}
 
 	final public function getAuthUrl( $action ) {

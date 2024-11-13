@@ -7,6 +7,7 @@ use Airwallex\Gateways\Settings\AbstractAirwallexSettings;
 use Airwallex\Main;
 use Airwallex\Services\Util;
 use WC_AJAX;
+use Airwallex\Gateways\Card;
 
 if (!defined('ABSPATH')) {
 	exit;
@@ -139,6 +140,17 @@ class APISettings extends AbstractAirwallexSettings {
 				),
 				'value'   => get_option( 'airwallex_payment_page_template' ),
 				'default' => Util::isNewClient() ? 'wordpress_page' : 'default',
+			),
+			'payment_descriptor'  => array(
+				'title' => __( 'Statement descriptor', 'airwallex-online-payments-gateway' ),
+				'type' => 'text',
+				'custom_attributes' => array(
+					'maxlength' => 28,
+				),
+				/* translators: Placeholder 1: Order number. */
+				'description' => __( 'Descriptor that will be displayed to the customer. For example, in customer\'s credit card statement. Use %order% as a placeholder for the order\'s ID.', 'airwallex-online-payments-gateway' ),
+				'value' => get_option( 'airwallex_payment_descriptor'),
+				'default' => Card::getDescriptorSetting(),
 			),
 		);
 	}

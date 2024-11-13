@@ -7,12 +7,6 @@ use Airwallex\Gateways\Card;
 class CardClient extends AbstractClient {
 	public static $instance = null;
 
-	public function __construct() {
-		parent::__construct();
-		$this->gateway           = new Card();
-		$this->paymentDescriptor = (string) $this->gateway->get_option( 'payment_descriptor' );
-	}
-
 	public function getActiveCardSchemes($countryCode, $currency) {
 		$client   = $this->getHttpClient();
 		$response = $client->call(
