@@ -203,6 +203,11 @@
 	}
 }
 
+.airwallex-checkout .product-image img {
+	width: 100%;
+	height: auto;
+}
+
 /*------Card------*/
 .airwallex-content-card {
 	max-width: 800px;

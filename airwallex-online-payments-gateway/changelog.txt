@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-01-17 - version 1.15.1
+
+* Add - Support for Diners and Discover Card Schema
+
 2024-11-13 - version 1.15.0
 
 * Add - Descriptor configuration option under the API Setting and ensure it is applied across all payment methods

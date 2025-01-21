@@ -100,6 +100,7 @@ export const InlineCard                             = ({
 			
 			const card = createAirwallexElement('card', {
 				autoCapture: settings.capture_immediately,
+				allowedCardNetworks: ['discover', 'visa', 'mastercard', 'maestro', 'unionpay', 'amex', 'jcb', 'diners']
 			});
 			card.mount('airwallex-card');
 		});

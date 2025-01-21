@@ -18,6 +18,7 @@ jQuery(function ($) {
     const initCardElement = () => {
         const airwallexSlimCard = Airwallex.createElement('card', {
             autoCapture: autoCapture,
+            allowedCardNetworks: ['discover', 'visa', 'mastercard', 'maestro', 'unionpay', 'amex', 'jcb', 'diners']
         });
         let domElement = airwallexSlimCard.mount('airwallex-card');
         setInterval(function () {
