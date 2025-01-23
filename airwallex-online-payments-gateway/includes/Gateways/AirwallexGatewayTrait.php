@@ -7,6 +7,7 @@ use Airwallex\Client\CardClient;
 use Exception;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
+use Airwallex\Struct\PaymentIntent;
 
 trait AirwallexGatewayTrait {
 
@@ -115,5 +116,30 @@ trait AirwallexGatewayTrait {
 		}
 
 		return $paymentMethodTypes;
+	}
+
+	public function do_subscription_payment( $amount, $order ) {
+		try {
+			$subscriptionId            = $order->get_meta( '_subscription_renewal' );
+			$subscription              = wcs_get_subscription( $subscriptionId );
+			$originalOrderId           = $subscription->get_parent();
+			$originalOrder             = wc_get_order( $originalOrderId );
+			$airwallexCustomerId       = $subscription->get_meta( 'airwallex_customer_id' ) ?: $originalOrder->get_meta( 'airwallex_customer_id' );
+			$airwallexPaymentConsentId = $subscription->get_meta( 'airwallex_consent_id' ) ?: $originalOrder->get_meta( 'airwallex_consent_id' );
+			$cardClient                = CardClient::getInstance();
+			$paymentIntent             = $cardClient->createPaymentIntent( $amount, $order->get_id(), false, $airwallexCustomerId );
+			$paymentIntentAfterCapture = $cardClient->confirmPaymentIntent( $paymentIntent->getId(), [ 'payment_consent_reference' => [ 'id' => $airwallexPaymentConsentId ] ] );
+
+			if ( $paymentIntentAfterCapture->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
+				( new LogService() )->debug( 'capture successful', $paymentIntentAfterCapture->toArray() );
+				$order->add_order_note( 'Airwallex payment capture success' );
+				$order->payment_complete( $paymentIntent->getId() );
+			} else {
+				( new LogService() )->error( 'capture failed', $paymentIntentAfterCapture->toArray() );
+				$order->add_order_note( 'Airwallex payment failed capture' );
+			}
+		} catch ( Exception $e ) {
+			( new LogService() )->error( 'do_subscription_payment failed', $e->getMessage() );
+		}
 	}
 }

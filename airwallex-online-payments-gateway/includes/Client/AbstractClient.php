@@ -644,6 +644,26 @@ abstract class AbstractClient {
 		return new PaymentConsent($response->data);
 	}
 
+	/**
+	 * Retrieve a PaymentConsent
+	 * 
+	 * @param string $consentId payment consent id
+	 * @return PaymentConsent Payment consent
+	 */
+	final public function getPaymentConsent( $consentId ) {
+		$client   = $this->getHttpClient();
+		$response = $client->call(
+			'GET',
+			$this->getPciUrl( 'pa/payment_consents/' . $consentId),
+			null,
+			array(
+				'Authorization' => 'Bearer ' . $this->getToken(),
+			)
+		);
+
+		return new PaymentConsent($response->data);
+	}
+
 	final public function startPaymentSession($validationUrl, $initiativeContext) {
 		if ( empty( $validationUrl ) ) {
 			throw new Exception( 'Validation URL is empty.' );

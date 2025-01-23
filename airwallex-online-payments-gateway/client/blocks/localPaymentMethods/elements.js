@@ -7,6 +7,7 @@ import {
 	getBrowserInfo,
 	airTrackerCommonData,
 	getLocaleFromBrowserLanguage,
+	getSessionId,
 } from '../utils';
 import { createQuote } from '../api';
 
@@ -255,7 +256,7 @@ export const AirwallexLpmContent = ({
 
 	useEffect(() => {
 		const onSubmit = async () => {
-			const deviceData = getBrowserInfo(airTrackerCommonData.sessionId);
+			const deviceData = getBrowserInfo(getSessionId());
 			return {
 				type: emitResponse.responseTypes.SUCCESS,
 				meta: {

@@ -2,7 +2,8 @@ import {
     getBrowserInfo,
     airTrackerCommonData,
     initAirwallex,
-    getLocaleFromBrowserLanguage
+    getLocaleFromBrowserLanguage,
+    getSessionId,
 } from "./utils";
 import {
     getStoreCurrency,
@@ -20,7 +21,7 @@ jQuery(function ($) {
             type: 'hidden',
             id: 'airwallex_device_data',
             name: 'airwallex_device_data',
-            value: JSON.stringify(getBrowserInfo(airTrackerCommonData.sessionId)),
+            value: JSON.stringify(getBrowserInfo(getSessionId())),
         }).appendTo(form);
         $('<input>').prop({
             type: 'hidden',

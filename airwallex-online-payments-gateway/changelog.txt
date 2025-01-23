@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-01-22 - version 1.16.0
+
+* Add - Support change payment gateway for WooCommerce Subscriptions
+
 2025-01-17 - version 1.15.1
 
 * Add - Support for Diners and Discover Card Schema

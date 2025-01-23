@@ -73,3 +73,7 @@ export const getLocaleFromBrowserLanguage = () => {
 
 	return locale;
 }
+
+export const getSessionId = () => {
+	return document.getElementById('airwallex-fraud-api')?.getAttribute('data-order-session-id');
+}
