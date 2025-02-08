@@ -231,6 +231,9 @@ abstract class AbstractClient {
 			'products' => array(),
 		);
 
+
+		$orderItemTotal = 0;
+
 		$orderItemTypes = array( 'line_item', 'shipping', 'fee', 'tax' );
 		foreach ( $orderItemTypes as $type ) {
 			foreach ( $order->get_items( $type ) as $item ) {
@@ -261,8 +264,19 @@ abstract class AbstractClient {
 				if ( $itemDetail['unit_price'] >= 0 ) {
 					$itemDetail['unit_price'] = Util::round( $itemDetail['unit_price'], wc_get_price_decimals() );
 					$orderData['products'][]  = $itemDetail;
+					$orderItemTotal += $itemDetail['unit_price'] * $itemDetail['quantity'];
 				}
 			}
+		}
+
+		if ($amount - $orderItemTotal >= 0.0001) {
+			$orderData['products'][] = array(
+				'name'       => 'Other Fees',
+				'desc'       => '',
+				'quantity'   => 1,
+				'sku'        => '',
+				'unit_price' => ceil(($amount - $orderItemTotal) * 10000) / 10000,
+			);
 		}
 
 		if ( $order->has_shipping_address() ) {

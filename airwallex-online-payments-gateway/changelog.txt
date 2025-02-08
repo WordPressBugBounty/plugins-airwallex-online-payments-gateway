@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-02-08 - version 1.16.1
+
+* Fix - Klarna payment failed due to a discrepancy between the order amount and the total of order items
+
 2025-01-22 - version 1.16.0
 
 * Add - Support change payment gateway for WooCommerce Subscriptions
