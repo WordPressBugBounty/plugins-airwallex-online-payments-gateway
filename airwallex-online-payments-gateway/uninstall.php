@@ -24,6 +24,13 @@ if ( defined( 'WC_REMOVE_ALL_DATA' ) && true === WC_REMOVE_ALL_DATA ) {
 	delete_option( 'airwallex_client_id' );
 	delete_option( 'airwallex_api_key' );
 	delete_option( 'airwallex_webhook_secret' );
+	delete_option( 'airwallex_account_id' );
+	delete_option( 'airwallex_account_name' );
+	delete_option( 'airwallex_client_id_demo' );
+	delete_option( 'airwallex_api_key_demo' );
+	delete_option( 'airwallex_webhook_secret_demo' );
+	delete_option( 'airwallex_account_id_demo' );
+	delete_option( 'airwallex_account_name_demo' );
 	delete_option( 'airwallex_enable_sandbox' );
 	delete_option( 'airwallex_temporary_order_status_after_decline' );
 	delete_option( 'airwallex_order_status_pending' );

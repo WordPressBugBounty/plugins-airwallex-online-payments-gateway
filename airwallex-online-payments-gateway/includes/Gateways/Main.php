@@ -13,6 +13,7 @@ use Exception;
 use WC_Payment_Gateway;
 use WP_Error;
 use Airwallex\Services\OrderService;
+use Airwallex\Services\Util;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -62,7 +63,7 @@ class Main extends WC_Payment_Gateway {
 			$logoHtml          = apply_filters( 'airwallex_description_logo_html', $logoHtml, $logos ); // phpcs:ignore
 			$this->description = $logoHtml . $this->description;
 		}
-		if ( $this->get_client_id() && $this->get_api_key() ) {
+		if ( Util::getClientId() && Util::getApiKey() ) {
 			$this->form_fields = $this->get_form_fields();
 		}
 		$this->title      = $this->get_option( 'title' );
@@ -86,19 +87,6 @@ class Main extends WC_Payment_Gateway {
 	}
 
 	public function enqueueAdminScripts() {
-	}
-
-	public function getStatus() {
-		if ( null === self::$status ) {
-			self::$status = 0; //avoid circle
-			if ( empty( $this->get_api_key() ) || empty( $this->get_client_id() ) ) {
-				self::$status = self::STATUS__NOT_CONNECTED;
-			} else {
-				$apiClient    = MainClient::getInstance();
-				self::$status = $apiClient->testAuth() ? self::STATUS_CONNECTED : self::STATUS_ERROR;
-			}
-		}
-		return self::$status;
 	}
 
 	public function get_icon() {
@@ -127,7 +115,7 @@ class Main extends WC_Payment_Gateway {
 
 	public function getPaymentLogos() {
 		try {
-			$cacheService = new CacheService( $this->get_api_key() );
+			$cacheService = new CacheService( Util::getApiKey() );
 			$logos        = $cacheService->get( 'paymentLogos' );
 			if ( empty( $logos ) ) {
 				$paymentMethodTypes = $this->getPaymentMethodTypes();
@@ -160,7 +148,7 @@ class Main extends WC_Payment_Gateway {
 
 	public function getPaymentMethods() {
 		try {
-			$cacheService = new CacheService( $this->get_api_key() );
+			$cacheService = new CacheService( Util::getApiKey() );
 			$methods      = $cacheService->get( 'paymentMethods' );
 			if ( empty( $methods ) ) {
 				$paymentMethodTypes = $this->getPaymentMethodTypes();
@@ -183,20 +171,6 @@ class Main extends WC_Payment_Gateway {
 
 
 	public function get_form_fields() {
-		$isAdmin = isset( $_SERVER['SCRIPT_FILENAME'] ) && '/admin.php' === substr( sanitize_text_field( wp_unslash( $_SERVER['SCRIPT_FILENAME'] ) ), -10 )
-			&& isset( $_GET['page'] ) && 'wc-settings' === $_GET['page']
-			&& isset( $_GET['section'] ) && 'airwallex_main' === $_GET['section'];
-		$intro   = '';
-		if ( $isAdmin ) {
-			$cStatus    = $this->getStatus();
-			$statusHtml = '<span style="padding: 3px 8px; font-weight:bold; border-radius:3px; background-color: ' . ( self::STATUS_CONNECTED === $cStatus ? '#E0F7E7' : '#FFADAD' ) . '">' . $cStatus . '</span>';
-			$intro     .= '<div>' . sprintf(
-				/* translators: Placeholder 1: Connection status html. Placeholder 2: API settings url  */
-				__( 'Airwallex API settings %1$s <a href="%2$s">edit</a>', 'airwallex-online-payments-gateway' ),
-				$statusHtml,
-				admin_url( 'admin.php?page=wc-settings&tab=checkout&section=airwallex_general' )
-			);
-		}
 		$logos = $this->getPaymentLogos();
 		return apply_filters( // phpcs:ignore
 			'wc_airwallex_settings', // phpcs:ignore

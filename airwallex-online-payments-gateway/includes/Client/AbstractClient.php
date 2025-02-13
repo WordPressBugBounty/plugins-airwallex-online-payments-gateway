@@ -49,7 +49,7 @@ abstract class AbstractClient {
 	}
 
 	public function __construct() {
-		$this->clientId = Util::getClientSecret();
+		$this->clientId = Util::getClientId();
 		$this->apiKey = Util::getApiKey();
 		$this->isSandbox = in_array( get_option( 'airwallex_enable_sandbox' ), array( true, 'yes' ), true );
 		$this->paymentDescriptor = (string) get_option( 'airwallex_payment_descriptor', Card::getDescriptorSetting() );

@@ -2,6 +2,8 @@
 
 namespace Airwallex\Client;
 
+use Airwallex\Services\Util;
+
 class AdminClient extends AbstractClient {
 	public static $instance = null;
 	
@@ -12,5 +14,19 @@ class AdminClient extends AbstractClient {
 		}
 
 		return null;
+	}
+
+	public function finalizeConnection($env, $accessToken, $payload) {
+		$client   = $this->getHttpClient();
+		$response = $client->call(
+			'POST',
+			Util::getDomainUrl($env) . '/payment_app/plugin/api/v1/connection/finalize',
+			wp_json_encode($payload),
+			[
+				'Authorization' => 'Bearer ' . $accessToken,
+			]
+		);
+
+		return $response;
 	}
 }

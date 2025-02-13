@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit83ea1693dfac15f88f5ea059e71e4865
+class ComposerStaticInit1b5065520dfde76e60e0af108822b0af
 {
     public static $prefixLengthsPsr4 = array (
         'A' => 
@@ -34,6 +34,7 @@ class ComposerStaticInit83ea1693dfac15f88f5ea059e71e4865
         'Airwallex\\Constants\\ExpressCheckoutStates' => __DIR__ . '/../..' . '/includes/Constants/ExpressCheckoutStates.php',
         'Airwallex\\Constants\\HongKongStates' => __DIR__ . '/../..' . '/includes/Constants/HongKongStates.php',
         'Airwallex\\Controllers\\AirwallexController' => __DIR__ . '/../..' . '/includes/Controllers/AirwallexController.php',
+        'Airwallex\\Controllers\\ConnectionFlowController' => __DIR__ . '/../..' . '/includes/Controllers/ConnectionFlowController.php',
         'Airwallex\\Controllers\\ControllerFactory' => __DIR__ . '/../..' . '/includes/Controllers/ControllerFactory.php',
         'Airwallex\\Controllers\\GatewaySettingsController' => __DIR__ . '/../..' . '/includes/Controllers/GatewaySettingsController.php',
         'Airwallex\\Controllers\\OrderController' => __DIR__ . '/../..' . '/includes/Controllers/OrderController.php',
@@ -81,9 +82,9 @@ class ComposerStaticInit83ea1693dfac15f88f5ea059e71e4865
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit83ea1693dfac15f88f5ea059e71e4865::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit83ea1693dfac15f88f5ea059e71e4865::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit83ea1693dfac15f88f5ea059e71e4865::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit1b5065520dfde76e60e0af108822b0af::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit1b5065520dfde76e60e0af108822b0af::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit1b5065520dfde76e60e0af108822b0af::$classMap;
 
         }, null, ClassLoader::class);
     }

@@ -2,8 +2,8 @@
 Contributors: airwallex
 Tags: credit card, airwallex, payments, wechat, alipay, apple pay
 Requires at least: 4.5
-Tested up to: 6.7.1
-Stable tag: 1.16.1
+Tested up to: 6.7.2
+Stable tag: 1.17.1
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -68,6 +68,16 @@ The non-compressed javascript files can be found under the ```assets/js``` folde
 We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) as our build tool.
 
 == Changelog ==
+
+= 1.17.1 =
+* Release Date - 13 February 2025*
+
+* Fix - Express Checkout Button style issue
+
+= 1.17.0 =
+* Release Date - 13 February 2025*
+
+* Add - Improved connection flow for a smoother and easier store integration with your Airwallex account
 
 = 1.16.1 =
 * Release Date - 8 February 2025*

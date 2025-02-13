@@ -1,6 +1,5 @@
 import {
     getBrowserInfo,
-    airTrackerCommonData,
     initAirwallex,
     getLocaleFromBrowserLanguage,
     getSessionId,
@@ -66,7 +65,7 @@ jQuery(function ($) {
                     displayCurrencySwitchingInfo(originalCurrency, requiredCurrency);
                 } else {
                     canMakePayment = false;
-                    $('.wc-airwallex-lpm-currency-ineligible-switcher-off div').html(getReplacedText(currencyIneligibleCWOff, values));
+                    $('.wc-airwallex-lpm-currency-ineligible-switcher-off .wc-airwallex-alert-box-content').html(getReplacedText(currencyIneligibleCWOff, values));
                     $('.wc-airwallex-lpm-currency-ineligible-switcher-off').show();
                 }
             } else {
@@ -121,7 +120,7 @@ jQuery(function ($) {
                 $('.wc-airwallex-currency-switching-convert-text').html('').append(getReplacedText(conversionRate, values));
                 $('.wc-airwallex-currency-switching-converted-amount').html('').append(getReplacedText(convertedAmount, values));
                 $('.wc-airwallex-currency-switching-quote-expire-convert-text').html('').append(getReplacedText(currencyIneligibleCWOn, values));
-                $('.wc-airwallex-lpm-currency-ineligible-switcher-on div').html(getReplacedText(currencyIneligibleCWOn, values));
+                $('.wc-airwallex-lpm-currency-ineligible-switcher-on .wc-airwallex-alert-box-content').html(getReplacedText(currencyIneligibleCWOn, values));
                 $('.wc-airwallex-lpm-currency-ineligible-switcher-on').show();
                 showCurrencySwitchingInfo();
                 disablePlaceOrderButton(false);
@@ -133,7 +132,7 @@ jQuery(function ($) {
                     '$$converted_currency$$': requiredCurrency,
                 };
                 $('.woocommerce-checkout .wc-airwallex-alert-box').hide();
-                $('.wc-airwallex-lpm-currency-ineligible-switcher-off div').html(getReplacedText(currencyIneligibleCWOff, values));
+                $('.wc-airwallex-lpm-currency-ineligible-switcher-off .wc-airwallex-alert-box-content').html(getReplacedText(currencyIneligibleCWOff, values));
                 $('.wc-airwallex-lpm-currency-ineligible-switcher-off').show();
                 disablePlaceOrderButton(true);
             }

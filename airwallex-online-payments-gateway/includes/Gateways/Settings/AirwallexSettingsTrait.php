@@ -101,7 +101,7 @@ trait AirwallexSettingsTrait {
 
 	public function isConnected() {
 		if (null === self::$connected) {
-			if ( empty( Util::getApiKey() ) || empty( Util::getClientSecret() ) ) {
+			if ( empty( Util::getApiKey() ) || empty( Util::getClientId() ) ) {
 				self::$connected = false;
 			} else {
 				try {

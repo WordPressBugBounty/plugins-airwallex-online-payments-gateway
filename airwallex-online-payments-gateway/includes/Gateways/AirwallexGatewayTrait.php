@@ -8,6 +8,7 @@ use Exception;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
 use Airwallex\Struct\PaymentIntent;
+use Airwallex\Services\Util;
 
 trait AirwallexGatewayTrait {
 
@@ -28,14 +29,6 @@ trait AirwallexGatewayTrait {
 			}
 		);
 		return $iconArray;
-	}
-
-	public function get_client_id() {
-		return get_option( 'airwallex_client_id' );
-	}
-
-	public function get_api_key() {
-		return get_option( 'airwallex_api_key' );
 	}
 
 	public function is_submit_order_details() {
@@ -101,18 +94,18 @@ trait AirwallexGatewayTrait {
 	}
 
 	public function getPaymentMethodTypes() {
-		$cacheService = new CacheService( $this->get_api_key() );
+		$cacheService = new CacheService( Util::getApiKey() );
 		$paymentMethodTypes = $cacheService->get( 'rawPaymentMethods' );
 
 		if ( is_null( $paymentMethodTypes ) ) {
-			$apiClient = CardClient::getInstance();
+			$paymentMethodTypes = [];
 			try {
+				$apiClient = CardClient::getInstance();
 				$paymentMethodTypes = $apiClient->getPaymentMethodTypes();
-
-				$cacheService->set( 'rawPaymentMethods', $paymentMethodTypes, 5 * MINUTE_IN_SECONDS );
 			} catch ( Exception $e ) {
 				LogService::getInstance()->error(__METHOD__ . ' Failed to get payment method types.');
 			}
+			$cacheService->set( 'rawPaymentMethods', $paymentMethodTypes, 5 * MINUTE_IN_SECONDS );
 		}
 
 		return $paymentMethodTypes;

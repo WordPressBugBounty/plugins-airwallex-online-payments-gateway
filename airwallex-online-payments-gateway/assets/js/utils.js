@@ -22,7 +22,7 @@ export const getBrowserInfo = (sessionId) => {
 	const { colorDepth, height, width } = screen || {};
 
 	return {
-		device_id: sessionId,
+		device_id: sessionId, // need to pass risk device js session id
 		screen_height: height,
 		screen_width: width,
 		screen_color_depth: colorDepth,

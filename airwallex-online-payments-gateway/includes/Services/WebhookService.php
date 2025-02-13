@@ -165,7 +165,7 @@ class WebhookService {
 	private function verifySignature( $headers, $msg ) {
 
 		$timestamp           = $headers['x-timestamp'];
-		$secret              = get_option( 'airwallex_webhook_secret' );
+		$secret              = Util::getWebhookSecret();
 		$signature           = $headers['x-signature'];
 		$calculatedSignature = hash_hmac( 'sha256', $timestamp . $msg, $secret );
 

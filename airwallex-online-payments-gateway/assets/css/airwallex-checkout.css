@@ -67,10 +67,6 @@ apple-pay-button {
 	--apple-pay-button-border-radius: 5px;
 }
 
-#awx-ec-google-pay-btn {
-	margin-top: -8px;
-}
-
 #awx-ec-apple-pay-btn {
 	margin-bottom: 8px;
 }
@@ -128,6 +124,7 @@ apple-pay-button {
 }
 
 .wc-airwallex-alert-box img {
+	max-width: 20px;
 	width: 20px;
 	height: 20px;
 }

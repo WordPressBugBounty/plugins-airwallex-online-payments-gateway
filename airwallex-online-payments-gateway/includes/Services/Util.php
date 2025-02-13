@@ -69,8 +69,10 @@ class Util {
 	 * 
 	 * @return string API Key
 	 */
-	public static function getApiKey() {
-		return get_option( 'airwallex_api_key' );
+	public static function getApiKey($env = '') {
+		$targetEnv = $env ? $env : Util::getEnvironment();
+		
+		return 'demo' === $targetEnv ? get_option( 'airwallex_api_key_demo', get_option( 'airwallex_api_key' ) ) : get_option( 'airwallex_api_key' );
 	}
 
 	/**
@@ -78,8 +80,44 @@ class Util {
 	 * 
 	 * @return string Client id
 	 */
-	public static function getClientSecret() {
-		return get_option( 'airwallex_client_id' );
+	public static function getClientId($env = '') {
+		$targetEnv = $env ? $env : Util::getEnvironment();
+
+		return 'demo' === $targetEnv ? get_option( 'airwallex_client_id_demo', get_option( 'airwallex_client_id' ) ) : get_option( 'airwallex_client_id' );
+	}
+
+	/**
+	 * Get the webhook secret
+	 * 
+	 * @return string Webhook secret
+	 */
+	public static function getWebhookSecret($env = '') {
+		$targetEnv = $env ? $env : Util::getEnvironment();
+
+		return 'demo' === $targetEnv ? get_option( 'airwallex_webhook_secret_demo', get_option( 'airwallex_webhook_secret' ) ) : get_option( 'airwallex_webhook_secret' );
+	}
+
+	/**
+	 * Get the account id
+	 * 
+	 * @return string Account id
+	 */
+	public static function getAccountId($env = '') {
+		$targetEnv = $env ? $env : Util::getEnvironment();
+
+		return 'demo' === $targetEnv ? get_option( 'airwallex_account_id_demo', '' ) : get_option( 'airwallex_account_id', '' );
+	}
+
+	/**
+	 * Get the account name
+	 * 
+	 * @param string $env
+	 * @return string Account name
+	 */
+	public static function getAccountName($env = '') {
+		$targetEnv = $env ? $env : Util::getEnvironment();
+
+		return 'demo' === $targetEnv ? get_option( 'airwallex_account_name_demo', '' ) : get_option( 'airwallex_account_name', '' );
 	}
 
 	/**
@@ -201,13 +239,97 @@ class Util {
 	 * @return bool
 	 */
 	public static function isNewClient() {
-		return empty(Util::getApiKey()) || empty(Util::getClientSecret());
+		return empty(Util::getApiKey()) || empty(Util::getClientId());
 	}
 
 	/**
 	 * Get the domain url
 	 */
-	public static function getDomainUrl() {
-		return 'demo' === Util::getEnvironment() ? 'https://demo.airwallex.com' : 'https://www.airwallex.com';
+	public static function getDomainUrl($env = '') {
+		$targetEnv = $env ? $env : Util::getEnvironment();
+
+		$domainUrls = [
+			'staging' => 'https://staging.airwallex.com',
+			'demo' => 'https://demo.airwallex.com',
+			'prod' => 'https://www.airwallex.com',
+		];
+
+		return $domainUrls[$targetEnv] ?? 'https://staging.airwallex.com';
+	}
+
+	/**
+	 * Check whether the current user has a specific role
+	 * 
+	 * @return boolean
+	 */
+	public static function currentUserHasRole($role) {
+		$user = wp_get_current_user();
+		if (empty($user)) {
+			return false;
+		}
+
+		return in_array($role, $user->roles, true);
+	}
+
+	/**
+	 * Get the origin from the URL
+	 * 
+	 * @param string $url
+	 * @return string
+	 */
+	public static function getOriginFromUrl($url) {
+		$urlComponents = parse_url($url);
+
+		if (!isset($urlComponents['scheme'], $urlComponents['host'])) {
+			return ''; // Handle the error for an invalid URL
+		}
+
+		$origin = $urlComponents['scheme'] . '://' . $urlComponents['host'];
+
+		if (isset($urlComponents['port']) && !in_array($urlComponents['port'], [80, 443])) {
+			$origin .= ':' . $urlComponents['port'];
+		}
+
+		return $origin;
+	}
+
+	/**
+	 * Get request headers
+	 * 
+	 * @return array
+	 */
+	public static function getRequestHeaders() {
+		$headers = array();
+		if ( function_exists( 'getallheaders' ) ) {
+			foreach ( getallheaders() as $k => $v ) {
+				$headers[ strtolower( $k ) ] = $v;
+			}
+			return $headers;
+		}
+
+		foreach ( $_SERVER as $name => $value ) {
+			if ( substr( $name, 0, 5 ) === 'HTTP_' ) {
+				$headers[ str_replace( ' ', '-', strtolower( str_replace( '_', ' ', substr( $name, 5 ) ) ) ) ] = $value;
+			}
+		}
+		return $headers;
+	}
+
+	/**
+	 * Check whether the store is connected via connection flow
+	 * 
+	 * @return boolean
+	 */
+	public static function isConnectedViaConnectionFlow() {
+		return 'connection_flow' === get_option('airwallex_connection_type', '');
+	}
+
+	/**
+	 * Check whether the store is connected by API key
+	 * 
+	 * @return boolean
+	 */
+	public static function isConnectedViaAPIKey() {
+		return 'api_key' === get_option('airwallex_connection_type', '');
 	}
 }

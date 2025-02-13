@@ -165,6 +165,65 @@ apple-pay-button {
 	color: #E00700;
 }
 
+.wc-airwallex-alert-box {
+	display: flex;
+	min-height: 48px;
+	padding: 16px;
+	align-items: center;
+	gap: 16px;
+	align-self: stretch;
+	border-radius: 6px;
+}
+
+.wc-airwallex-alert-box-with-title {
+	display: flex;
+	min-height: 48px;
+	padding: 16px;
+	align-items: flex-start;
+	gap: 16px;
+	align-self: stretch;
+	border-radius: 6px;
+	
+}
+
+.wc-airwallex-alert-box.wc-airwallex-error, .wc-airwallex-alert-box-with-title.wc-airwallex-error {
+	border: 1px solid var(--Component-Alert-Border-error, #FF776D);
+	background: var(--Component-Alert-Background-error, #FFEFEF);
+}
+
+.wc-airwallex-alert-box.wc-airwallex-warning, .wc-airwallex-alert-box-with-title.wc-airwallex-warning {
+	border: 1px solid var(--Component-Alert-Border-warning, #FFD014);
+	background: var(--Component-Alert-Background-warning, #FFFBEF);
+}
+
+.wc-airwallex-alert-box.wc-airwallex-info, .wc-airwallex-alert-box-with-title.wc-airwallex-info {
+	border: 1px solid var(--Component-Alert-Border-info, #38BDF8);
+	background: var(--Component-Alert-Background-info, #F0F9FF);
+}
+
+.wc-airwallex-alert-box.wc-airwallex-success, .wc-airwallex-alert-box-with-title.wc-airwallex-success {
+	border: 1px solid var(--Component-Alert-Border-info, #83DD83);
+	background: var(--Component-Alert-Background-info, #EFFBF3);
+}
+
+.wc-airwallex-alert-box img {
+	width: 20px;
+	height: 20px;
+}
+
+.wc-airwallex-connection-alert {
+	max-width: 720px;
+}
+
+.wc-airwallex-connection-alert p {
+	margin: 0;
+	font-size: 14px;
+}
+
+.wc-airwallex-connection-alert.wc-airwallex-connection-failed {
+	width: 720px;
+}
+
 @media only screen and (max-width: 782px) {
 	.wc-airwallex-settings-field-container {
 		flex-direction: column;

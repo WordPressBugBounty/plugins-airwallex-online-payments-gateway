@@ -575,7 +575,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 	 * @return  boolean  True if express checkout buttons are supported on current page, false otherwise
 	 */
 	public function shouldShowExpressCheckoutButton() {
-		if (!$this->get_api_key() || !$this->get_client_id()) {
+		if (!Util::getClientId() || !Util::getApiKey()) {
 			LogService::getInstance()->debug('API Key and client secret are not set correctly.');
 			return false;
 		}

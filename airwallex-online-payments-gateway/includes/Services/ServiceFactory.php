@@ -18,7 +18,7 @@ class ServiceFactory {
         if (self::$cacheService) {
             return self::$cacheService;
         }
-        self::$cacheService = new CacheService(Util::getClientSecret($salt));
+        self::$cacheService = new CacheService(Util::getClientId($salt));
         return self::$cacheService;
     }
 

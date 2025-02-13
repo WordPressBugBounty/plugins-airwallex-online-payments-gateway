@@ -1,5 +1,13 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-02-13 - version 1.17.1
+
+* Fix - Express Checkout Button style issue
+
+2025-02-13 - version 1.17.0
+
+* Add - Improved connection flow for a smoother and easier store integration with your Airwallex account
+
 2025-02-08 - version 1.16.1
 
 * Fix - Klarna payment failed due to a discrepancy between the order amount and the total of order items

@@ -9,6 +9,7 @@ use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
 use Exception;
 use WC_Payment_Gateway;
 use WP_Error;
+use Airwallex\Services\Util;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -39,7 +40,7 @@ class WeChat extends WC_Payment_Gateway {
 		$this->plugin_id = AIRWALLEX_PLUGIN_NAME;
 		$this->init_settings();
 		$this->description = $this->get_option( 'description' );
-		if ( $this->get_client_id() && $this->get_api_key() ) {
+		if ( Util::getClientId() && Util::getApiKey() ) {
 			$this->method_description = __( 'Accept only WeChat Pay payments with your Airwallex account.', 'airwallex-online-payments-gateway' );
 			$this->form_fields        = $this->get_form_fields();
 		}

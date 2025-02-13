@@ -7,6 +7,7 @@ use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
 use Airwallex\Services\OrderService;
+use Airwallex\Services\Util;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Struct\Refund;
 use Exception;
@@ -47,7 +48,7 @@ class Card extends WC_Payment_Gateway {
 		$this->plugin_id = AIRWALLEX_PLUGIN_NAME;
 		$this->init_settings();
 		$this->description = $this->get_option( 'description' ) ? $this->get_option( 'description' ) : ( $this->get_option( 'checkout_form_type' ) === 'inline' ? self::DESCRIPTION_PLACEHOLDER : '' );
-		if ( $this->get_client_id() && $this->get_api_key() ) {
+		if ( Util::getClientId() && Util::getApiKey() ) {
 			$this->method_description = __( 'Accept only credit and debit card payments with your Airwallex account.', 'airwallex-online-payments-gateway' );
 			$this->form_fields        = $this->get_form_fields();
 		}
@@ -89,7 +90,7 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function getCardLogos() {
-		$cacheService = new CacheService( $this->get_api_key() );
+		$cacheService = new CacheService( Util::getApiKey() );
 		$logos        = $cacheService->get( 'cardLogos' );
 		if ( empty( $logos ) ) {
 			$paymentMethodTypes = $this->getPaymentMethodTypes();

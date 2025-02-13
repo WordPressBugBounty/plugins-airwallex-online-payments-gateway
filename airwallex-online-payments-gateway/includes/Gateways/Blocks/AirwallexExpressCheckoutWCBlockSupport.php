@@ -33,7 +33,7 @@ class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
 		$cardClient                  = new CardClient();
 		$applePayClient              = new ApplePayClient();
 		$gatewayClient			     = new GatewayClient();
-		$cacheService                = new CacheService(Util::getClientSecret());
+		$cacheService                = new CacheService(Util::getClientId());
 		$orderService                = new OrderService();
 		$this->gateway               = new ExpressCheckout(
 			new Card(),
@@ -42,7 +42,7 @@ class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
 			new PaymentConsentController($cardClient, $cacheService, $orderService),
 			new PaymentSessionController($cardClient),
 			$orderService,
-			new CacheService(Util::getClientSecret()),
+			new CacheService(Util::getClientId()),
 			$cardClient
 		);
 	}
@@ -125,7 +125,7 @@ class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
 			return false;
 		}
 
-		if (!$this->gateway->get_api_key() || !$this->gateway->get_client_id()) {
+		if (!Util::getClientId() || !Util::getApiKey()) {
 			LogService::getInstance()->debug('API Key and client secret are not set correctly.');
 			return false;
 		}

@@ -17,6 +17,7 @@ use Airwallex\Client\AdminClient;
 use Airwallex\Client\ApplePayClient;
 use Airwallex\Client\CardClient;
 use Airwallex\Client\GatewayClient;
+use Airwallex\Controllers\ConnectionFlowController;
 use Airwallex\Controllers\GatewaySettingsController;
 use Airwallex\Controllers\OrderController;
 use Airwallex\Controllers\PaymentConsentController;
@@ -63,7 +64,7 @@ class Main {
 		$cardClient            = new CardClient();
 		$applePayClient        = new ApplePayClient();
 		$gatewayClient		   = new GatewayClient();
-		$cacheService          = new CacheService(Util::getClientSecret());
+		$cacheService          = new CacheService(Util::getClientId());
 		$orderService          = new OrderService();
 		$this->expressCheckout = new ExpressCheckout(
 			new Card(),
@@ -72,7 +73,7 @@ class Main {
 			new PaymentConsentController($cardClient, $cacheService, $orderService),
 			new PaymentSessionController($cardClient),
 			$orderService,
-			new CacheService(Util::getClientSecret()),
+			new CacheService(Util::getClientId()),
 			$cardClient
 		);
 
@@ -94,6 +95,8 @@ class Main {
 		add_action( 'woocommerce_api_' . self::ROUTE_SLUG_CONFIRMATION, array( new AirwallexController(), 'paymentConfirmation' ) );
 		add_action( 'woocommerce_api_' . self::ROUTE_SLUG_WEBHOOK, array( new AirwallexController(), 'webhook' ) );
 		add_action( 'woocommerce_api_airwallex_process_order_pay', [new AirwallexController(), 'processOrderPay'] );
+		add_action( 'woocommerce_api_airwallex_connection_callback', [new ConnectionFlowController(), 'connectionCallback'] );
+		add_action( 'woocommerce_api_airwallex_account_settings', [new ConnectionFlowController(), 'saveAccountSetting'] );
 		if ( $this->isJsLoggingActive() ) {
 			add_action( 'woocommerce_api_' . self::ROUTE_SLUG_JS_LOGGER, array( new AirwallexController(), 'jsLog' ) );
 		}
@@ -127,8 +130,8 @@ class Main {
 	}
 
 	public function noticeApiKeyMissing() {
-		$clientId = get_option( 'airwallex_client_id' );
-		$apiKey   = get_option( 'airwallex_api_key' );
+		$clientId = Util::getClientId();
+		$apiKey   = Util::getApiKey();
 
 		if ( $clientId && $apiKey ) {
 			return;
@@ -140,7 +143,7 @@ class Main {
 				printf(
 					/* translators: Placeholder 1: Opening div and strong tag. Placeholder 2: Close strong tag and insert new line. Placeholder 3: Open link tag. Placeholder 4: Close link and div tag. */
 					esc_html__(
-						'%1$sTo start using Airwallex payment methods, please enter your credentials first.%2$s %3$sAPI Settings%4$s',
+						'%1$sTo start using Airwallex payment methods, please connect your account first.%2$s %3$sAPI Settings%4$s',
 						'airwallex-online-payments-gateway'
 					),
 					'<div class="notice notice-error is-dismissible" style="padding:12px 12px"><strong>',
@@ -163,15 +166,11 @@ class Main {
 	}
 
 	public function updateMerchantCountryAfterSave() {
-		// phpcs:ignore WordPress.Security.NonceVerification
-		if ( empty( $_POST['airwallex_client_id'] ) || empty( $_POST['airwallex_api_key'] ) ) {
-			return;
-		}
 		$this->updateMerchantCountry();
 	}
 
 	protected function updateMerchantCountry() {
-		if ( empty( get_option( 'airwallex_client_id' ) ) || empty( get_option( 'airwallex_api_key' ) ) ) {
+		if ( empty( Util::getClientId() ) || empty( Util::getApiKey() ) ) {
 			return;
 		}
 

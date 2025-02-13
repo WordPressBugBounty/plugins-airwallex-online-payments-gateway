@@ -15,6 +15,7 @@ use Airwallex\Services\WebhookService;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Client\WeChatClient;
 use Airwallex\Gateways\ExpressCheckout;
+use Airwallex\Services\Util;
 use Exception;
 use WC_Order;
 
@@ -462,22 +463,16 @@ class AirwallexController {
 	public function connectionTest() {
 		check_ajax_referer('wc-airwallex-admin-settings-connection-test', 'security');
 
-		$clientId  = isset($_POST['client_id']) ? wc_clean(wp_unslash($_POST['client_id'])) : '';
-		$apiKey    = isset($_POST['api_key']) ? wc_clean(wp_unslash($_POST['api_key'])) : '';
-		$isSandbox = isset($_POST['is_sandbox']) ? wc_clean(wp_unslash($_POST['is_sandbox'])) : '';
-
-		if (empty($clientId) || empty($apiKey)) {
-			wp_send_json([
-				'success' => false,
-				'message' => __('You must enter your Client ID and API key before performing a connection test.', 'airwallex-online-payments-gateway'),
-			]);
-		}
+		$env  = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : '';
 
 		try {
 			$apiClient = AdminClient::getInstance();
-			$apiClient->setClientId($clientId);
-			$apiClient->setApiKey($apiKey);
-			$apiClient->setIsSandbox('checked' === $isSandbox);
+			if ($env) {
+				$apiClient->setClientId(Util::getClientId($env));
+				$apiClient->setApiKey(Util::getApiKey($env));
+				$apiClient->setIsSandbox('demo' === $env);
+				update_option('airwallex_enable_sandbox', 'demo' === $env ? 'yes' : 'no');
+			}
 
 			if ( $apiClient->testAuth() ) {
 				wp_send_json([

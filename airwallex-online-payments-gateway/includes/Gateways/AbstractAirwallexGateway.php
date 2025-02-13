@@ -38,7 +38,7 @@ abstract class AbstractAirwallexGateway extends WC_Payment_Gateway {
 
 	public function __construct() {
 		$this->logService = ServiceFactory::createLogService();
-		$this->cacheService = ServiceFactory::createCacheService(Util::getClientSecret());
+		$this->cacheService = ServiceFactory::createCacheService(Util::getClientId());
 		$this->orderService = ServiceFactory::createOrderService();
 		$this->gatewayClient = GatewayClient::getInstance();
 		$this->quoteController = ControllerFactory::createQuoteController();
@@ -114,11 +114,10 @@ abstract class AbstractAirwallexGateway extends WC_Payment_Gateway {
 					}
 					$pageNum++;
 				} while ( isset( $data['has_more'] ) && $data['has_more'] );
-
-				$this->cacheService->set( self::PAYMENT_METHOD_TYPE_CACHE_KEY, $paymentMethodTypes, 5 * MINUTE_IN_SECONDS );
 			} catch ( Exception $e ) {
 				$this->logService->error(__METHOD__ . ' Failed to get payment method types.', $e->getMessage());
 			}
+			$this->cacheService->set( self::PAYMENT_METHOD_TYPE_CACHE_KEY, $paymentMethodTypes, 5 * MINUTE_IN_SECONDS );
 		}
 
 		return $paymentMethodTypes;

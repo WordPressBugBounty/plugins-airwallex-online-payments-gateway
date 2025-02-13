@@ -36,7 +36,7 @@ class LogService {
 	}
 
 	private function getLogFile( $level ) {
-		return $this->logDir . 'airwallex-' . $level . '-' . gmdate( 'Y-m-d' ) . '_' . md5( get_option( 'airwallex_api_key' ) ) . '.log';
+		return $this->logDir . 'airwallex-' . $level . '-' . gmdate( 'Y-m-d' ) . '_' . md5( Util::getApiKey() ) . '.log';
 	}
 
 	public function log( $message, $level = 'debug', $data = null ) {
@@ -62,7 +62,7 @@ class LogService {
 
 	protected function getLoggingClient() {
 		if ( ! isset( $this->loggingClient ) ) {
-			$this->loggingClient = new LoggingClient( get_option( 'airwallex_client_id' ), get_option( 'airwallex_api_key' ), in_array( get_option( 'airwallex_enable_sandbox' ), array( true, 'yes' ), true ) );
+			$this->loggingClient = new LoggingClient( Util::getClientId(), Util::getApiKey(), in_array( get_option( 'airwallex_enable_sandbox' ), array( true, 'yes' ), true ) );
 		}
 		return $this->loggingClient;
 	}

@@ -239,7 +239,6 @@ const AWXGooglePayButton = (props) => {
 	return (
 		<div
 			id="awxGooglePayButton"
-			style={{ marginTop: '-8px' }}
 		/>
 	);
 };

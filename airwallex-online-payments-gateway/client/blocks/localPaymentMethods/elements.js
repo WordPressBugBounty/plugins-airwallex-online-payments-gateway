@@ -5,7 +5,6 @@ import { __ } from '@wordpress/i18n';
 import {
 	getReplacedText,
 	getBrowserInfo,
-	airTrackerCommonData,
 	getLocaleFromBrowserLanguage,
 	getSessionId,
 } from '../utils';
