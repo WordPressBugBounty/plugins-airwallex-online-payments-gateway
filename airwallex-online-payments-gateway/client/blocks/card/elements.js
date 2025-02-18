@@ -107,7 +107,6 @@ export const InlineCard                             = ({
 
 		const onReady = (event) => {
 			setElementShow(true);
-			getAirwallexElement('card')?.focus();
 			console.log('The Card element is ready.');
 		};
 
