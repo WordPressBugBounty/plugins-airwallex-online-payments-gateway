@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-02-18 - version 1.17.3
+
+* Fix - Fix checkout issue when WooCommerce Subscription is not installed
+
 2025-02-18 - version 1.17.2
 
 * Fix - Remove auto focus from the native card payment method

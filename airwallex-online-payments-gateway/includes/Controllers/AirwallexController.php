@@ -264,12 +264,14 @@ class AirwallexController {
 				$order->add_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
 				$order->save();
 
-				$subscriptions = wcs_get_subscriptions_for_order( $orderId );
-				if ( !empty( $subscriptions ) ) {
-					foreach ( $subscriptions as $subscription ) {
-						$subscription->add_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
-						$subscription->add_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
-						$subscription->save();
+				if ( function_exists( 'wcs_get_subscriptions_for_order' ) ) {
+					$subscriptions = wcs_get_subscriptions_for_order( $orderId );
+					if ( !empty( $subscriptions ) ) {
+						foreach ( $subscriptions as $subscription ) {
+							$subscription->add_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
+							$subscription->add_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
+							$subscription->save();
+						}
 					}
 				}
 			}
