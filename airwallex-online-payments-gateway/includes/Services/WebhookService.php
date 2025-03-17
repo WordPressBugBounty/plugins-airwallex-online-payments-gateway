@@ -61,16 +61,9 @@ class WebhookService {
 					case 'payment_intent.cancelled':
 						$order->update_status( 'failed', 'Airwallex Webhook' );
 						break;
-					case 'payment_intent.capture_required':
-						$orderService->setAuthorizedStatus( $order );
-						if ( $order->get_payment_method() === Card::GATEWAY_ID || $order->get_payment_method() === ExpressCheckout::GATEWAY_ID ) {
-							$cardGateway = new Card();
-							if ( ! $cardGateway->is_capture_immediately() ) {
-								$orderService->setPaymentSuccess( $order, $paymentIntent );
-							}
-						}
-						break;
 					case 'payment_intent.succeeded':
+					case 'payment_intent.capture_required':
+					case 'payment_intent.requires_capture':
 						$orderService->setPaymentSuccess( $order, $paymentIntent );
 						break;
 					default:

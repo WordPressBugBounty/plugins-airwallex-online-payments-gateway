@@ -6,6 +6,7 @@ use Airwallex\Client\AbstractClient;
 use Airwallex\Client\CardClient;
 use Airwallex\Client\HttpClient;
 use Airwallex\Gateways\Card;
+use Airwallex\Gateways\ExpressCheckout;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Struct\Refund;
 use Automattic\WooCommerce\Internal\DataStores\Orders\OrdersTableDataStore;
@@ -14,6 +15,27 @@ use Exception;
 use WC_Order;
 
 class OrderService {
+
+    const PAYMENT_COMPLETE_MESSAGE = 'Airwallex payment complete';
+    const PAYMENT_CAPTURED_MESSAGE = 'Airwallex payment captured';
+    const PAYMENT_AUTHORIZED_MESSAGE = 'Airwallex payment authorized';
+    const META_KEY_PREFIX_PAYMENT_PROCESSED = 'airwallex_payment_processed_';
+    const META_KEY_INTENT_ID = '_tmp_airwallex_payment_intent';
+
+    public function getOrderMetaTableName() {
+        if ( class_exists(OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
+            return OrdersTableDataStore::get_meta_table_name();
+        }
+        global $wpdb;
+        return $wpdb->postmeta;
+    }
+
+    public function getOrderIdColumnNameFromMetaTable() {
+        if ( class_exists(OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
+            return 'order_id';
+        }
+        return 'post_id';
+    }
 
 	/**
 	 * Get order by payment intent ID
@@ -343,35 +365,101 @@ class OrderService {
 		}
 	}
 
-	public function setPaymentSuccess( \WC_Order $order, PaymentIntent $paymentIntent, $referrer = 'webhook' ) {
-		$logService = new LogService();
-		$logIcon    = ( 'webhook' === $referrer ? '🖧' : '⏱' );
-		if ( PaymentIntent::STATUS_SUCCEEDED === $paymentIntent->getStatus() ) {
-			$logService->debug( $logIcon . ' payment success', $paymentIntent->toArray() );
-			$order->payment_complete( $paymentIntent->getId() );
-		} elseif ( PaymentIntent::STATUS_REQUIRES_CAPTURE === $paymentIntent->getStatus() ) {
-			$apiClient   = CardClient::getInstance();
-			$cardGateway = new Card();
-			if ( $cardGateway->is_capture_immediately() ) {
-				$paymentIntentAfterCapture = $apiClient->capture( $paymentIntent->getId(), $paymentIntent->getAmount() );
-				if ( $paymentIntentAfterCapture->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
-					$order->payment_complete( $paymentIntent->getId() );
-					$logService->debug( $logIcon . ' payment success', $paymentIntentAfterCapture->toArray() );
-				} else {
-					$logService->debug( $logIcon . ' capture failed', $paymentIntentAfterCapture->toArray() );
-					$order->add_order_note( 'Airwallex payment failed capture' );
-				}
-			} else {
+	public function paymentCompleteByCapture($order, $logService, $referrer, $paymentIntent) {
+		global $wpdb;
+
+		$tableName = $this->getOrderMetaTableName();
+		$orderIdColumnName = $this->getOrderIdColumnNameFromMetaTable();
+		$orderId = $order->get_id();
+		$metaKey = self::META_KEY_PREFIX_PAYMENT_PROCESSED . $orderId;
+
+		$wpdb->query( "START TRANSACTION" );
+		try {
+			$wpdb->get_row(
+				$wpdb->prepare( "SELECT * FROM $tableName WHERE $orderIdColumnName = %d  AND meta_key = %s FOR UPDATE",
+					$orderId,
+					self::META_KEY_INTENT_ID
+				) 
+			);
+			$order->read_meta_data(true);
+			if ( !$order->meta_exists( $metaKey ) ) {
 				$order->payment_complete( $paymentIntent->getId() );
-				$order->add_order_note( 'Airwallex payment authorized' );
-				$logService->debug(
-					$logIcon . ' payment authorized',
-					array(
-						'order'          => $order->get_id(),
-						'payment_intent' => $paymentIntent->getId(),
-					)
-				);
+				$order->add_meta_data( $metaKey, 'processed' );
+				$order->save();
+				$order->add_order_note( __( self::PAYMENT_COMPLETE_MESSAGE, 'airwallex-online-payments-gateway' ) );
 			}
+			$wpdb->query( "COMMIT" );
+		} catch ( Exception $e ) {
+			$wpdb->query( "ROLLBACK" );
+			$logService->error( "$referrer " . __METHOD__ . $e->getMessage() );
+			throw $e;
+		}
+	}
+
+	public function paymentCompleteByAuthorize($order, $logService, $referrer, $paymentIntent) {
+		global $wpdb;
+
+		$tableName = $this->getOrderMetaTableName();
+		$orderIdColumnName = $this->getOrderIdColumnNameFromMetaTable();
+		$orderId = $order->get_id();
+		$metaKey = self::META_KEY_PREFIX_PAYMENT_PROCESSED . $orderId;
+
+		$wpdb->query( "START TRANSACTION" );
+		try {
+			$wpdb->get_row(
+				$wpdb->prepare("SELECT * FROM $tableName WHERE $orderIdColumnName = %d  AND meta_key = %s FOR UPDATE",
+					$orderId,
+					self::META_KEY_INTENT_ID
+				) 
+			);
+			$order->read_meta_data(true);
+			if ( !$order->meta_exists( $metaKey ) ) {
+				$this->setAuthorizedStatus( $order );
+				$paymentGateway = wc_get_payment_gateway_by_order( $order );
+				if ( $paymentGateway instanceof Card || $paymentGateway instanceof ExpressCheckout ) {
+					if ( $paymentGateway->is_capture_immediately() ) {
+						$logService->debug( $referrer . ' start capture', array( $paymentIntent->toArray() ) );
+						$apiClient   = CardClient::getInstance();
+						$paymentIntentAfterCapture = $apiClient->capture( $paymentIntent->getId(), $paymentIntent->getAmount() );
+						if ( $paymentIntentAfterCapture->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
+							$order->payment_complete( $paymentIntent->getId() );
+							$order->add_meta_data(  $metaKey, 'processed' );
+							$order->save();
+							$order->add_order_note( __( self::PAYMENT_CAPTURED_MESSAGE, 'airwallex-online-payments-gateway' ) );
+							$logService->debug( $referrer . ' payment success', $paymentIntent->toArray() );
+						} else {
+							$logService->error( $referrer . ' payment capture failed', $paymentIntentAfterCapture->toArray() );
+							$this->setTemporaryOrderStateAfterDecline( $order );
+							if ($referrer === 'checkout') {
+								wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );
+								wp_safe_redirect( wc_get_checkout_url() );
+								$wpdb->query( "COMMIT" );
+								die;
+							}
+						}
+					} else {
+						$logService->debug( $referrer . ': paymentCompleteByAuthorize', array() );
+						$order->payment_complete( $paymentIntent->getId() );
+						$order->add_meta_data(  $metaKey, 'processed' );
+						$order->save();
+						$order->add_order_note( __( self::PAYMENT_AUTHORIZED_MESSAGE, 'airwallex-online-payments-gateway' ) );
+					}
+				}
+			}
+			$wpdb->query( "COMMIT" );
+		} catch ( Exception $e ) {
+			$wpdb->query( "ROLLBACK" );
+			$logService->error( "$referrer " . __METHOD__ . $e->getMessage() );
+			throw $e;
+		}
+    }
+
+	public function setPaymentSuccess( $order, $paymentIntent, $referrer = 'webhook' ) {
+		$logService = new LogService();
+		if ( PaymentIntent::STATUS_SUCCEEDED === $paymentIntent->getStatus() ) {
+			$this->paymentCompleteByCapture($order, $logService, $referrer, $paymentIntent);
+		} elseif ( PaymentIntent::STATUS_REQUIRES_CAPTURE === $paymentIntent->getStatus() ) {
+			$this->paymentCompleteByAuthorize($order, $logService, $referrer, $paymentIntent);
 		}
 	}
 

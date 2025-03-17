@@ -2,8 +2,10 @@
 
 namespace Airwallex\Gateways;
 
+use Airwallex\Client\GatewayClient;
 use Airwallex\Main;
 use Airwallex\Client\CardClient;
+use Airwallex\Struct\Refund;
 use Exception;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
@@ -134,5 +136,33 @@ trait AirwallexGatewayTrait {
 		} catch ( Exception $e ) {
 			( new LogService() )->error( 'do_subscription_payment failed', $e->getMessage() );
 		}
+	}
+
+	public function process_refund( $order_id, $amount = null, $reason = '' ) {
+		$order           = wc_get_order( $order_id );
+		$paymentIntentId = $order->get_transaction_id();
+		$client = GatewayClient::getInstance();
+		try {
+			$refund  = $client->createRefund( $paymentIntentId, $amount, $reason );
+			$metaKey = $refund->getMetaKey();
+			if ( ! $order->meta_exists( $metaKey ) ) {
+				$order->add_order_note(
+					sprintf(
+						__( 'Airwallex refund initiated: %s', 'airwallex-online-payments-gateway' ),
+						$refund->getId()
+					)
+				);
+				$order->add_meta_data( $metaKey, array( 'status' => Refund::STATUS_CREATED ) );
+				$order->save();
+			} else {
+				throw new Exception( "refund {$refund->getId()} already exist.", '1' );
+			}
+			$this->logService->debug( __METHOD__ . " - Order: {$order_id}, refund initiated, {$refund->getId()}" );
+		} catch ( \Exception $e ) {
+			$this->logService->debug( __METHOD__ . " - Order: {$order_id}, refund failed, {$e->getMessage()}" );
+			return new \WP_Error( $e->getCode(), 'Refund failed, ' . $e->getMessage() );
+		}
+
+		return true;
 	}
 }

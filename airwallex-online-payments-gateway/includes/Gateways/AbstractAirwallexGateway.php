@@ -23,6 +23,7 @@ defined( 'ABSPATH' ) || exit;
 
 abstract class AbstractAirwallexGateway extends WC_Payment_Gateway {
 	use AirwallexSettingsTrait;
+	use AirwallexGatewayTrait;
 
 	const PAYMENT_METHOD_TYPE_CACHE_KEY = 'paymentMethodTypes';
 	const CURRENCY_SETTINGS_CACHE_KEY = 'currencySettings';
@@ -149,33 +150,5 @@ abstract class AbstractAirwallexGateway extends WC_Payment_Gateway {
 		}
 
 		return $currencySettings;
-	}
-
-	public function process_refund( $order_id, $amount = null, $reason = '' ) {
-		$order           = wc_get_order( $order_id );
-		$paymentIntentId = $order->get_transaction_id();
-		try {
-			$refund  = $this->gatewayClient->createRefund( $paymentIntentId, $amount, $reason );
-			$metaKey = $refund->getMetaKey();
-			if ( ! $order->meta_exists( $metaKey ) ) {
-				$order->add_order_note(
-					sprintf(
-						/* translators: Placeholder 1: Airwallex refund ID. */
-						__( 'Airwallex refund initiated: %s', 'airwallex-online-payments-gateway' ),
-						$refund->getId()
-					)
-				);
-				$order->add_meta_data( $metaKey, array( 'status' => Refund::STATUS_CREATED ) );
-				$order->save();
-			} else {
-				throw new Exception( "refund {$refund->getId()} already exist.", '1' );
-			}
-			$this->logService->debug( __METHOD__ . " - Order: {$order_id}, refund initiated, {$refund->getId()}" );
-		} catch ( \Exception $e ) {
-			$this->logService->debug( __METHOD__ . " - Order: {$order_id}, refund failed, {$e->getMessage()}" );
-			return new WP_Error( $e->getCode(), 'Refund failed, ' . $e->getMessage() );
-		}
-
-		return true;
 	}
 }

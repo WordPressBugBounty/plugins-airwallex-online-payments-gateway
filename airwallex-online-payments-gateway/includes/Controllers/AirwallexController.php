@@ -14,7 +14,6 @@ use Airwallex\Services\OrderService;
 use Airwallex\Services\WebhookService;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Client\WeChatClient;
-use Airwallex\Gateways\ExpressCheckout;
 use Airwallex\Services\Util;
 use Exception;
 use WC_Order;
@@ -287,43 +286,16 @@ class AirwallexController {
 				die;
 			}
 
-			$paymentCompleted = false;
 			if ( $paymentIntent->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
-				$order->payment_complete( $paymentIntentId );
-				$this->logService->debug( 'paymentConfirmation() payment success during checkout', $paymentIntent->toArray() );
-				$order->add_order_note( 'Airwallex payment complete' );
-				$paymentCompleted = true;
+				$orderService->paymentCompleteByCapture($order, $this->logService, 'checkout', $paymentIntent);
 			} elseif ( $paymentIntent->getStatus() === PaymentIntent::STATUS_REQUIRES_CAPTURE ) {
-				$orderService->setAuthorizedStatus( $order );
-				$paymentGateway = wc_get_payment_gateway_by_order( $order );
-				if ( $paymentGateway instanceof Card || $paymentGateway instanceof ExpressCheckout ) {
-					if ( $paymentGateway->is_capture_immediately() ) {
-						$this->logService->debug( 'paymentConfirmation() start capture', array( $paymentIntent->toArray() ) );
-						$paymentIntentAfterCapture = $apiClient->capture( $paymentIntentId, $paymentIntent->getAmount() );
-						if ( $paymentIntentAfterCapture->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
-							$order->payment_complete( $paymentIntentId );
-							$order->add_order_note( 'Airwallex payment captured' );
-							$this->logService->debug( 'paymentConfirmation() payment success during checkout', $paymentIntent->toArray() );
-							$paymentCompleted = true;
-						} else {
-							$this->logService->error( 'paymentConfirmation() payment capture failed during checkout', $paymentIntentAfterCapture->toArray() );
-							$this->setTemporaryOrderStateAfterDecline( $order );
-							wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );
-							wp_safe_redirect( wc_get_checkout_url() );
-							die;
-						}
-					} else {
-						$this->logService->debug( 'paymentConfirmation() payment complete', array() );
-						$order->payment_complete( $paymentIntentId );
-						$order->add_order_note( 'Airwallex payment authorized' );
-						$paymentCompleted = true;
-					}
-				}
+				$orderService->paymentCompleteByAuthorize($order, $this->logService, 'checkout', $paymentIntent);
 			} elseif ( in_array( $paymentIntent->getStatus(), PaymentIntent::PENDING_STATUSES, true ) ) {
 				$orderService->setPendingStatus( $order );
 			}
 
-			if ($paymentCompleted && PaymentIntent::PAYMENT_METHOD_TYPE_CARD === strtoupper($paymentIntent->getPaymentMethodType())) {
+			if (in_array( $paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true )
+				&& PaymentIntent::PAYMENT_METHOD_TYPE_CARD === strtoupper($paymentIntent->getPaymentMethodType())) {
 				$order->add_order_note($paymentIntent->getCardAVSResult());
 				$order->add_order_note($paymentIntent->getThreeDSAuthenticationData());
 			}

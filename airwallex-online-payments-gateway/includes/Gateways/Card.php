@@ -247,35 +247,6 @@ class Card extends WC_Payment_Gateway {
 		}
 	}
 
-	public function process_refund( $order_id, $amount = null, $reason = '' ) {
-		$order           = wc_get_order( $order_id );
-		$paymentIntentId = $order->get_transaction_id();
-		$apiClient       = CardClient::getInstance();
-		try {
-			$refund  = $apiClient->createRefund( $paymentIntentId, $amount, $reason );
-			$metaKey = $refund->getMetaKey();
-			if ( ! $order->meta_exists( $metaKey ) ) {
-				$order->add_order_note(
-					sprintf(
-						/* translators: Placeholder 1: Airwallex refund ID. */
-						__( 'Airwallex refund initiated: %s', 'airwallex-online-payments-gateway' ),
-						$refund->getId()
-					)
-				);
-				$order->add_meta_data( $metaKey, array( 'status' => Refund::STATUS_CREATED ) );
-				$order->save();
-			} else {
-				throw new Exception( "refund {$refund->getId()} already exist.", '1' );
-			}
-			$this->logService->debug( __METHOD__ . " - Order: {$order_id}, refund initiated, {$refund->getId()}" );
-		} catch ( \Exception $e ) {
-			$this->logService->debug( __METHOD__ . " - Order: {$order_id}, refund failed, {$e->getMessage()}" );
-			return new WP_Error( $e->getCode(), 'Refund failed, ' . $e->getMessage() );
-		}
-
-		return true;
-	}
-
 	/**
 	 * Capture payment
 	 *

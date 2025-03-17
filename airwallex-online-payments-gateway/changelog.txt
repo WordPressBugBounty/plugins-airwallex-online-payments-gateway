@@ -1,6 +1,10 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
-2025-02-18 - version 1.17.3
+2025-03-17 - version 1.17.4
+
+* Fix - Fixed an issue where the order status was updated twice after payment, preventing duplicate order notes
+
+2025-03-03 - version 1.17.3
 
 * Fix - Fix checkout issue when WooCommerce Subscription is not installed
 

@@ -44,4 +44,14 @@ class CacheService {
 		$return = get_transient( $this->prefix . $key );
 		return false === $return ? null : $return;
 	}
+
+	/**
+	 * Remove cache value according to cache key
+	 *
+	 * @param string $key
+	 * @return bool True if the cache was deleted, false otherwise.
+	 */
+	public function remove( $key ) {
+		return delete_transient( $this->prefix . $key );
+	}
 }
