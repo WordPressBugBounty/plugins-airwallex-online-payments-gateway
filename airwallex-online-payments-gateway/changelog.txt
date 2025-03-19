@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-03-18 - version 1.17.5
+
+* Fix - Fixed an issue in Airwallex customer ID generation
+
 2025-03-17 - version 1.17.4
 
 * Fix - Fixed an issue where the order status was updated twice after payment, preventing duplicate order notes

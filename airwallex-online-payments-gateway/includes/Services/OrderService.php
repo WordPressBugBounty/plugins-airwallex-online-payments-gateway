@@ -274,17 +274,15 @@ class OrderService {
 	 * @throws Exception
 	 */
 	public function getAirwallexCustomerId( $wordpressCustomerId, AbstractClient $client ) {
-
-		if ( empty( $wordpressCustomerId ) ) {
-			$wordpressCustomerId = uniqid();
+		$airwallexCustomerId = get_user_meta( $wordpressCustomerId, 'airwallex_customer_id', true );
+		if ( $airwallexCustomerId ) {
+			return $airwallexCustomerId;
 		}
-
-		$customer = $client->getCustomer( $wordpressCustomerId );
-		if ( $customer ) {
-			return $customer->getId();
-		}
-		$customer = $client->createCustomer( $wordpressCustomerId );
-		return $customer->getId();
+		$randomId = uniqid( (string)$wordpressCustomerId . '-', true );
+		$customer = $client->createCustomer( $randomId );
+		$airwallexCustomerId = $customer->getId();
+		update_user_meta( $wordpressCustomerId, 'airwallex_customer_id', $airwallexCustomerId );
+		return $airwallexCustomerId;
 	}
 
 

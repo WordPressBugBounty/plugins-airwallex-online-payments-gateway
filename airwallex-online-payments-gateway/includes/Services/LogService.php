@@ -11,6 +11,7 @@ class LogService {
 	const WECHAT_ELEMENT_TYPE          = 'wechatElement';
 	const GOOGLE_EXPRESS_CHECKOUT_TYPE = 'googleExpressCheckout';
 	const APPLE_EXPRESS_CHECKOUT_TYPE  = 'appleExpressCheckout';
+	const ON_PROCESS_WEBHOOK_ERROR     = 'onProcessWebhookError';
 
 	private $logDir;
 	private $loggingClient;
@@ -58,6 +59,10 @@ class LogService {
 		$this->log( '💣 ' . $message, 'debug', $data );
 		$this->log( $message, 'error', $data );
 		$this->getLoggingClient()->log( LoggingClient::LOG_SEVERITY_ERROR, 'wp_error', $message, $data, $type );
+	}
+
+	public function remoteError( $eventName, $message, $data = null, $type = 'unknown' ) {
+		$this->getLoggingClient()->log( LoggingClient::LOG_SEVERITY_ERROR, $eventName, $message, $data, $type, true );
 	}
 
 	protected function getLoggingClient() {

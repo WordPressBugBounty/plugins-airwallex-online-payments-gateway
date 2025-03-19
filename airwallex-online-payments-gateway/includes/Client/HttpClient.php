@@ -29,7 +29,9 @@ class HttpClient {
 	private function httpSend( $method, $url, $data, $headers, $noResponse = false ) {
 		$headers['Content-Type']  = 'application/json';
 		$headers['x-api-version'] = '2020-04-30';
-		$headers['user-agent']    = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( $_SERVER['HTTP_USER_AGENT'] ) : '';
+		if ( empty($headers['User-Agent']) ) {
+			$headers['User-Agent'] = ! empty( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( $_SERVER['HTTP_USER_AGENT'] ) : '';
+		}
 		if ( 'POST' === $method ) {
 			$response = wp_remote_post(
 				$url,

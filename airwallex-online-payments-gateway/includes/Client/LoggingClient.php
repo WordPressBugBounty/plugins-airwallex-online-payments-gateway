@@ -2,6 +2,7 @@
 
 namespace Airwallex\Client;
 
+use Airwallex\Services\LogService;
 use Airwallex\Services\Util;
 use Exception;
 
@@ -44,8 +45,8 @@ class LoggingClient extends AbstractClient {
 		}
 	}
 
-	public function log( $severity, $eventName, $message, $details = array(), $type = 'unknown' ) {
-		if ( ! $this->isActive ) {
+	public function log( $severity, $eventName, $message, $details = array(), $type = 'unknown', $forceRemoteLog = false ) {
+		if ( ! $this->isActive && ! $forceRemoteLog) {
 			return;
 		}
 
@@ -79,6 +80,7 @@ class LoggingClient extends AbstractClient {
 				wp_json_encode( $data ),
 				array(
 					'Authorization' => 'Bearer ' . $this->getToken(),
+					'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
 				),
 				null,
 				true

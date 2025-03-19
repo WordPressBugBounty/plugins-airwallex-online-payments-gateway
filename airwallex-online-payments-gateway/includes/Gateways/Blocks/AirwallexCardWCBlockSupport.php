@@ -67,7 +67,7 @@ class AirwallexCardWCBlockSupport extends AirwallexWCBlockSupport {
 			'title'               => $this->settings['title'],
 			'description'         => $this->settings['description'],
 			'checkout_form_type'  => $this->getCheckoutFormType(),
-			'payment_descriptor'  => $this->settings['payment_descriptor'],
+			'payment_descriptor'  => $this->settings['payment_descriptor'] ?? '',
 			'capture_immediately' => in_array( $this->settings['capture_immediately'], array( true, 'yes' ), true ),
 			'icons'               => $this->gateway->getCardLogos(),
 			'environment'         => $this->gateway->is_sandbox() ? 'demo' : 'prod',

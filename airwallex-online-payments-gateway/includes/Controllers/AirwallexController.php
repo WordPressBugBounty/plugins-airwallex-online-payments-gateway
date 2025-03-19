@@ -369,6 +369,7 @@ class AirwallexController {
 			die;
 		} catch ( Exception $exception ) {
 			$this->logService->warning( 'webhook exception', array( 'msg' => $exception->getMessage() ) );
+			$this->logService->remoteError( LogService::ON_PROCESS_WEBHOOK_ERROR, 'webhook exception', array( 'msg' => $exception->getMessage() ) );
 			wp_send_json( array( 'success' => 0 ), 401 );
 			die;
 		}
