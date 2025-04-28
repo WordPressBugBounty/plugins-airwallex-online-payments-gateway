@@ -38,8 +38,7 @@ class AirwallexController {
 			throw new Exception( esc_html( 'Order not found: ' . $orderId ) );
 		}
 
-		$paymentIntentId = WC()->session->get( 'airwallex_payment_intent_id' );
-		$paymentIntentId = empty( $paymentIntentId ) ? $order->get_meta('_tmp_airwallex_payment_intent') : $paymentIntentId;
+		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
 		$paymentIntent   = $apiClient->getPaymentIntent( $paymentIntentId );
 		$clientSecret = $paymentIntent->getClientSecret();
 		$customerId = $paymentIntent->getCustomerId();
@@ -174,45 +173,38 @@ class AirwallexController {
 	}
 
 	private function getOrderAndPaymentIntentForConfirmation() {
-		$orderId = (int) WC()->session->get( 'airwallex_order' );
-		if ( empty( $orderId ) ) {
-			$orderId = (int) WC()->session->get( 'order_awaiting_payment' );
-		}
-		if ( empty( $orderId ) && ! empty( $_GET['order_id'] ) ) {
-			$this->logService->debug( 'detected order id from URL', array( 'get' => $_GET ) );
+		$orderId = 0;
+
+		if (!empty($_GET['order_id'])) {
 			$orderId = (int) $_GET['order_id'];
 		}
 
-		if ( empty( $orderId ) ) {
-			$this->logService->debug( 'getOrderAndPaymentIntentForConfirmation() do not have order id', array( 'orderId' => $orderId ) );
-			throw new Exception( 'I tried hard, but no order was found for confirmation' );
+		if (empty($orderId)) {
+			$orderId = (int) WC()->session->get('airwallex_order', 0);
 		}
 
-		$paymentIntentId = WC()->session->get( 'airwallex_payment_intent_id' );
-		if ( empty( $paymentIntentId ) ) {
-			$order = wc_get_order( $orderId );
-			if ( $order ) {
-				$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
-			}
+		if (empty($orderId)) {
+			$orderId = (int) WC()->session->get('order_awaiting_payment', 0);
 		}
 
-		if ( ! empty( $_GET['intent_id'] ) ) {
-			$intentIdFromUrl = sanitize_text_field( wp_unslash( $_GET['intent_id'] ) );
-			if ( ! empty( $paymentIntentId ) && $paymentIntentId !== $intentIdFromUrl ) {
-				$this->logService->warning(
-					'different intent ids from url and session',
-					array(
-						'from_session' => $paymentIntentId,
-						'from_url'     => $intentIdFromUrl,
-					)
-				);
-				if ( ! empty( $_GET['order_id'] ) ) {
-					throw new Exception( 'different intent ids from url and session - fraud suspected' );
-				}
-			} else {
-				$paymentIntentId = $intentIdFromUrl;
-			}
+		if (empty($orderId)) {
+			$errorMessage = 'Order confirmation error: Unable to retrieve a valid order ID.';
+			$this->logService->remoteError( LogService::ON_PAYMENT_CONFIRMATION_ERROR, 'payment confirmation exception', array( 'msg' => $errorMessage, '$_GET' => json_encode($_GET) ) );
+			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
 		}
+
+		$paymentIntentId = "";
+		$order = wc_get_order( $orderId );
+		if ( $order ) {
+			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+		}
+
+		if (empty($paymentIntentId)) {
+			$errorMessage = 'Order confirmation error: Unable to retrieve a valid intent ID.';
+			$this->logService->remoteError( LogService::ON_PAYMENT_CONFIRMATION_ERROR, 'payment confirmation exception', array( 'msg' => $errorMessage, '$_GET' => json_encode($_GET) ) );
+			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
+		}
+
 		return array(
 			'order_id'          => $orderId,
 			'payment_intent_id' => $paymentIntentId,
@@ -255,24 +247,6 @@ class AirwallexController {
 
 			if ( empty( $order ) ) {
 				throw new Exception( 'Order not found: ' . $orderId );
-			}
-
-			if ( $paymentIntent->getPaymentConsentId() ) {
-				$this->logService->debug( 'paymentConfirmation() save consent id', array( $paymentIntent->toArray() ) );
-				$order->add_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
-				$order->add_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
-				$order->save();
-
-				if ( function_exists( 'wcs_get_subscriptions_for_order' ) ) {
-					$subscriptions = wcs_get_subscriptions_for_order( $orderId );
-					if ( !empty( $subscriptions ) ) {
-						foreach ( $subscriptions as $subscription ) {
-							$subscription->add_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
-							$subscription->add_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
-							$subscription->save();
-						}
-					}
-				}
 			}
 
 			$this->handleStatusForConfirmation( $paymentIntent, $order );

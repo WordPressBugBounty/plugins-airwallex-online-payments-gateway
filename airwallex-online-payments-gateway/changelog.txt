@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-04-28 - version 1.18.0
+
+* Add - Support subscriber payment method changes
+
 2025-03-18 - version 1.17.5
 
 * Fix - Fixed an issue in Airwallex customer ID generation

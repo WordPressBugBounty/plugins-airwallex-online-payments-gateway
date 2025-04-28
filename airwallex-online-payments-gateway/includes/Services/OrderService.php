@@ -363,6 +363,27 @@ class OrderService {
 		}
 	}
 
+	public function update_consent($paymentIntent, $order)
+	{
+		$orderId = $order->get_id();
+		if ( $paymentIntent->getPaymentConsentId() ) {
+			$order->update_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
+			$order->update_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
+			$order->save();
+
+			if ( function_exists( 'wcs_get_subscriptions_for_order' ) ) {
+				$subscriptions = wcs_get_subscriptions_for_order( $orderId );
+				if ( !empty( $subscriptions ) ) {
+					foreach ( $subscriptions as $subscription ) {
+						$subscription->update_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
+						$subscription->update_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
+						$subscription->save();
+					}
+				}
+			}
+		}
+	}
+
 	public function paymentCompleteByCapture($order, $logService, $referrer, $paymentIntent) {
 		global $wpdb;
 
@@ -380,6 +401,7 @@ class OrderService {
 				) 
 			);
 			$order->read_meta_data(true);
+			$this->update_consent( $paymentIntent, $order );
 			if ( !$order->meta_exists( $metaKey ) ) {
 				$order->payment_complete( $paymentIntent->getId() );
 				$order->add_meta_data( $metaKey, 'processed' );
@@ -395,6 +417,8 @@ class OrderService {
 	}
 
 	public function paymentCompleteByAuthorize($order, $logService, $referrer, $paymentIntent) {
+		$this->update_consent( $paymentIntent, $order );
+
 		global $wpdb;
 
 		$tableName = $this->getOrderMetaTableName();
@@ -411,6 +435,7 @@ class OrderService {
 				) 
 			);
 			$order->read_meta_data(true);
+			$this->update_consent( $paymentIntent, $order );
 			if ( !$order->meta_exists( $metaKey ) ) {
 				$this->setAuthorizedStatus( $order );
 				$paymentGateway = wc_get_payment_gateway_by_order( $order );

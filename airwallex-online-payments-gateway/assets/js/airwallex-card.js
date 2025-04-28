@@ -47,9 +47,51 @@ jQuery(function ($) {
             return true;
         });
 
-        $(document.body).on('click', '#place_order', function (event) {
+        $(document.body).on('click', '#place_order', async function (event) {
             const selectedPaymentMethod = $('[name="payment_method"]:checked').val();
             if (awxCommonData.isOrderPayPage && 'airwallex_card' === selectedPaymentMethod) {
+
+                if (window.location.search.includes('change_payment_method')) {
+                    event.preventDefault();
+                    let alert = $(".awx-alert");
+                    alert.hide();
+                    $('#place_order').prop('disabled', true);
+                    try {
+                        let response = await $.ajax({
+                            type: 'GET',
+                            url: awxEmbeddedCardData.getCustomerAjaxUrl,
+                        });
+                        let result = await Airwallex.createPaymentConsent({
+                            customer_id: response.customer_id,
+                            client_secret: response.client_secret,
+                            element: airwallexSlimCard,
+                            next_triggered_by: 'merchant',
+                            currency: awxEmbeddedCardData.currency
+                        })
+                        const $form = $('#order_review');
+                        $form.find('input[name="is_change_payment_method"], input[name="awx_customer_id"], input[name="awx_consent_id"]').remove();
+                        const hiddenFields = [
+                            { name: 'is_change_payment_method', value: 'true' },
+                            { name: 'awx_customer_id', value: result.customer_id },
+                            { name: 'awx_consent_id', value: result.payment_consent_id }
+                        ];
+                        hiddenFields.forEach(field => {
+                            $('<input>', {
+                                type: 'hidden',
+                                name: field.name,
+                                value: field.value
+                            }).appendTo($form);
+                        });
+                        $form.trigger('submit');
+                    } catch (err) {
+                        let msg = err.message;
+                        $(".awx-alert .body").html(msg);
+                        alert.show();
+                        $('#place_order').prop('disabled', false);
+                        return;
+                    }
+                    return;
+                }
                 airwallexCheckoutBlock('#order_review');
                 event.preventDefault();
                 $.ajax({

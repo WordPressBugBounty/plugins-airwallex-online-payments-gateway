@@ -12,6 +12,7 @@ class LogService {
 	const GOOGLE_EXPRESS_CHECKOUT_TYPE = 'googleExpressCheckout';
 	const APPLE_EXPRESS_CHECKOUT_TYPE  = 'appleExpressCheckout';
 	const ON_PROCESS_WEBHOOK_ERROR     = 'onProcessWebhookError';
+	const ON_PAYMENT_CONFIRMATION_ERROR= 'onPaymentConfirmationError';
 
 	private $logDir;
 	private $loggingClient;

@@ -11,6 +11,7 @@ use Airwallex\Services\Util;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Struct\Refund;
 use Exception;
+use WC_AJAX;
 use WC_HTTPS;
 use WC_Order;
 use WC_Payment_Gateway;
@@ -43,11 +44,18 @@ class Card extends WC_Payment_Gateway {
 	);
 	public $logService;
 
+	public function getCheckoutFormType() {
+		if ( !empty($_REQUEST['change_payment_method'] ) ) {
+			return 'inline';
+		}
+		return $this->get_option( 'checkout_form_type' );
+	}
+
 	public function __construct() {
 
 		$this->plugin_id = AIRWALLEX_PLUGIN_NAME;
 		$this->init_settings();
-		$this->description = $this->get_option( 'description' ) ? $this->get_option( 'description' ) : ( $this->get_option( 'checkout_form_type' ) === 'inline' ? self::DESCRIPTION_PLACEHOLDER : '' );
+		$this->description = $this->get_option( 'description' ) ? $this->get_option( 'description' ) : ( $this->getCheckoutFormType() === 'inline' ? self::DESCRIPTION_PLACEHOLDER : '' );
 		if ( Util::getClientId() && Util::getApiKey() ) {
 			$this->method_description = __( 'Accept only credit and debit card payments with your Airwallex account.', 'airwallex-online-payments-gateway' );
 			$this->form_fields        = $this->get_form_fields();
@@ -64,6 +72,30 @@ class Card extends WC_Payment_Gateway {
 		add_action( 'woocommerce_airwallex_settings_checkout_' . $this->id, array( $this, 'enqueueAdminScripts' ) );
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueueScriptsForEmbeddedCard' ) );
+		add_action( 'wc_ajax_airwallex_get_customer', [$this, 'getCustomer']);
+	}
+
+	public function getCustomer() {
+		$id = get_current_user_id();
+		if (empty($id)) {
+			wp_send_json([
+				'success' => false,
+				'error' => [
+					'message' => __('User not logged in.', 'airwallex-online-payments-gateway'),
+				],
+			]);
+			return;
+		}
+		$orderService = new OrderService();
+		$apiClient = CardClient::getInstance();
+		$customerId = $orderService->getAirwallexCustomerId($id, $apiClient);
+		$secret = $apiClient->createCustomerClientSecret($customerId);
+
+		wp_send_json([
+			'success' => true,
+			'customer_id' => $customerId,
+			'client_secret' => $secret,
+		]);
 	}
 
 	public function enqueueScriptsForEmbeddedCard() {
@@ -71,6 +103,14 @@ class Card extends WC_Payment_Gateway {
 			return;
 		}
 
+		$currency = get_woocommerce_currency();
+		if ( isset( $_GET['pay_for_order'] ) && 'true' === $_GET['pay_for_order'] ) {
+			global $wp;
+			$order_id = (int) $wp->query_vars['order-pay'];
+			if ($order = wc_get_order( $order_id ) ) {
+				$currency = $order->get_currency();
+			}
+		}
 		wp_enqueue_script( 'airwallex-card-js' );
 		wp_enqueue_style( 'airwallex-css' );
 		$cardScriptData = [
@@ -78,6 +118,8 @@ class Card extends WC_Payment_Gateway {
 			/* translators: 1) Detail error message. */
 			'errorMessage' => __( 'An error has occurred. Please check your payment details (%s)', 'airwallex-online-payments-gateway' ),
 			'incompleteMessage' => __( 'Your credit card details are incomplete', 'airwallex-online-payments-gateway' ),
+			'getCustomerAjaxUrl' => WC_AJAX::get_endpoint('airwallex_get_customer'),
+			'currency' => $currency,
 		];
 		wp_add_inline_script( 'airwallex-card-js', 'var awxEmbeddedCardData=' . wp_json_encode($cardScriptData), 'before' );
 	}
@@ -127,7 +169,7 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function payment_fields() {
-		if ( $this->get_option( 'checkout_form_type' ) === 'inline' ) {
+		if ( $this->getCheckoutFormType() === 'inline' ) {
 			echo wp_kses_post( '<p>' . $this->description . '</p>' );
 			echo wp_kses_post( '<div id="airwallex-card"></div>' );
 		} else {
@@ -188,12 +230,42 @@ class Card extends WC_Payment_Gateway {
 		);
 	}
 
+
+	public function change_subscription_payment_method( $order ) {
+		$currentUserId = get_current_user_id();
+		$userId = $order->get_user_id();
+		if ($currentUserId !== $userId) {
+			$message = sprintf(
+				'User ID mismatch when changing payment method: Order User ID (%d) vs Current User ID (%d)',
+				$userId,
+				$currentUserId
+			);
+
+			$this->logService->debug($message, array('orderId' => $order->get_id()));
+			throw new Exception( __( 'You are not allowed to change payment method for this order.', 'airwallex-online-payments-gateway' ) );
+		}
+		if (empty($_REQUEST['awx_customer_id'])) {
+			throw new Exception( __( 'Customer ID is required.', 'airwallex-online-payments-gateway' ) );
+		}
+		if (empty($_REQUEST['awx_consent_id'])) {
+			throw new Exception( __( 'Consent ID is required.', 'airwallex-online-payments-gateway' ) );
+		}
+		$order->update_meta_data( 'airwallex_consent_id', sanitize_text_field($_REQUEST['awx_consent_id']) );
+		$order->update_meta_data( 'airwallex_customer_id', sanitize_text_field($_REQUEST['awx_customer_id']) );
+		$order->save();		
+		return array( 'result' => 'success', 'redirect' => $order->get_view_order_url());
+	}
+
 	public function process_payment( $order_id ) {
 		try {
 			$order   = wc_get_order( $order_id );
 			if ( empty( $order ) ) {
 				$this->logService->debug( __METHOD__ . ' - can not find order', array( 'orderId' => $order_id ) );
 				throw new Exception( 'Order not found: ' . $order_id );
+			}
+
+			if (isset($_REQUEST['is_change_payment_method']) && $_REQUEST['is_change_payment_method'] === 'true' && wcs_is_subscription($order)) {
+				return $this->change_subscription_payment_method( $order );
 			}
 
 			$apiClient = CardClient::getInstance();
@@ -223,7 +295,7 @@ class Card extends WC_Payment_Gateway {
 			$order->save();
 
 			$result = ['result' => 'success'];
-			if ( 'redirect' === $this->get_option( 'checkout_form_type' ) ) {
+			if ( 'redirect' === $this->getCheckoutFormType() ) {
 				$redirectUrl = $this->get_payment_url( 'airwallex_payment_method_card' );
 				$redirectUrl .= ( strpos( $redirectUrl, '?' ) === false ) ? '?' : '&';
 				$redirectUrl .= 'order_id=' . $order_id;
@@ -322,8 +394,7 @@ class Card extends WC_Payment_Gateway {
 				throw new Exception( 'Order not found: ' . $orderId );
 			}
 
-			$paymentIntentId = WC()->session->get( 'airwallex_payment_intent_id' );
-			$paymentIntentId = empty( $paymentIntentId ) ? $order->get_meta('_tmp_airwallex_payment_intent') : $paymentIntentId;
+			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
 			$apiClient                 = CardClient::getInstance();
 			$paymentIntent             = $apiClient->getPaymentIntent( $paymentIntentId );
 			$paymentIntentClientSecret = $paymentIntent->getClientSecret();

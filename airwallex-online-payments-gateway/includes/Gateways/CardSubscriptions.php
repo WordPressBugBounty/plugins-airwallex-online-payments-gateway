@@ -21,6 +21,7 @@ class CardSubscriptions extends Card {
 			add_action( 'woocommerce_scheduled_subscription_payment_' . $this->id, array( $this, 'do_subscription_payment' ), 10, 2 );
 			add_filter( 'woocommerce_my_subscriptions_payment_method', array( $this, 'subscription_payment_information' ), 10, 2 );
 			add_filter( 'airwallexMustSaveCard', array( $this, 'mustSaveCard' ) );
+			add_action( 'woocommerce_subscription_failing_payment_method_updated_' . $this->id, [ $this, 'update_failing_payment_method' ], 100, 2 );
 		}
 	
 		$this->supports = array_merge(
@@ -34,6 +35,8 @@ class CardSubscriptions extends Card {
 				'subscription_date_changes',
 				'multiple_subscriptions',
 				'subscription_payment_method_change_admin',
+				'subscription_payment_method_change',
+				'subscription_payment_method_change_customer',
 			)
 		);
 
@@ -41,7 +44,14 @@ class CardSubscriptions extends Card {
 		add_action( 'woocommerce_subscription_validate_payment_meta', [ $this, 'validate_subscription_payment_meta' ], 10, 2 );
 	}
 
+	public function update_failing_payment_method( $subscription, $order ) {
+		$subscription->update_meta_data( 'airwallex_consent_id', $order->get_meta( 'airwallex_consent_id', true ) );
+		$subscription->update_meta_data( 'airwallex_customer_id', $order->get_meta( 'airwallex_customer_id', true ) );
+		$subscription->save();
+	}
+
 	public function add_subscription_payment_meta( $paymentMeta, $subscription ) {
+		$subscription->read_meta_data( true );
 		$paymentMeta[ $this->id ] = [
 			'post_meta' => [
 				'airwallex_customer_id' => [

@@ -163,8 +163,7 @@ class WeChat extends WC_Payment_Gateway {
 				throw new Exception( 'Order not found: ' . $orderId );
 			}
 
-			$paymentIntentId = WC()->session->get( 'airwallex_payment_intent_id' );
-			$paymentIntentId = empty( $paymentIntentId ) ? $order->get_meta('_tmp_airwallex_payment_intent') : $paymentIntentId;
+			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
 			$apiClient                 = WeChatClient::getInstance();
 			$paymentIntent             = $apiClient->getPaymentIntent( $paymentIntentId );
 			$paymentIntentClientSecret = $paymentIntent->getClientSecret();
