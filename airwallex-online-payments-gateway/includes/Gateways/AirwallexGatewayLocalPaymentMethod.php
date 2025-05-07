@@ -164,7 +164,7 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 
             $airwallexCustomerId = null;
 			if ( $order->get_customer_id( '' ) ) {
-				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( $order->get_customer_id( '' ), $this->gatewayClient );
+				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( get_current_user_id(), $this->gatewayClient );
 			}
 
             $this->logService->debug(__METHOD__ . ' create payment intent', [ 'orderId' => $order_id ] );

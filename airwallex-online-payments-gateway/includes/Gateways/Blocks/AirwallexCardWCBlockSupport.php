@@ -74,6 +74,11 @@ class AirwallexCardWCBlockSupport extends AirwallexWCBlockSupport {
 			'locale'              => Util::getLocale(),
 			'confirm_url'         => $this->gateway->get_payment_confirmation_url(),
 			'supports'            => $this->get_supported_features(),
+			'is_logged_in'        => is_user_logged_in(),
+			'is_subscription'     => $this->gateway->isContainSubscription(),
+			'is_save_card_enabled'=> $this->gateway->is_save_card_enabled(),
+			'is_skip_cvc_enabled' => $this->gateway->is_skip_cvc_enabled(),
+			'tokens'              => $this->gateway->savedTokens(),
 		);
 
 		return $data;

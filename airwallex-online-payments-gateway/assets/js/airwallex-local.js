@@ -45,7 +45,10 @@ const AirwallexClient = {
 	displayCheckoutError: function (form, msg) {
 		const checkout_form = jQuery(form);
 		jQuery('.woocommerce-NoticeGroup-checkout, .woocommerce-error, .woocommerce-message').remove();
-		checkout_form.prepend('<div class="woocommerce-NoticeGroup woocommerce-NoticeGroup-checkout"><ul class="woocommerce-error"><li>' + msg + '</li></ul></div>');
+		if (msg.indexOf('class="woocommerce-error"') === -1) {
+			msg = "<ul class=\"woocommerce-error\"><li>" + msg + "</li></ul>";
+		}
+		checkout_form.prepend('<div class="woocommerce-NoticeGroup woocommerce-NoticeGroup-checkout">' + msg + '</div>');
 		checkout_form.removeClass('processing').unblock();
 		checkout_form.find('.input-text, select, input:checkbox').trigger('validate').blur();
 		var scrollElement = jQuery('.woocommerce-NoticeGroup-updateOrderReview, .woocommerce-NoticeGroup-checkout');

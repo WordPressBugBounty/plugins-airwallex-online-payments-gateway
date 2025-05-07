@@ -45,7 +45,7 @@ class WeChat extends WC_Payment_Gateway {
 			$this->form_fields        = $this->get_form_fields();
 		}
 		$this->title      = $this->get_option( 'title' );
-		$this->logService = new LogService();
+		$this->logService = LogService::getInstance();
 		$this->tabTitle   = 'WeChat Pay';
 		$this->registerHooks();
 	}
@@ -150,18 +150,8 @@ class WeChat extends WC_Payment_Gateway {
 		);
 
 		try {
-			$orderId = (int) WC()->session->get( 'airwallex_order' );
-			if ( empty( $orderId ) ) {
-				$orderId = (int) WC()->session->get( 'order_awaiting_payment' );
-			}
-			if (empty($orderId)) {
-				$this->logService->debug(__METHOD__ . ' - Detect order id from URL.');
-				$orderId = isset($_GET['order_id']) ? absint($_GET['order_id']) : 0;
-			}
-			$order = wc_get_order( $orderId );
-			if ( empty( $order ) ) {
-				throw new Exception( 'Order not found: ' . $orderId );
-			}
+			$order = $this->getOrderFromRequest('WeChat::output');
+			$orderId = $order->get_id();
 
 			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
 			$apiClient                 = WeChatClient::getInstance();

@@ -274,17 +274,21 @@ class OrderService {
 	 * @throws Exception
 	 */
 	public function getAirwallexCustomerId( $wordpressCustomerId, AbstractClient $client ) {
-		$airwallexCustomerId = get_user_meta( $wordpressCustomerId, 'airwallex_customer_id', true );
+		$merchantInfo = Util::getMerchantInfoFromJwtToken($client->getToken());
+		if (empty($merchantInfo['accountId'])) {
+			throw new Exception( __( 'Unauthorized. Please try again.', 'airwallex-online-payments-gateway' ) );
+		}
+		$metaKey = 'airwallex_customer_id_' . $merchantInfo['accountId'];
+		$airwallexCustomerId = get_user_meta( $wordpressCustomerId, $metaKey, true );
 		if ( $airwallexCustomerId ) {
 			return $airwallexCustomerId;
 		}
-		$randomId = uniqid( (string)$wordpressCustomerId . '-', true );
+		$randomId = uniqid( 'woo_cus_' . (string)$wordpressCustomerId );
 		$customer = $client->createCustomer( $randomId );
 		$airwallexCustomerId = $customer->getId();
-		update_user_meta( $wordpressCustomerId, 'airwallex_customer_id', $airwallexCustomerId );
+		update_user_meta( $wordpressCustomerId, $metaKey, $airwallexCustomerId );
 		return $airwallexCustomerId;
 	}
-
 
 	public function containsSubscription( $orderId ) {
 		return ( function_exists( 'wcs_order_contains_subscription' ) && ( wcs_order_contains_subscription( $orderId ) || wcs_is_subscription( $orderId ) || wcs_order_contains_renewal( $orderId ) ) );
@@ -333,7 +337,7 @@ class OrderService {
 			return;
 		}
 
-		$logService = new LogService();
+		$logService = LogService::getInstance();
 		$logService->debug( '⏱ start checkPendingTransactions()' );
 		$ordersIds = $this->getPendingPaymentOrdersIds();
 		foreach ( $ordersIds as $orderId ) {
@@ -369,7 +373,7 @@ class OrderService {
 		if ( $paymentIntent->getPaymentConsentId() ) {
 			$order->update_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
 			$order->update_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
-			$order->save();
+			$order->save_meta_data();
 
 			if ( function_exists( 'wcs_get_subscriptions_for_order' ) ) {
 				$subscriptions = wcs_get_subscriptions_for_order( $orderId );
@@ -377,7 +381,7 @@ class OrderService {
 					foreach ( $subscriptions as $subscription ) {
 						$subscription->update_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
 						$subscription->update_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
-						$subscription->save();
+						$subscription->save_meta_data();
 					}
 				}
 			}
@@ -401,11 +405,11 @@ class OrderService {
 				) 
 			);
 			$order->read_meta_data(true);
-			$this->update_consent( $paymentIntent, $order );
 			if ( !$order->meta_exists( $metaKey ) ) {
+				$this->update_consent( $paymentIntent, $order );
 				$order->payment_complete( $paymentIntent->getId() );
 				$order->add_meta_data( $metaKey, 'processed' );
-				$order->save();
+				$order->save_meta_data();
 				$order->add_order_note( __( self::PAYMENT_COMPLETE_MESSAGE, 'airwallex-online-payments-gateway' ) );
 			}
 			$wpdb->query( "COMMIT" );
@@ -417,8 +421,6 @@ class OrderService {
 	}
 
 	public function paymentCompleteByAuthorize($order, $logService, $referrer, $paymentIntent) {
-		$this->update_consent( $paymentIntent, $order );
-
 		global $wpdb;
 
 		$tableName = $this->getOrderMetaTableName();
@@ -435,8 +437,8 @@ class OrderService {
 				) 
 			);
 			$order->read_meta_data(true);
-			$this->update_consent( $paymentIntent, $order );
 			if ( !$order->meta_exists( $metaKey ) ) {
+				$this->update_consent( $paymentIntent, $order );
 				$this->setAuthorizedStatus( $order );
 				$paymentGateway = wc_get_payment_gateway_by_order( $order );
 				if ( $paymentGateway instanceof Card || $paymentGateway instanceof ExpressCheckout ) {
@@ -447,7 +449,7 @@ class OrderService {
 						if ( $paymentIntentAfterCapture->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
 							$order->payment_complete( $paymentIntent->getId() );
 							$order->add_meta_data(  $metaKey, 'processed' );
-							$order->save();
+							$order->save_meta_data();
 							$order->add_order_note( __( self::PAYMENT_CAPTURED_MESSAGE, 'airwallex-online-payments-gateway' ) );
 							$logService->debug( $referrer . ' payment success', $paymentIntent->toArray() );
 						} else {
@@ -464,7 +466,7 @@ class OrderService {
 						$logService->debug( $referrer . ': paymentCompleteByAuthorize', array() );
 						$order->payment_complete( $paymentIntent->getId() );
 						$order->add_meta_data(  $metaKey, 'processed' );
-						$order->save();
+						$order->save_meta_data();
 						$order->add_order_note( __( self::PAYMENT_AUTHORIZED_MESSAGE, 'airwallex-online-payments-gateway' ) );
 					}
 				}
@@ -478,7 +480,7 @@ class OrderService {
     }
 
 	public function setPaymentSuccess( $order, $paymentIntent, $referrer = 'webhook' ) {
-		$logService = new LogService();
+		$logService = LogService::getInstance();
 		if ( PaymentIntent::STATUS_SUCCEEDED === $paymentIntent->getStatus() ) {
 			$this->paymentCompleteByCapture($order, $logService, $referrer, $paymentIntent);
 		} elseif ( PaymentIntent::STATUS_REQUIRES_CAPTURE === $paymentIntent->getStatus() ) {

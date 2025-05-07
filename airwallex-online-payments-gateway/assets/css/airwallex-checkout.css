@@ -5,7 +5,7 @@
 	margin-left: 0;
 	box-shadow: none;
 	background: white;
-	padding: 15px 12px;
+	padding: 9px 16px;
 	border-radius: 5px;    
 	box-sizing: border-box;
 }
@@ -370,4 +370,142 @@ apple-pay-button {
     display: none;
 	background: #fff;
 	opacity: 0.6;
+}
+
+.wc-awx-checkbox-spinner {
+	display: none;
+	width: 20px;
+	height: 20px;
+	margin-left: 6px;
+	border: 3px solid #B0B6BF;
+	border-top-color: transparent;
+	border-left-color: transparent;
+	border-right-color: transparent;
+	border-radius: 50%;
+	box-sizing: border-box;
+	animation: awx-checkbox-loading 1s linear infinite;
+}
+
+@keyframes awx-checkbox-loading {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.payment_method_airwallex_card .wc-awx-checkbox-spinner {
+	margin-bottom: 12px;
+	margin-left: 20px;
+}
+
+.airwallex-container .save-cards img {
+	width: 30px;
+	height: 20px;
+}
+
+.airwallex-container .save-cards div {
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 21px;
+}
+.airwallex-container .line {
+	display: flex;
+	align-items: center;
+	margin-bottom: 10px;
+}
+
+.airwallex-container label {
+	margin-bottom: 0;
+	display: flex;
+	width: 100%;
+	justify-content: space-between;
+}
+
+.airwallex-container .save {
+	margin-top: 10px;
+}
+
+.airwallex-container .new-card-title {
+	margin-bottom: 5px;
+}
+
+.airwallex-container .cvc-container {
+	border: 1px solid var(--Border-decorative, rgba(232, 234, 237, 1));
+	background: rgb(250, 250, 251);
+	padding: 0 16px;
+	margin-top: 8px;
+	margin-bottom: 18px;
+	min-height: 40px;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	width: 254px;
+}
+
+#airwallex-save {
+	margin-right: 6px;
+}
+
+#airwallex-card {
+	margin-bottom: 14px;
+}
+
+.airwallex-container .charge-tip {
+	color: rgba(104, 112, 122, 1);
+}
+
+.awx-alert {
+	border: 1px solid rgba(255, 119, 109, 1);
+	border-radius: 5px;
+	background: rgba(255, 239, 239, 1);
+	display: flex;
+	padding: 12px 16px;
+}
+
+.awx-alert .icon {
+	padding: 10px 10px 10px 0;
+	display: flex;
+	align-items: center;
+}
+
+.awx-alert .body {
+	text-align: justify;
+	color: rgba(66, 71, 77, 1);
+	font-weight: 400;
+	font-size: 14px;
+	line-height: 21px;
+	display: flex;
+	align-items: center;
+}
+
+.awx-logo-container {
+    display: inline-block;
+    width: 38px;
+    text-align: right;
+}
+
+li.payment_method_airwallex_card img {
+    height: 24px;
+    width: 35px;
+}
+
+label[for="airwallex-new-card"] {
+	font-size: 14px;
+}
+
+.manage-payment-method .new-card-title {
+	color: #30313d;
+}
+
+#add_payment_method .airwallex-save-tip {
+	color: #6d6e78;
+}
+
+.airwallex-logo-list {
+	margin-bottom: 10px;
+    display: block;
+    display: flex;
+    flex-wrap: wrap;
 }

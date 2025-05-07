@@ -2,16 +2,12 @@
 
 namespace Airwallex\Gateways;
 
-use Airwallex\Client\CardClient;
 use Airwallex\Client\MainClient;
 use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
-use Airwallex\Struct\PaymentIntent;
-use Airwallex\Struct\Refund;
 use Exception;
 use WC_Payment_Gateway;
-use WP_Error;
 use Airwallex\Services\OrderService;
 use Airwallex\Services\Util;
 
@@ -67,7 +63,7 @@ class Main extends WC_Payment_Gateway {
 			$this->form_fields = $this->get_form_fields();
 		}
 		$this->title      = $this->get_option( 'title' );
-		$this->logService = new LogService();
+		$this->logService = LogService::getInstance();
 		$this->tabTitle   = 'All Payment Methods';
 		$this->registerHooks();
 	}
@@ -140,7 +136,7 @@ class Main extends WC_Payment_Gateway {
 				}
 			}
 		} catch ( \Exception $e ) {
-			( new LogService() )->debug( 'unable to get payment logos', array( 'exception' => $e->getMessage() ) );
+			$this->logService->debug( 'unable to get payment logos', array( 'exception' => $e->getMessage() ) );
 			$logos = array();
 		}
 		return $logos;
@@ -163,7 +159,7 @@ class Main extends WC_Payment_Gateway {
 				}
 			}
 		} catch ( \Exception $e ) {
-			( new LogService() )->debug( 'unable to get payment methods', array( 'exception' => $e->getMessage() ) );
+			$this->logService->debug( 'unable to get payment methods', array( 'exception' => $e->getMessage() ) );
 			$methods = array();
 		}
 		return $methods;
@@ -248,7 +244,7 @@ class Main extends WC_Payment_Gateway {
 			$orderService        = new OrderService();
 			$isSubscription      = $orderService->containsSubscription( $order->get_id() );
 			if ( $order->get_customer_id( '' ) || $isSubscription ) {
-				$airwallexCustomerId = $orderService->getAirwallexCustomerId( $order->get_customer_id( '' ), $apiClient );
+				$airwallexCustomerId = $orderService->getAirwallexCustomerId( get_current_user_id(), $apiClient );
 			}
 
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
@@ -496,18 +492,8 @@ class Main extends WC_Payment_Gateway {
 		);
 
 		try {
-			$orderId = (int) WC()->session->get( 'airwallex_order' );
-			if ( empty( $orderId ) ) {
-				$orderId = (int) WC()->session->get( 'order_awaiting_payment' );
-			}
-			if (empty($orderId)) {
-				$this->logService->debug(__METHOD__ . ' - Detect order id from URL.');
-				$orderId = isset($_GET['order_id']) ? absint($_GET['order_id']) : 0;
-			}
-			$order = wc_get_order( $orderId );
-			if ( empty( $order ) ) {
-				throw new Exception( 'Order not found: ' . $orderId );
-			}
+			$order = $this->getOrderFromRequest('Main::output');
+			$orderId = $order->get_id();
 
 			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
 			$apiClient           = MainClient::getInstance();

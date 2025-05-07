@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-05-06 - version 1.19.0
+
+* Add - Add ability for shoppers to save cards
+
 2025-04-28 - version 1.18.0
 
 * Add - Support subscriber payment method changes

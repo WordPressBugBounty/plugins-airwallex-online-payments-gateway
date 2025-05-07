@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	loadAirwallex,
 	createElement as createAirwallexElement,
+	destroyElement as destroyAirwallexElement,
 	confirmPaymentIntent as confirmAirwallexPaymentIntent,
 	createPaymentConsent as createAirwallexPaymentConsent,
 	getElement as getAirwallexElement,
@@ -13,18 +14,23 @@ import { getCardHolderName, getBillingInformation } from '../utils';
 const confirmPayment      = ({
 	settings,
 	paymentDetails,
+	cvcElementRef,
 	billingData,
 	successType,
 	errorType,
 	errorContext,
 }) => {
-	const confirmUrl      = settings.confirm_url + (settings.confirm_url.indexOf('?') !== -1 ? '&' : '?')
-		+ 'order_id=' + paymentDetails.orderId + '&intent_id=' + paymentDetails.paymentIntent;
+	const airwallexSaveChecked = document.getElementById('airwallex-save')?.checked;
+	const separator = settings.confirm_url.includes('?') ? '&' : '?';
+	const confirmUrl = `${settings.confirm_url}${separator}order_id=${paymentDetails.orderId}&intent_id=${paymentDetails.paymentIntent}&is_airwallex_save_checked=${airwallexSaveChecked}`;
+	
 	const card            = getAirwallexElement('card');
 	const paymentResponse = { type: successType };
+	paymentResponse.confirmUrl = confirmUrl;
 
+	let request;
 	if (paymentDetails.createConsent) {
-		return createAirwallexPaymentConsent({
+		request = createAirwallexPaymentConsent({
 			intent_id: paymentDetails.paymentIntent,
 			customer_id: paymentDetails.customerId,
 			client_secret: paymentDetails.clientSecret,
@@ -32,17 +38,33 @@ const confirmPayment      = ({
 			element: card,
 			next_triggered_by: 'merchant',
 			billing: getBillingInformation(billingData),
-		}).then((response) => {
-			paymentResponse.confirmUrl = confirmUrl;
-			return paymentResponse;
-		}).catch((error) => {
-			paymentResponse.type           = errorType;
-			paymentResponse.message        = error.message ?? JSON.stringify(error);
-			paymentResponse.messageContext = errorContext;
-			return paymentResponse;
+		});
+	} else if (paymentDetails.consentId) {
+		request = confirmAirwallexPaymentIntent({
+			intent_id: paymentDetails.paymentIntent,
+			payment_consent_id: paymentDetails.consentId,
+			client_secret: paymentDetails.clientSecret,
+			currency: paymentDetails.currency,
+			element: cvcElementRef.current,
+			billing: getBillingInformation(billingData),
+			payment_method_options: {
+				card: {
+					auto_capture: settings.capture_immediately
+				}
+			},
+		});
+	} else if (airwallexSaveChecked) {
+		request = createAirwallexPaymentConsent({
+			intent_id: paymentDetails.paymentIntent,
+			customer_id: paymentDetails.customerId,
+			client_secret: paymentDetails.clientSecret,
+			currency: paymentDetails.currency,
+			element: card,
+			next_triggered_by: 'customer',
+			billing: getBillingInformation(billingData),
 		});
 	} else {
-		return confirmAirwallexPaymentIntent({
+		request = confirmAirwallexPaymentIntent({
 			element: card,
 			id: paymentDetails.paymentIntent,
 			client_secret: paymentDetails.clientSecret,
@@ -52,16 +74,17 @@ const confirmPayment      = ({
 				},
 				billing: getBillingInformation(billingData),
 			},
-		}).then((response) => {
-			paymentResponse.confirmUrl = confirmUrl;
-			return paymentResponse;
-		}).catch((error) => {
-			paymentResponse.type           = errorType;
-			paymentResponse.message        = error.message ?? JSON.stringify(error);
-			paymentResponse.messageContext = errorContext;
-			return paymentResponse;
 		});
 	}
+	return request.then((response) => {
+		return paymentResponse;
+	}).catch((error) => {
+		paymentResponse.type           = errorType;
+		paymentResponse.code           = error.code;
+		paymentResponse.message        = error.message ?? JSON.stringify(error);
+		paymentResponse.messageContext = errorContext;
+		return paymentResponse;
+	});
 }
 
 export const InlineCard                             = ({
@@ -94,13 +117,17 @@ export const InlineCard                             = ({
 			origin: window.location.origin,
 			locale: settings.locale,
 		}).then(() => {
-			initAirwallex({
-				env: settings.environment,
-			});
-			
 			const card = createAirwallexElement('card', {
 				autoCapture: settings.capture_immediately,
-				allowedCardNetworks: ['discover', 'visa', 'mastercard', 'maestro', 'unionpay', 'amex', 'jcb', 'diners']
+				allowedCardNetworks: ['discover', 'visa', 'mastercard', 'maestro', 'unionpay', 'amex', 'jcb', 'diners'],
+				style: {
+					base: {
+						fontSize: '14px',
+						"::placeholder": {
+							'color': 'rgba(135, 142, 153, 1)'
+						},
+					}
+				}
 			});
 			card.mount('airwallex-card');
 		});
@@ -214,13 +241,12 @@ export const InlineCard                             = ({
 				errorType: emitResponse.responseTypes.ERROR,
 				errorContext: emitResponse.noticeContexts.PAYMENTS,
 			});
-
-		if (response.type === emitResponse.responseTypes.SUCCESS) {
-			location.href = response.confirmUrl;
-		} else {
-			setIsSubmitting(false);
-			return response;
-		}
+			if (response.type === emitResponse.responseTypes.SUCCESS || (response.type === emitResponse.responseTypes.ERROR && response.code === 'invalid_status_for_operation')) {
+				location.href = response.confirmUrl;
+			} else {
+				setIsSubmitting(false);
+				return response;
+			}
 		};
 
 		const unsubscribeAfterProcessing = onCheckoutSuccess(onSuccess);
@@ -237,8 +263,130 @@ export const InlineCard                             = ({
 	return (
 		<>
 			<div className                     ='airwallex-checkout-loading-mask' style={{ display: isSubmitting ? 'block' : 'none' }}></div>
-			<div id                            ="airwallex-card" style={{ display: elementShow ? 'block' : 'none' }}></div>
+			<div id                            ="airwallex-card" style={{ 
+				display: elementShow ? 'block' : 'none',
+				border: "1px solid var(--Border-decorative, rgba(232, 234, 237, 1))",
+				background: "rgb(250, 250, 251)",
+				padding: "0 16px",
+				marginBottom: "6px",
+				marginTop: "4px",
+				minHeight: "40px",
+				borderRadius: "4px",
+				display: "flex",
+				alignItems: "center",
+				width: "400px",
+			}}></div>
 			<ValidationInputError errorMessage ={inputErrorMessage} />
 		</>
+	);
+};
+
+export const AirwallexSaveCard = (props) => {
+	const [isCVCCompleted, setIsCVCCompleted] = useState(false);
+	const [isSkipCVC, setIsSkipCVC] = useState(false);
+	const {
+		emitResponse,
+		settings,
+		billing,
+		token,
+	} = props;
+	const { onCheckoutSuccess } = props.eventRegistration;
+	const cvcElementRef = useRef(null);
+	const onChange = (event) => {
+		setIsCVCCompleted(event.detail.complete);
+	};
+
+	useEffect(() => {
+		const { tokens } = settings;
+		const tokenData = tokens?.[token];
+		setIsSkipCVC(tokenData?.is_skip_cvc);
+	}, [token, settings]);
+
+	useEffect(() => {
+		let cvcElement;
+
+		loadAirwallex({
+			env: settings.environment,
+			locale: settings.locale,
+			origin: window.location.origin,
+		}).then(() => {
+			cvcElement = Airwallex.createElement('cvc', {
+				style: {
+					base: {
+						fontSize: '14px',
+						"::placeholder": {
+							color: 'rgba(135, 142, 153, 1)',
+						},
+					},
+				},
+				placeholder: __('CVC', 'airwallex-online-payments-gateway'),
+			});
+			cvcElementRef.current = cvcElement;
+			setIsCVCCompleted(false);
+			cvcElement.mount('airwallex-cvc');
+			cvcElement.on('change', onChange);
+		});
+	
+		return () => {
+			if (cvcElement) {
+				cvcElement.destroy();
+			}
+		};
+	}, []);	
+
+	useEffect(() => {
+		const onSuccess = async ({ processingResponse }) => {
+			const { tokens } = settings;
+			const tokenData = tokens?.[token];
+			if (!isCVCCompleted && ! tokenData?.is_skip_cvc) {
+				return {
+					type: emitResponse.responseTypes.ERROR,
+					message: __('CVC is not completed.', 'airwallex-online-payments-gateway'),
+					messageContext: emitResponse.noticeContexts.PAYMENTS,
+				};
+			}
+			const paymentDetails = processingResponse.paymentDetails || {};
+			const response = await confirmPayment({
+				settings,
+				paymentDetails,
+				cvcElementRef,
+				billingData: billing.billingData,
+				successType: emitResponse.responseTypes.SUCCESS,
+				errorType: emitResponse.responseTypes.ERROR,
+				errorContext: emitResponse.noticeContexts.PAYMENTS,
+			});
+			if (response.type === emitResponse.responseTypes.SUCCESS || 
+				(response.type === emitResponse.responseTypes.ERROR && response.code === 'invalid_status_for_operation')) {
+				location.href = response.confirmUrl;
+			} else {
+				return response;
+			}
+		};
+
+		const unsubscribeAfterProcessing = onCheckoutSuccess(onSuccess);
+		return () => unsubscribeAfterProcessing();
+	}, [
+		onCheckoutSuccess,
+		emitResponse.responseTypes.SUCCESS,
+		emitResponse.responseTypes.ERROR,
+		isCVCCompleted,
+		token,
+	]);
+
+	return (
+		<div style={{ display: isSkipCVC ? 'none' : 'block' }}>
+			<div className="cvc-title" style={{ marginBottom: "4px" }}>Security code</div>   
+			<div id="airwallex-cvc" className="cvc-container" style={{
+				border: "1px solid var(--Border-decorative, rgba(232, 234, 237, 1))",
+				background: "rgb(250, 250, 251)",
+				padding: "0 16px",
+				marginBottom: "18px",
+				minHeight: "40px",
+				borderRadius: "4px",
+				display: "flex",
+				alignItems: "center",
+				width: "288px",
+			}}></div>    
+		</div>
 	);
 };

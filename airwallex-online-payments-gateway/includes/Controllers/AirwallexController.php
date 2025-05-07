@@ -14,29 +14,23 @@ use Airwallex\Services\OrderService;
 use Airwallex\Services\WebhookService;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Client\WeChatClient;
+use Airwallex\Gateways\AirwallexGatewayTrait;
 use Airwallex\Services\Util;
 use Exception;
 use WC_Order;
 
 class AirwallexController {
 
+	use AirwallexGatewayTrait;
+
 	protected $logService;
 
 	public function __construct() {
-		$this->logService = new LogService();
+		$this->logService = LogService::getInstance();
 	}
 
 	private function getPaymentDetailForRedirect(AbstractClient $apiClient, $gateway) {
-		$orderId = (int) WC()->session->get( 'airwallex_order' );
-		$orderId = empty( $orderId ) ? (int) WC()->session->get( 'order_awaiting_payment' ) : $orderId;
-		if (empty($orderId)) {
-			$this->logService->debug(__METHOD__ . ' - Detect order id from URL.');
-			$orderId = isset($_GET['order_id']) ? absint($_GET['order_id']) : 0;
-		}
-		$order   = wc_get_order( $orderId );
-		if ( empty( $order ) ) {
-			throw new Exception( esc_html( 'Order not found: ' . $orderId ) );
-		}
+		$order = $this->getOrderFromRequest('getPaymentDetailForRedirect');
 
 		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
 		$paymentIntent   = $apiClient->getPaymentIntent( $paymentIntentId );
@@ -173,31 +167,8 @@ class AirwallexController {
 	}
 
 	private function getOrderAndPaymentIntentForConfirmation() {
-		$orderId = 0;
-
-		if (!empty($_GET['order_id'])) {
-			$orderId = (int) $_GET['order_id'];
-		}
-
-		if (empty($orderId)) {
-			$orderId = (int) WC()->session->get('airwallex_order', 0);
-		}
-
-		if (empty($orderId)) {
-			$orderId = (int) WC()->session->get('order_awaiting_payment', 0);
-		}
-
-		if (empty($orderId)) {
-			$errorMessage = 'Order confirmation error: Unable to retrieve a valid order ID.';
-			$this->logService->remoteError( LogService::ON_PAYMENT_CONFIRMATION_ERROR, 'payment confirmation exception', array( 'msg' => $errorMessage, '$_GET' => json_encode($_GET) ) );
-			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
-		}
-
-		$paymentIntentId = "";
-		$order = wc_get_order( $orderId );
-		if ( $order ) {
-			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
-		}
+		$order = $this->getOrderFromRequest('getOrderAndPaymentIntentForConfirmation');
+		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
 
 		if (empty($paymentIntentId)) {
 			$errorMessage = 'Order confirmation error: Unable to retrieve a valid intent ID.';
@@ -206,7 +177,7 @@ class AirwallexController {
 		}
 
 		return array(
-			'order_id'          => $orderId,
+			'order_id'          => $order->get_id(),
 			'payment_intent_id' => $paymentIntentId,
 		);
 	}
@@ -245,17 +216,24 @@ class AirwallexController {
 
 			$order = wc_get_order( $orderId );
 
+
+			if ( ! empty($_GET['is_airwallex_save_checked']) && in_array($_GET['is_airwallex_save_checked'], ['true', '1'], true) ) {
+				try {
+					(new Card())->syncSaveCards();
+				} catch ( Exception $e ) {
+					$this->logService->error('Error syncing save cards: ', $e->getMessage());
+				}
+			}
+
 			if ( empty( $order ) ) {
 				throw new Exception( 'Order not found: ' . $orderId );
 			}
-
-			$this->handleStatusForConfirmation( $paymentIntent, $order );
 
 			if ( number_format( $paymentIntent->getAmount(), 2 ) !== number_format( $order->get_total(), 2 ) ) {
 				//amount mismatch
 				$this->logService->error( 'paymentConfirmation() payment amounts did not match', array( number_format( $paymentIntent->getAmount(), 2 ), number_format( $order->get_total(), 2 ), $paymentIntent->toArray() ) );
 				$this->setTemporaryOrderStateAfterDecline( $order );
-				wc_add_notice( 'Airwallex payment error', 'error' );
+				wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );
 				wp_safe_redirect( wc_get_checkout_url() );
 				die;
 			}
@@ -265,7 +243,14 @@ class AirwallexController {
 			} elseif ( $paymentIntent->getStatus() === PaymentIntent::STATUS_REQUIRES_CAPTURE ) {
 				$orderService->paymentCompleteByAuthorize($order, $this->logService, 'checkout', $paymentIntent);
 			} elseif ( in_array( $paymentIntent->getStatus(), PaymentIntent::PENDING_STATUSES, true ) ) {
+				$this->logService->debug( 'paymentConfirmation() pending status', array( $paymentIntent->toArray() ) );
 				$orderService->setPendingStatus( $order );
+			} else {
+				$this->logService->warning( 'paymentConfirmation() invalid status', array( $paymentIntent->toArray() ) );
+				$this->setTemporaryOrderStateAfterDecline( $order );
+				wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );
+				wp_safe_redirect( wc_get_checkout_url() );
+				die;
 			}
 
 			if (in_array( $paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true )
@@ -364,29 +349,6 @@ class AirwallexController {
 			}
 		}
 		return $headers;
-	}
-
-	protected function handleStatusForConfirmation( PaymentIntent $paymentIntent, WC_Order $order ) {
-		$validStatuses = array_merge(
-			array(
-				PaymentIntent::STATUS_SUCCEEDED,
-				PaymentIntent::STATUS_REQUIRES_CAPTURE,
-			),
-			PaymentIntent::PENDING_STATUSES
-		);
-
-		if ( ! in_array( $paymentIntent->getStatus(), $validStatuses, true ) ) {
-			$this->logService->warning( 'paymentConfirmation() invalid status', array( $paymentIntent->toArray() ) );
-			//no valid payment intent
-			$this->setTemporaryOrderStateAfterDecline( $order );
-			wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );
-			wp_safe_redirect( wc_get_checkout_url() );
-			die;
-		}
-		if ( in_array( $paymentIntent->getStatus(), PaymentIntent::PENDING_STATUSES, true ) ) {
-			$this->logService->debug( 'paymentConfirmation() pending status', array( $paymentIntent->toArray() ) );
-			( new OrderService() )->setPendingStatus( $order );
-		}
 	}
 
 	/**

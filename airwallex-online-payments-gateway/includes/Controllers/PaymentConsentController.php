@@ -11,7 +11,6 @@ use Airwallex\Client\CardClient;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\OrderService;
 use Airwallex\Main;
-use WC_AJAX;
 use Exception;
 
 class PaymentConsentController {
@@ -64,7 +63,7 @@ class PaymentConsentController {
 				]);
 			}
 	
-			$customerId = $this->orderService->getAirwallexCustomerId( $order->get_customer_id( '' ), $this->cardClient );
+			$customerId = $this->orderService->getAirwallexCustomerId( get_current_user_id(), $this->cardClient );
 
 			LogService::getInstance()->debug(__METHOD__ . ' - Create Payment consent for order: .' . $orderId);
 

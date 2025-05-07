@@ -123,14 +123,14 @@ class Util {
 	/**
 	 * Get merchant info from JWT token
 	 * 
-	 * @param string $clientSecret
+	 * @param string $token
 	 * @return array Merchant info
 	 */
-	public static function getMerchantInfoFromJwtToken($clientSecret) {
+	public static function getMerchantInfoFromJwtToken($token) {
 		try {
 			// decode JWT token
 			$merchantInfo = [];
-			$base64Codes  = explode('.', $clientSecret);
+			$base64Codes  = explode('.', $token);
 			if (!empty($base64Codes[1])) {
 				$base64 = str_replace('_', '/', str_replace('-', '+', $base64Codes[1]));
 				

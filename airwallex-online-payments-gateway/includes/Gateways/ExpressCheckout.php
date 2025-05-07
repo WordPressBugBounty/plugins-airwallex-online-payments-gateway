@@ -1006,7 +1006,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			// create customer if subscription 
 			$airwallexCustomerId = null;
 			if ( $orderContainsSubscription ) {
-				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( $order->get_customer_id( '' ), $apiClient );
+				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( get_current_user_id(), $apiClient );
 			}
 
 			LogService::getInstance()->debug(__METHOD__ . ' before create intent', array( 'orderId' => $order_id ) );

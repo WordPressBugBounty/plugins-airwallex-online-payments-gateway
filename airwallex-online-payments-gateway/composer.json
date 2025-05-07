@@ -1,20 +1,19 @@
 {
     "name": "airwallex/airwallex-online-payments-gateway",
-    "version": "1.18.0",
+    "version": "1.19.0",
     "description": "Official Airwallex Plugin.",
     "homepage": "https://www.airwallex.com",
     "license": "GPL-3.0",
     "require-dev": {
         "squizlabs/php_codesniffer": "^3.7.2",
         "woocommerce/woocommerce-sniffs": "^1.0",
-        "phpunit/phpunit": "^10.4.1",
         "brain/monkey": "^2.6",
-        "woocommerce/qit-cli": "^0.3.4",
         "wp-coding-standards/wpcs": "^3.0"
     },
     "autoload": {
         "psr-4": {
-            "Airwallex\\": "includes"
+            "Airwallex\\": "includes",
+            "Airwallex\\PayappsPlugin\\CommonLibrary\\": "payapps-plugin-php-common-lib"
         }
     },
     "autoload-dev": {
@@ -25,6 +24,18 @@
     "config": {
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true
+        },
+        "platform": {
+            "php": "7.0.0"
         }
+    },
+    "repositories": {
+        "payapps": {
+            "type": "composer",
+            "url": "https://gitlab.awx.im/api/v4/group/payapps/-/packages/composer/packages.json"
+        }
+    },
+    "require": {
+        "airwallex/payapps-plugin-php-common-lib": "1.0.*"
     }
 }

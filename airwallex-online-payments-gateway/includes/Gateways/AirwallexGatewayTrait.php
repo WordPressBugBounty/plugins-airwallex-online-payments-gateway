@@ -130,11 +130,11 @@ trait AirwallexGatewayTrait {
 			$paymentIntentAfterCapture = $cardClient->confirmPaymentIntent( $paymentIntent->getId(), [ 'payment_consent_reference' => [ 'id' => $airwallexPaymentConsentId ] ] );
 
 			if ( $paymentIntentAfterCapture->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
-				( new LogService() )->debug( 'capture successful', $paymentIntentAfterCapture->toArray() );
+				LogService::getInstance()->debug( 'capture successful', $paymentIntentAfterCapture->toArray() );
 				$order->add_order_note( 'Airwallex payment capture success' );
 				$order->payment_complete( $paymentIntent->getId() );
 			} else {
-				( new LogService() )->error( 'capture failed', $paymentIntentAfterCapture->toArray() );
+				LogService::getInstance()->error( 'capture failed', $paymentIntentAfterCapture->toArray() );
 				$order->add_order_note( 'Airwallex payment failed capture' );
 			}
 		} catch ( Exception $e ) {
@@ -143,13 +143,16 @@ trait AirwallexGatewayTrait {
 			$originalOrderId           = $subscription->get_parent();
 			$originalOrder             = wc_get_order( $originalOrderId );
 			WC_Subscriptions_Manager::process_subscription_payment_failure_on_order($originalOrder);
-			( new LogService() )->error( 'do_subscription_payment failed', $e->getMessage() );
+			LogService::getInstance()->error( 'do_subscription_payment failed', $e->getMessage() );
 		}
 	}
 
 	public function process_refund( $order_id, $amount = null, $reason = '' ) {
 		$order           = wc_get_order( $order_id );
 		$paymentIntentId = $order->get_transaction_id();
+		if (empty($paymentIntentId)) {
+			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+		}
 		$client = GatewayClient::getInstance();
 		try {
 			$refund  = $client->createRefund( $paymentIntentId, $amount, $reason );
@@ -166,12 +169,42 @@ trait AirwallexGatewayTrait {
 			} else {
 				throw new Exception( "refund {$refund->getId()} already exist.", '1' );
 			}
-			$this->logService->debug( __METHOD__ . " - Order: {$order_id}, refund initiated, {$refund->getId()}" );
+			LogService::getInstance()->debug( __METHOD__ . " - Order: {$order_id}, refund initiated, {$refund->getId()}" );
 		} catch ( \Exception $e ) {
-			$this->logService->debug( __METHOD__ . " - Order: {$order_id}, refund failed, {$e->getMessage()}" );
+			LogService::getInstance()->debug( __METHOD__ . " - Order: {$order_id}, refund failed, {$e->getMessage()}" );
 			return new \WP_Error( $e->getCode(), 'Refund failed, ' . $e->getMessage() );
 		}
 
 		return true;
+	}
+
+	public function getOrderFromRequest($referrer = '') {
+		$orderId = 0;
+
+		if (!empty($_GET['order_id'])) {
+			$orderId = (int) $_GET['order_id'];
+		}
+
+		if (empty($orderId)) {
+			$orderId = (int) WC()->session->get('airwallex_order', 0);
+		}
+
+		if (empty($orderId)) {
+			$orderId = (int) WC()->session->get('order_awaiting_payment', 0);
+		}
+
+		if (empty($orderId)) {
+			$errorMessage = 'Unable to retrieve a valid order ID.';
+			LogService::getInstance()->remoteError( LogService::ON_PAYMENT_CONFIRMATION_ERROR, $referrer . ' exception', array( 'msg' => $errorMessage, '$_GET' => json_encode($_GET) ) );
+			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
+		}
+
+		$order = wc_get_order( $orderId );
+		if ( empty($order) ) {
+			$errorMessage = 'Unable to retrieve a valid order.';
+			LogService::getInstance()->remoteError( LogService::ON_PAYMENT_CONFIRMATION_ERROR, $referrer . ' exception', array( 'msg' => $errorMessage, '$_GET' => json_encode($_GET) ) );
+			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
+		}
+		return $order;
 	}
 }

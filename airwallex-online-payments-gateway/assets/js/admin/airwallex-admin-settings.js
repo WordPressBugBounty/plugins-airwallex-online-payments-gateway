@@ -420,4 +420,16 @@ jQuery(function ($) {
 	};
 
 	airwallexConnectionFlow.init();
+
+	const saveCardEnableSelector = '#airwallex-online-payments-gatewayairwallex_card_save_card_enabled';
+	const toggleCVCField = function() {
+		let selector = '#airwallex-online-payments-gatewayairwallex_card_skip_cvc_enabled';
+		if ($(saveCardEnableSelector).prop('checked')) {
+			$(selector).closest('tr').show();
+		} else {
+			$(selector).closest('tr').hide();
+		}
+	}
+	toggleCVCField();
+	$(saveCardEnableSelector).on('change', toggleCVCField);
 });

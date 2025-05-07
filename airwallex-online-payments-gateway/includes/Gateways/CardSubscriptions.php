@@ -17,12 +17,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 class CardSubscriptions extends Card {
 	public function __construct() {
 		parent::__construct();
-		if ( class_exists( 'WC_Subscriptions_Order' ) ) {
-			add_action( 'woocommerce_scheduled_subscription_payment_' . $this->id, array( $this, 'do_subscription_payment' ), 10, 2 );
-			add_filter( 'woocommerce_my_subscriptions_payment_method', array( $this, 'subscription_payment_information' ), 10, 2 );
-			add_filter( 'airwallexMustSaveCard', array( $this, 'mustSaveCard' ) );
-			add_action( 'woocommerce_subscription_failing_payment_method_updated_' . $this->id, [ $this, 'update_failing_payment_method' ], 100, 2 );
-		}
 	
 		$this->supports = array_merge(
 			$this->supports,
@@ -40,10 +34,20 @@ class CardSubscriptions extends Card {
 			)
 		);
 
-		add_filter( 'woocommerce_subscription_payment_meta', [ $this, 'add_subscription_payment_meta' ], 10, 2 );
-		add_action( 'woocommerce_subscription_validate_payment_meta', [ $this, 'validate_subscription_payment_meta' ], 10, 2 );
+		if ( class_exists( 'WC_Subscriptions_Order' ) ) {
+			add_action( 'woocommerce_scheduled_subscription_payment_' . $this->id, array( $this, 'do_subscription_payment' ), 10, 2 );
+			add_filter( 'woocommerce_my_subscriptions_payment_method', array( $this, 'subscription_payment_information' ), 10, 2 );
+			add_filter( 'airwallexMustSaveCard', array( $this, 'mustSaveCard' ) );
+			add_filter( 'woocommerce_subscription_payment_meta', [ $this, 'add_subscription_payment_meta' ], 10, 2 );
+			add_action( 'woocommerce_subscription_validate_payment_meta', [ $this, 'validate_subscription_payment_meta' ], 10, 2 );
+			add_action( 'woocommerce_subscription_failing_payment_method_updated_' . $this->id, array( $this, 'update_failing_payment_method' ), 10, 2 );
+		}
 	}
 
+	/**
+	 * @param WC_Subscription $subscription
+	 * @param WC_Order        $order
+	 */
 	public function update_failing_payment_method( $subscription, $order ) {
 		$subscription->update_meta_data( 'airwallex_consent_id', $order->get_meta( 'airwallex_consent_id', true ) );
 		$subscription->update_meta_data( 'airwallex_customer_id', $order->get_meta( 'airwallex_customer_id', true ) );

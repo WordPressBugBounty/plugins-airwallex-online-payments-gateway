@@ -2,7 +2,9 @@
 
 namespace Airwallex\Services;
 
-class CacheService {
+use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheInterface;
+
+class CacheService implements CacheInterface {
 
 	const PREFIX = 'awx_';
 
@@ -30,7 +32,7 @@ class CacheService {
 	 * @param int $maxAge
 	 * @return bool
 	 */
-	public function set( $key, $value, $maxAge = 7200 ) {
+	public function set(string $key, $value, int $maxAge = 7200 ): bool {
 		return set_transient( $this->prefix . $key, $value, $maxAge );
 	}
 
@@ -40,7 +42,7 @@ class CacheService {
 	 * @param string $key
 	 * @return mixed|null
 	 */
-	public function get( $key ) {
+	public function get(string $key ) {
 		$return = get_transient( $this->prefix . $key );
 		return false === $return ? null : $return;
 	}
@@ -51,7 +53,7 @@ class CacheService {
 	 * @param string $key
 	 * @return bool True if the cache was deleted, false otherwise.
 	 */
-	public function remove( $key ) {
+	public function remove( string $key ): bool {
 		return delete_transient( $this->prefix . $key );
 	}
 }

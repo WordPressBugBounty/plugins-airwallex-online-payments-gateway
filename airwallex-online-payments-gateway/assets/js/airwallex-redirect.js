@@ -45,7 +45,7 @@ jQuery(function ($) {
             if (successMessage) {
                 successMessage.style.display = 'block';
             }
-            location.href = `${confirmationUrl}order_id=${orderId}&intent_id=${paymentIntentId}`;
+            location.href = `${confirmationUrl}order_id=${orderId}&intent_id=${paymentIntentId}&is_airwallex_save_checked=true`;
         });
 
         window.addEventListener('onError', (event) => {

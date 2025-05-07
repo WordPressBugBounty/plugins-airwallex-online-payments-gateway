@@ -2,12 +2,11 @@
 
 namespace Airwallex\Services;
 
-use Airwallex\Gateways\Card;
-use Airwallex\Gateways\ExpressCheckout;
 use Airwallex\Main;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Struct\Refund;
 use Exception;
+use WC_Order;
 use WC_Order_Refund;
 
 class WebhookService {
@@ -20,7 +19,7 @@ class WebhookService {
 	 * @throws Exception
 	 */
 	public function process( $headers, $msg ) {
-		$logService   = new LogService();
+		$logService = LogService::getInstance();
 		$orderService = new OrderService();
 		try {
 			$this->verifySignature( $headers, $msg );
@@ -64,7 +63,9 @@ class WebhookService {
 					case 'payment_intent.succeeded':
 					case 'payment_intent.capture_required':
 					case 'payment_intent.requires_capture':
-						$orderService->setPaymentSuccess( $order, $paymentIntent );
+						if ($order instanceof WC_Order) {
+							$orderService->setPaymentSuccess( $order, $paymentIntent );
+						}
 						break;
 					default:
 						$attempt = $paymentIntent->getLatestPaymentAttempt();
@@ -74,7 +75,9 @@ class WebhookService {
 						}
 				}
 
-				$order->add_order_note( 'Airwallex Webhook notification: ' . $eventType . "\n\n" . 'Amount: ' . $paymentIntent->getAmount() . $paymentIntent->getCurrency() . "\n\nCaptured amount: " . $paymentIntent->getCapturedAmount() );
+				if (method_exists($order, 'add_order_note')) {
+					$order->add_order_note( 'Airwallex Webhook notification: ' . $eventType . "\n\n" . 'Amount: ' . $paymentIntent->getAmount() . $paymentIntent->getCurrency() . "\n\nCaptured amount: " . $paymentIntent->getCapturedAmount() );
+				}
 			}
 		} elseif ( 'refund.processing' === $eventType || 'refund.succeeded' === $eventType ) {
 			$logService->debug( '🖧 received refund webhook' );
@@ -101,7 +104,7 @@ class WebhookService {
 				$order           = $orderService->getOrderByPaymentIntentId( $paymentIntentId );
 				if ( empty( $order ) ) {
 					$logService->warning( __METHOD__ . ' - no order found for refund', array( 'paymentIntent' => $paymentIntentId ) );
-					throw new Exception( 'no order found for refund on payment_intent ' . esc_xml( $paymentIntentId ) );
+					throw new Exception( 'no order found for refund on payment_intent ' . $paymentIntentId );
 				}
 				$order->add_order_note(
 					sprintf(
