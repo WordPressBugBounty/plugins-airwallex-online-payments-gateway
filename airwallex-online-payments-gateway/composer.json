@@ -1,6 +1,6 @@
 {
     "name": "airwallex/airwallex-online-payments-gateway",
-    "version": "1.19.0",
+    "version": "1.20.0",
     "description": "Official Airwallex Plugin.",
     "homepage": "https://www.airwallex.com",
     "license": "GPL-3.0",

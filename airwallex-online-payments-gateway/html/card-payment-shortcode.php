@@ -21,7 +21,7 @@ wp_enqueue_style( 'airwallex-redirect-element-css' );
 ?>
 	<div class="airwallex-content-card <?php echo esc_attr( $shortcodeAtts['class'] ); ?>" style="<?php echo esc_attr( $shortcodeAtts['style'] ); ?>">
 		<h2><?php echo esc_html__( 'Enter your credit card details to pay your order', 'airwallex-online-payments-gateway' ); ?></h2>
-		<div id="airwallex-error-message" class="woocommerce-error" style="display:none;">
+		<div id="airwallex-error-message" style="display:none;">
 			<?php echo esc_html__( 'Your payment could not be authenticated', 'airwallex-online-payments-gateway' ); ?>
 		</div>
 		<div id="airwallex-full-featured-card" style="max-width:500px;margin:0 auto;"></div>

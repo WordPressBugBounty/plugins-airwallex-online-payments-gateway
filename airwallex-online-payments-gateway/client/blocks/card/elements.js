@@ -284,6 +284,7 @@ export const InlineCard                             = ({
 export const AirwallexSaveCard = (props) => {
 	const [isCVCCompleted, setIsCVCCompleted] = useState(false);
 	const [isSkipCVC, setIsSkipCVC] = useState(false);
+	const [cvcLength, setCvcLength] = useState(3);
 	const {
 		emitResponse,
 		settings,
@@ -300,11 +301,11 @@ export const AirwallexSaveCard = (props) => {
 		const { tokens } = settings;
 		const tokenData = tokens?.[token];
 		setIsSkipCVC(tokenData?.is_skip_cvc);
+		setCvcLength(['amex', 'american express'].includes(tokenData?.type?.toLowerCase()) ? 4 : 3);
 	}, [token, settings]);
 
 	useEffect(() => {
 		let cvcElement;
-
 		loadAirwallex({
 			env: settings.environment,
 			locale: settings.locale,
@@ -320,6 +321,7 @@ export const AirwallexSaveCard = (props) => {
 					},
 				},
 				placeholder: __('CVC', 'airwallex-online-payments-gateway'),
+				cvcLength,
 			});
 			cvcElementRef.current = cvcElement;
 			setIsCVCCompleted(false);
@@ -332,7 +334,7 @@ export const AirwallexSaveCard = (props) => {
 				cvcElement.destroy();
 			}
 		};
-	}, []);	
+	}, [cvcLength]);
 
 	useEffect(() => {
 		const onSuccess = async ({ processingResponse }) => {

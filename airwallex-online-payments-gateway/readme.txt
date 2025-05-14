@@ -3,7 +3,7 @@ Contributors: airwallex
 Tags: credit card, airwallex, payments, wechat, alipay, apple pay
 Requires at least: 4.5
 Tested up to: 6.7.2
-Stable tag: 1.19.0
+Stable tag: 1.20.0
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -68,6 +68,14 @@ The non-compressed javascript files can be found under the ```assets/js``` folde
 We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) as our build tool.
 
 == Changelog ==
+
+= 1.20.0 =
+* Release Date - 14 May 2025*
+
+* Add - Enhanced order details display while paying with the Additional Payment Methods
+* Add - Support for 4-digit CVC with AMEX cards
+* Add - Improved connection flow, allowing merchants to manually input the API key if OAuth cannot be completed
+* Fix - Resolved issue where shoppers were not redirected to the order received page after a successful payment using the Additional Payment Methods
 
 = 1.19.0 =
 * Release Date - 6 May 2025*

@@ -35,16 +35,12 @@ get_header( 'shop' );
 			<div class="airwallex-col-1">
 				<div class="cart-heading"><?php echo esc_html__( 'Summary', 'airwallex-online-payments-gateway' ); ?></div>
 				<?php
-				if (isset( $_GET['order_pay'] )) {
 					require __DIR__ . '/inc/order.php';
-				} else {
-					require __DIR__ . '/inc/cart.php';
-				}
 				?>
 			</div>
 			<div class="airwallex-col-2">
 				<div class="payment-section">
-					<div id="airwallex-error-message" class="woocommerce-error" style="display:none;">
+					<div id="airwallex-error-message" style="display:none;">
 						<?php echo esc_html__( 'Your payment could not be authenticated', 'airwallex-online-payments-gateway' ); ?>
 					</div>
 					<div id="airwallex-drop-in"></div>

@@ -222,6 +222,16 @@ jQuery(function ($) {
 			$('.wc-airwallex-connect-button').on('click', function(e) {
 				e.preventDefault();
 				const env = airwallexConnectionFlow.getEnv();
+				$.ajax({
+					type: 'POST',
+					data: {
+						security: awxAdminSettings.apiSettings.nonce.connectionClick,
+						env,
+					},
+					url: awxAdminSettings.apiSettings.ajaxUrl.connectionClick,
+				}).fail(function (error) {
+					console.log(error);
+				});
 				if (env === 'prod' && $('#awx-account-connected').is(':visible') && awxAdminSettings.apiSettings.connectedViaApiKey) {
 					airwallexConnectionFlow.showConnectViaAPIKey();
 					airwallexConnectionFlow.hideProdConnectedAlert();
@@ -372,7 +382,8 @@ jQuery(function ($) {
 
 		toggleConnectViaAPIKey: function() {
 			const env = airwallexConnectionFlow.getEnv();
-			if ('prod' === env && awxAdminSettings.apiSettings.connectionFailed) {
+			const settings = awxAdminSettings.apiSettings;
+			if ('prod' === env && (settings.connectionFailed || (!settings.connectedViaConnectionFlow && settings.connectionClicked.prod === 'yes'))) {
 				$('.wc-airwallex-connect-button').closest('tr').hide();
 				$('#airwallex-online-payments-gatewayairwallex_general_client_id').closest('tr').show();
 				$('#airwallex-online-payments-gatewayairwallex_general_api_key').closest('tr').show();
@@ -422,14 +433,27 @@ jQuery(function ($) {
 	airwallexConnectionFlow.init();
 
 	const saveCardEnableSelector = '#airwallex-online-payments-gatewayairwallex_card_save_card_enabled';
+	const skipCVCSelector = '#airwallex-online-payments-gatewayairwallex_card_skip_cvc_enabled';
 	const toggleCVCField = function() {
-		let selector = '#airwallex-online-payments-gatewayairwallex_card_skip_cvc_enabled';
 		if ($(saveCardEnableSelector).prop('checked')) {
-			$(selector).closest('tr').show();
+			$(skipCVCSelector).closest('tr').show();
 		} else {
-			$(selector).closest('tr').hide();
+			$(skipCVCSelector).closest('tr').hide();
 		}
 	}
 	toggleCVCField();
 	$(saveCardEnableSelector).on('change', toggleCVCField);
+
+	const formTypeSelector = '#airwallex-online-payments-gatewayairwallex_card_checkout_form_type';
+	const toggleSaveCardField = function() {
+		if ($(formTypeSelector).val() === 'inline') {
+			$(saveCardEnableSelector).closest('tr').show();
+			toggleCVCField();
+		} else {
+			$(saveCardEnableSelector).closest('tr').hide();
+			$(skipCVCSelector).closest('tr').hide();
+		}
+	}
+	toggleSaveCardField();
+	$(formTypeSelector).on('change', toggleSaveCardField);
 });

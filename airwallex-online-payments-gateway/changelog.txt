@@ -1,5 +1,12 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-05-14 - version 1.20.0
+
+* Add - Enhanced order details display while paying with the Additional Payment Methods
+* Add - Support for 4-digit CVC with AMEX cards
+* Add - Improved connection flow, allowing merchants to manually input the API key if OAuth cannot be completed
+* Fix - Resolved issue where shoppers were not redirected to the order received page after a successful payment using the Additional Payment Methods
+
 2025-05-06 - version 1.19.0
 
 * Add - Add ability for shoppers to save cards

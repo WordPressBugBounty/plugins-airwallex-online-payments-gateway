@@ -33,6 +33,7 @@ class APISettings extends AbstractAirwallexSettings {
 		add_action('woocommerce_airwallex_settings_checkout_' . $this->id, array($this, 'admin_options'));
 		add_action('admin_enqueue_scripts', [$this, 'enqueueAdminScripts']);
 		add_action('wc_ajax_airwallex_connection_test', [new AirwallexController(), 'connectionTest']);
+		add_action('wc_ajax_airwallex_connection_click', [new AirwallexController(), 'connectionClick']);
 		add_action('wc_ajax_airwallex_start_connection_flow', [new ConnectionFlowController(), 'startConnection']);
 	}
 
@@ -334,10 +335,12 @@ class APISettings extends AbstractAirwallexSettings {
 				'connected' => $this->isConnected(),
 				'nonce' => [
 					'connectionTest' => wp_create_nonce('wc-airwallex-admin-settings-connection-test'),
+					'connectionClick' => wp_create_nonce('wc-airwallex-admin-settings-connection-click'),
 					'startConnectionFlow' => wp_create_nonce('wc-airwallex-admin-settings-start-connection-flow'),
 				],
 				'ajaxUrl' => [
 					'connectionTest' => WC_AJAX::get_endpoint('airwallex_connection_test'),
+					'connectionClick' => WC_AJAX::get_endpoint('airwallex_connection_click'),
 					'startConnectionFlow' => WC_AJAX::get_endpoint('airwallex_start_connection_flow'),
 				],
 				'accountName' => [
@@ -349,6 +352,10 @@ class APISettings extends AbstractAirwallexSettings {
 					'manage' => __('Manage', 'airwallex-online-payments-gateway'),
 				],
 				'connectionFailed' => $this->isConnectionFailed(),
+				'connectionClicked' => [
+					'demo' => get_option('airwallex_connection_clicked_demo') ?: 'no',
+					'prod' => get_option('airwallex_connection_clicked_prod') ?: 'no',
+				],
 				'connectedViaConnectionFlow' => Util::isConnectedViaConnectionFlow(),
 				'connectedViaApiKey' => Util::isConnectedViaApiKey(),
 			],

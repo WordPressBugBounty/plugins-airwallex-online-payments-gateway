@@ -403,4 +403,23 @@ class AirwallexController {
 			]);
 		}
 	}
+
+	public function connectionClick() {
+		check_ajax_referer('wc-airwallex-admin-settings-connection-click', 'security');
+
+		$env  = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : '';
+
+		if (!in_array($env, ['demo', 'prod'], true)) {
+			wp_send_json([
+				'success' => false,
+				'message' => __('Invalid request.', 'airwallex-online-payments-gateway'),
+			]);
+		}
+
+		update_option('airwallex_connection_clicked_' . $env, 'yes');
+
+		wp_send_json([
+			'success' => true,
+		]);
+	}
 }

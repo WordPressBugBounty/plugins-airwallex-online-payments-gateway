@@ -74,17 +74,6 @@ jQuery(function ($) {
             AirwallexClient.displayCheckoutError(awxCheckoutForm, String(errorMessage).replace('%s', error.message || ''));
         });
 
-        cvcElement =  Airwallex.createElement('cvc', {
-            style: {
-                base: {
-                    fontSize: '14px',
-                    "::placeholder": {
-                        'color': 'rgba(135, 142, 153, 1)'
-                    },
-                }
-            },
-            placeholder: awxEmbeddedCardData.CVC
-        });
         showTokens();
     };
 
@@ -361,34 +350,52 @@ jQuery(function ($) {
         $('.airwallex-container .save-card label').css('font-weight', 400);
     };
 
-
-    $(document).on('click', '.save-card', function(event) {
+    $(document).on('change', 'input[name="save-card"]', function() {
         resetSaveCardUI();
-        $(this).find('input').prop('checked', true);
+        $(this).prop('checked', true);
         $("#airwallex-new-card").removeAttr("checked");
         $(".cvc-title, .cvc-container").hide();
 
         $('.airwallex-container label').css('font-weight', 400);
-        $(this).find('label').css('font-weight', 700);
 
         let tokenId = $('input[name="save-card"]:checked').attr('id');
+        $('label[for="' + tokenId + '"]').css('font-weight', 700);
         let el = $(".save-card-" + tokenId + " .cvc-title, .save-card-" + tokenId + " .cvc-container");
         if (tokens?.[tokenId]?.is_skip_cvc) {
             el.hide();
             return;
         }
         el.show();
-        cvcElement.mount(tokenId + '-cvc', { autoCapture: autoCapture });
+        let cvcLength = 3;
+        if (['amex', 'american express'].includes(tokens?.[tokenId]?.type?.toLowerCase())) {
+            cvcLength = 4;
+        }
+        if (cvcElement) {
+            Airwallex.destroyElement('cvc');
+        }
+        cvcElement =  Airwallex.createElement('cvc', {
+            style: {
+                base: {
+                    fontSize: '14px',
+                    "::placeholder": {
+                        'color': 'rgba(135, 142, 153, 1)'
+                    },
+                }
+            },
+            placeholder: awxEmbeddedCardData.CVC,
+            cvcLength
+        });
+        cvcElement.mount(tokenId + '-cvc', { autoCapture });
         cvcDetail = null;
         cvcElement.on('change', (event) => {
             cvcDetail = event.detail;
         })
     });
 
-    $(document).on('click', '.new-card', function(event) {
+    $(document).on('change', 'input[name="new-card"]', function() {
         resetSaveCardUI();
         $(".new-card-title, #airwallex-card, .line.save").show();
-        $(this).find('label').css('font-weight', 700);
+        $('label[for="airwallex-new-card"]').css('font-weight', 700);
     });
 
     let showTokens = async () => {
@@ -438,7 +445,7 @@ jQuery(function ($) {
         $(".airwallex-container").show();
         $(".airwallex-container .save-cards").html(tokensHtml);
         $(".airwallex-container .new-card").show();
-        $('.save-card').first().trigger('click');
+        $('input[name="save-card"]').first().trigger('click');
     }
     $(document).on('change', '#payment_method_airwallex_card', showTokens);
     $(document).on('updated_checkout', showTokens);

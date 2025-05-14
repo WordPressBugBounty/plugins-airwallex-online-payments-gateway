@@ -17,7 +17,7 @@ wp_enqueue_style( 'airwallex-redirect-element-css' );
 ?>
 	<div class="airwallex-content-wechat <?php echo esc_attr( $shortcodeAtts['class'] ); ?>" style="<?php echo esc_attr( $shortcodeAtts['style'] ); ?>">
 		<h2><?php echo esc_html__( 'Your WeChat Payment', 'airwallex-online-payments-gateway' ); ?></h2>
-		<div id="airwallex-error-message" class="woocommerce-error" style="display:none;">
+		<div id="airwallex-error-message" style="display:none;">
 			<?php echo esc_html__( 'Your payment could not be authenticated', 'airwallex-online-payments-gateway' ); ?>
 		</div>
 		<div id='airwallex-wechat'></div>

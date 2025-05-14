@@ -31,7 +31,7 @@ get_header( 'shop' );
 ?>
 	<div class="airwallex-content-card">
 		<h2><?php echo esc_html__( 'Enter your credit card details to pay your order', 'airwallex-online-payments-gateway' ); ?></h2>
-		<div id="airwallex-error-message" class="woocommerce-error" style="display:none;">
+		<div id="airwallex-error-message" style="display:none;">
 			<?php echo esc_html__( 'Your payment could not be authenticated', 'airwallex-online-payments-gateway' ); ?>
 		</div>
 		<div id="awx-full-featured-card" style="max-width:500px;margin:0 auto;"></div>

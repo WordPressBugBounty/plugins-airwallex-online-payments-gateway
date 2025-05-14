@@ -429,6 +429,15 @@ apple-pay-button {
 
 .airwallex-container .new-card-title {
 	margin-bottom: 5px;
+	font-size: 14px;
+}
+
+#add_payment_method .airwallex-container .new-card-title {
+	font-size: 16px;
+}
+
+label[for="airwallex-save"] {
+    font-size: 14px;
 }
 
 .airwallex-container .cvc-container {
