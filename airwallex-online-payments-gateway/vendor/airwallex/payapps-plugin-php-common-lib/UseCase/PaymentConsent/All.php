@@ -2,9 +2,9 @@
 
 namespace Airwallex\PayappsPlugin\CommonLibrary\UseCase\PaymentConsent;
 
-use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentConsent\GetList;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentConsent\GetList as GetPaymentConsentList;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentConsent;
-use GuzzleHttp\Exception\GuzzleException;
+use Exception;
 
 class All
 {
@@ -20,20 +20,19 @@ class All
 
     /**
      * @return array
-     * @throws GuzzleException
+     * @throws Exception
      */
     public function get(): array
     {
         $index = 0;
         $all = [];
         while (true) {
-            $getList = (new GetList())
+            $getList = (new GetPaymentConsentList())
                 ->setCustomerId($this->customerId)
                 ->setNextTriggeredBy($this->triggeredBy)
                 ->setPage($index)
                 ->setStatus(PaymentConsent::STATUS_VERIFIED)
                 ->send();
-
             /** @var PaymentConsent $paymentConsent */
             foreach ($getList->getItems() as $paymentConsent) {
                 $all[] = $paymentConsent;

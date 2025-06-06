@@ -1,6 +1,6 @@
 {
     "name": "airwallex/payapps-plugin-php-common-lib",
-    "version": "1.0.0",
+    "version": "1.1.2",
     "type": "library",
     "minimum-stability": "stable",
     "autoload": {
@@ -14,11 +14,10 @@
         }
     },
     "require": {
-       "php": ">=7.0",
-        "guzzlehttp/guzzle": "^6.5",
-        "ext-json": "*"
+        "php": ">=7.0"
     },
     "require-dev": {
+        "guzzlehttp/guzzle": "^6.5",
         "phpunit/phpunit": "^6.5",
         "vlucas/phpdotenv": "^4.3"
     },

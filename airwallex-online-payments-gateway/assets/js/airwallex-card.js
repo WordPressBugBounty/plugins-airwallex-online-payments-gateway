@@ -279,15 +279,30 @@ jQuery(function ($) {
 
         try {
             if (result.createConsent) {
-                await Airwallex.createPaymentConsent({
-                    intent_id: result.paymentIntent,
-                    customer_id: result.customerId,
-                    client_secret: result.clientSecret,
-                    currency: result.currency,
-                    element: element,
-                    next_triggered_by: 'merchant',
-                    billing: AirwallexClient.getBillingInformation(),
-                })
+                if (result.consentId) {
+                    await cvcElement.confirm({
+                        client_secret: result.clientSecret,
+                        billing: AirwallexClient.getBillingInformation(),
+                        currency: result.currency,
+                        customer_id: result.customerId,
+                        intent_id: result.paymentIntent,
+                        payment_method_id: result.paymentMethodId,
+                        payment_consent: {
+                            merchant_trigger_reason: 'scheduled',
+                            next_triggered_by: 'merchant'
+                        }
+                    });
+                } else {
+                    await Airwallex.createPaymentConsent({
+                        intent_id: result.paymentIntent,
+                        customer_id: result.customerId,
+                        client_secret: result.clientSecret,
+                        currency: result.currency,
+                        element: element,
+                        next_triggered_by: 'merchant',
+                        billing: AirwallexClient.getBillingInformation(),
+                    })
+                }
             } else if (result.consentId) {
                 if ($("#" + result.tokenId + "-cvc").css('display') !== 'none' && (!cvcDetail || !cvcDetail.complete)) {
                     throw new Error('Security Code is incomplete.');
@@ -360,12 +375,12 @@ jQuery(function ($) {
 
         let tokenId = $('input[name="save-card"]:checked').attr('id');
         $('label[for="' + tokenId + '"]').css('font-weight', 700);
-        let el = $(".save-card-" + tokenId + " .cvc-title, .save-card-" + tokenId + " .cvc-container");
+        let cvcContainerElement = $(".save-card-" + tokenId + " .cvc-title, .save-card-" + tokenId + " .cvc-container");
         if (tokens?.[tokenId]?.is_skip_cvc) {
-            el.hide();
-            return;
+            cvcContainerElement.hide();
+        } else {
+            cvcContainerElement.show();
         }
-        el.show();
         let cvcLength = 3;
         if (['amex', 'american express'].includes(tokens?.[tokenId]?.type?.toLowerCase())) {
             cvcLength = 4;

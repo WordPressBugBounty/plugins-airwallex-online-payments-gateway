@@ -4,8 +4,6 @@ namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI;
 
 use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\AccessToken;
-use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Psr7\Response;
 
 class Authentication extends AbstractApi
 {
@@ -29,10 +27,10 @@ class Authentication extends AbstractApi
     }
 
     /**
-     * @param Response $response
+     * @param $response
      * @return AccessToken
      */
-    protected function parseResponse(Response $response): AccessToken
+    protected function parseResponse($response): AccessToken
     {
         return new AccessToken(json_decode($response->getBody(), true));
     }

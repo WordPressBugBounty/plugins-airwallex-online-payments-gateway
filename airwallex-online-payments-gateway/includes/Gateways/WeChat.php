@@ -157,7 +157,7 @@ class WeChat extends WC_Payment_Gateway {
 			$apiClient                 = WeChatClient::getInstance();
 			$paymentIntent             = $apiClient->getPaymentIntent( $paymentIntentId );
 			$paymentIntentClientSecret = $paymentIntent->getClientSecret();
-			$confirmationUrl           = $this->get_payment_confirmation_url();
+			$confirmationUrl           = $this->get_payment_confirmation_url($orderId, $paymentIntentId);
 			$isSandbox                 = $this->is_sandbox();
 
 			$this->logService->debug(

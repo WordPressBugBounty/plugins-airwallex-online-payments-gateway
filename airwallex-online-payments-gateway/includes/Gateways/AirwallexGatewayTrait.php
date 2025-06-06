@@ -22,6 +22,14 @@ trait AirwallexGatewayTrait {
 		'card_jcb'        => 4,
 	);
 
+	public function get_settings_url() {
+		return get_admin_url( null, 'admin.php?page=wc-settings&tab=checkout&section=airwallex_general' );
+	}
+	
+	public function get_onboarding_url() {
+		return get_admin_url( null, 'admin.php?page=wc-settings&tab=checkout&section=airwallex_general' );
+	}
+	
 	public function sort_icons( $iconArray ) {
 		uksort(
 			$iconArray,
@@ -72,8 +80,13 @@ trait AirwallexGatewayTrait {
 		return true;
 	}
 
-	public function get_payment_confirmation_url() {
-		return WC()->api_request_url( Main::ROUTE_SLUG_CONFIRMATION );
+	public function get_payment_confirmation_url($orderId = '', $intentId = '') {
+		$url = WC()->api_request_url( Main::ROUTE_SLUG_CONFIRMATION );
+		if ( empty( $orderId ) ) {
+			return $url;
+		}
+		$url .= strpos($url, '?') !== false ? '&' : '?';
+		return $url . "order_id=$orderId&intent_id=$intentId";
 	}
 
 	public function init_settings() {

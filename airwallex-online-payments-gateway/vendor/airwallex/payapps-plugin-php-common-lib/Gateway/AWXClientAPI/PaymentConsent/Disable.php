@@ -2,10 +2,8 @@
 
 namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentConsent;
 
-use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\AbstractApi;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentConsent;
-use GuzzleHttp\Psr7\Response;
 
 class Disable extends AbstractApi
 {
@@ -35,13 +33,12 @@ class Disable extends AbstractApi
     }
 
     /**
-     * @param Response $response
+     * @param $response
      *
-     * @return bool
+     * @return PaymentConsent
      */
-    protected function parseResponse(Response $response): bool
+    protected function parseResponse($response): PaymentConsent
     {
-        $paymentConsent = new PaymentConsent(json_decode($response->getBody(), true));
-        return $paymentConsent->getStatus() === 'DISABLED';
+        return new PaymentConsent(json_decode($response->getBody(), true));
     }
 }

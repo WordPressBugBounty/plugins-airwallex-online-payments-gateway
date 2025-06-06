@@ -17,7 +17,7 @@ jQuery(function ($) {
             orderId,
             paymentIntentId,
         } = awxRedirectElData;
-        const { confirmationUrl } = awxCommonData;
+        let { confirmationUrl } = awxCommonData;
         const element = Airwallex.createElement(elementType, elementOptions);
         let domElement = element.mount(containerId);
         const waitElementInterval = setInterval(function () {
@@ -45,6 +45,7 @@ jQuery(function ($) {
             if (successMessage) {
                 successMessage.style.display = 'block';
             }
+            confirmationUrl += confirmationUrl.indexOf('?') !== -1 ? '&' : '?';
             location.href = `${confirmationUrl}order_id=${orderId}&intent_id=${paymentIntentId}&is_airwallex_save_checked=true`;
         });
 

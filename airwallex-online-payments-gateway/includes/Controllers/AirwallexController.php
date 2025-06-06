@@ -17,6 +17,7 @@ use Airwallex\Client\WeChatClient;
 use Airwallex\Gateways\AirwallexGatewayTrait;
 use Airwallex\Services\Util;
 use Exception;
+use Error;
 use WC_Order;
 
 class AirwallexController {
@@ -36,7 +37,7 @@ class AirwallexController {
 		$paymentIntent   = $apiClient->getPaymentIntent( $paymentIntentId );
 		$clientSecret = $paymentIntent->getClientSecret();
 		$customerId = $paymentIntent->getCustomerId();
-		$confirmationUrl = $gateway->get_payment_confirmation_url();
+		$confirmationUrl = $gateway->get_payment_confirmation_url($order->get_id(), $paymentIntentId);
 		$isSandbox       = $gateway->is_sandbox();
 
 		return [$order, $paymentIntentId, $clientSecret, $customerId, $confirmationUrl, $isSandbox];
@@ -216,15 +217,6 @@ class AirwallexController {
 
 			$order = wc_get_order( $orderId );
 
-
-			if ( ! empty($_GET['is_airwallex_save_checked']) && in_array($_GET['is_airwallex_save_checked'], ['true', '1'], true) ) {
-				try {
-					(new Card())->syncSaveCards();
-				} catch ( Exception $e ) {
-					$this->logService->error('Error syncing save cards: ', $e->getMessage());
-				}
-			}
-
 			if ( empty( $order ) ) {
 				throw new Exception( 'Order not found: ' . $orderId );
 			}
@@ -260,6 +252,18 @@ class AirwallexController {
 			}
 
 			WC()->cart->empty_cart();
+
+			if ( ! empty($_GET['is_airwallex_save_checked']) && in_array($_GET['is_airwallex_save_checked'], ['true', '1'], true) ) {
+				$attempt = $paymentIntent->getLatestPaymentAttempt();
+				try {
+					if (!empty($attempt) && !empty($attempt['payment_method']['type']) && $attempt['payment_method']['type'] === 'card') {
+						(new Card())->syncSaveCards();
+					}
+				} catch ( Exception | Error $e ) {
+					$this->logService->error('Error syncing save cards: ', $e->getMessage());
+				}
+			}
+
 			wp_safe_redirect( $order->get_checkout_order_received_url() );
 			die;
 		} catch ( Exception $e ) {

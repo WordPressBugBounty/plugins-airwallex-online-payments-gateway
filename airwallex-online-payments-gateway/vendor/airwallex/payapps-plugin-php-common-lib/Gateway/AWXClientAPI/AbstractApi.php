@@ -5,10 +5,8 @@ namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI;
 use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
 use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\AccessToken;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\Response;
 use Exception;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Psr7\Response;
 use Composer\InstalledVersions;
 
 abstract class AbstractApi
@@ -40,12 +38,55 @@ abstract class AbstractApi
 
     /**
      * @return mixed
-     * @throws GuzzleException
      * @throws Exception
      */
     public function send()
     {
-        $client = new Client([
+        if (Init::getInstance()->get('plugin_type') === 'woo_commerce') {
+            return $this->wpHttpSend();
+        }
+        return $this->guzzleHttpSend();
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function wpHttpSend()
+    {
+        $url = $this->getBaseUrl() . $this->getUri();
+        $headers = array_merge($this->getHeaders(), [
+            'Content-Type' => 'application/json',
+            'x-api-version' => self::X_API_VERSION
+        ]);
+
+        if ($this->getMethod() === 'GET') {
+            $data = wp_remote_get($url . '?' . http_build_query($this->params), [
+                'timeout' => self::TIMEOUT,
+                'headers' => $headers,
+            ]);
+        } else {
+            $this->initializePostParams();
+            $data = wp_remote_post($url, [
+                'method' => $this->getMethod(),
+                'timeout' => self::TIMEOUT,
+                'redirection' => 5,
+                'headers' => $headers,
+                'body' => json_encode($this->params),
+                'cookies' => array(),
+            ]);
+        }
+        $response = new Response();
+        $body = is_wp_error($data) ? '' : ($data['body'] ?? '');
+        $response->setBody($body);
+        return $this->parseResponse($response);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function guzzleHttpSend()
+    {
+        $client = new \GuzzleHttp\Client([
             'base_uri' => $this->getBaseUrl(),
             'timeout' => self::TIMEOUT,
         ]);
@@ -167,14 +208,13 @@ abstract class AbstractApi
     abstract protected function getUri(): string;
 
     /**
-     * @param Response $response
      * @return mixed
      */
-    abstract protected function parseResponse(Response $response);
+    abstract protected function parseResponse($response);
 
     /**
      * @return array
-     * @throws GuzzleException
+     * @throws Exception
      */
     protected function getHeaders(): array
     {
@@ -185,7 +225,7 @@ abstract class AbstractApi
 
     /**
      * @return string
-     * @throws GuzzleException
+     * @throws Exception
      */
     protected function getToken(): string
     {

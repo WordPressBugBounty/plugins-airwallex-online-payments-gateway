@@ -8,12 +8,16 @@ if (!defined('ABSPATH')) {
 
 use Airwallex\Services\LogService;
 use Airwallex\Client\CardClient;
+use Airwallex\Gateways\AirwallexGatewayTrait;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\OrderService;
 use Airwallex\Main;
 use Exception;
 
 class PaymentConsentController {
+
+	use AirwallexGatewayTrait;
+
 	protected $cardClient;
 	protected $cacheService;
 	protected $orderService;
@@ -84,9 +88,7 @@ class PaymentConsentController {
 			$order->save();
 			WC()->session->set( 'airwallex_order', $orderId );
 
-			$confirmationUrl  = WC()->api_request_url( Main::ROUTE_SLUG_CONFIRMATION );
-			$confirmationUrl .= ( strpos( $confirmationUrl, '?' ) === false ) ? '?' : '&';
-			$confirmationUrl .= "order_id={$orderId}&intent_id={$paymentConsent->getInitialPaymentIntentId()}";
+			$confirmationUrl = $this->get_payment_confirmation_url($orderId, $paymentConsent->getInitialPaymentIntentId());
 
 			wp_send_json([
 				'success' => true,

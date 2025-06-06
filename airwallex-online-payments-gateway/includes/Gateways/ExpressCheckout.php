@@ -1017,9 +1017,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			$order->save();
 			WC()->session->set( 'airwallex_order', $order_id );
 
-			$confirmationUrl  = $this->get_payment_confirmation_url();
-			$confirmationUrl .= ( strpos( $confirmationUrl, '?' ) === false ) ? '?' : '&';
-			$confirmationUrl .= "order_id={$order_id}&intent_id={$paymentIntent->getId()}";
+			$confirmationUrl  = $this->get_payment_confirmation_url($order_id, $paymentIntent->getId());
 			$response         = [
 				'result' => 'success',
 				'payload' => [

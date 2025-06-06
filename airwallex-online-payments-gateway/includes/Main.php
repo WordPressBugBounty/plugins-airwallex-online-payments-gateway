@@ -512,11 +512,9 @@ class Main {
 		}
 
 		$confirmationUrl  = WC()->api_request_url( self::ROUTE_SLUG_CONFIRMATION );
-		$confirmationUrl .= ( strpos( $confirmationUrl, '?' ) === false ) ? '?' : '&';
 		$commonScriptData = [
 			'env' => Util::getEnvironment(),
 			'locale' => Util::getLocale(),
-			'confirmationUrl' => $confirmationUrl,
 			'isOrderPayPage'  => is_wc_endpoint_url( 'order-pay' ),
 		];
 		if ( isset( $_GET['pay_for_order'] ) && 'true' === $_GET['pay_for_order'] ) {
@@ -525,6 +523,8 @@ class Main {
 			if ( $order_id ) {
 				$order = wc_get_order( $order_id );
 				if ( is_a( $order, 'WC_Order' ) ) {
+					$confirmationUrl .= ( strpos( $confirmationUrl, '?' ) === false ) ? '?' : '&';
+					$confirmationUrl .= 'order_id=' . $order_id;
 					$orderKey = isset($_GET['key']) ? wc_clean(wp_unslash( $_GET['key'] )) : '';
 					$orderPayUrl = WC()->api_request_url('airwallex_process_order_pay');
 					$orderPayUrl .= ( strpos( $orderPayUrl, '?' ) === false ) ? '?' : '&';
@@ -542,6 +542,7 @@ class Main {
 				}
 			}
 		}
+		$commonScriptData['confirmationUrl'] = $confirmationUrl;
 		wp_add_inline_script( 'airwallex-common-js', 'var awxCommonData=' . wp_json_encode($commonScriptData), 'before' );
 	}
 

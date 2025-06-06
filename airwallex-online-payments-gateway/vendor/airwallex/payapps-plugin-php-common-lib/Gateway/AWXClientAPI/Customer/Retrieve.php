@@ -4,7 +4,6 @@ namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Customer;
 
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\AbstractApi;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\Customer;
-use GuzzleHttp\Psr7\Response;
 
 class Retrieve extends AbstractApi
 {
@@ -41,11 +40,11 @@ class Retrieve extends AbstractApi
     }
 
     /**
-     * @param Response $response
+     * @param $response
      *
      * @return Customer
      */
-    protected function parseResponse(Response $response): Customer
+    protected function parseResponse($response): Customer
     {
         return new Customer(json_decode($response->getBody(), true));
     }

@@ -4,8 +4,7 @@ namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log;
 
 use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\AbstractApi;
-use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Psr7\Response;
+use Exception;
 
 class Log extends AbstractApi
 {
@@ -66,8 +65,6 @@ class Log extends AbstractApi
 
     /**
      * @return string
-     *
-     * @throws GuzzleException
      */
     protected function getAccountId(): string
     {
@@ -114,8 +111,6 @@ class Log extends AbstractApi
 
     /**
      * @return void
-     *
-     * @throws GuzzleException
      */
     protected function initializePostParams()
     {
@@ -145,25 +140,25 @@ class Log extends AbstractApi
     }
 
     /**
-     * @param string $eventName
      * @param string $message
      *
-     * @return Response
-     * @throws GuzzleException
+     * @param string $eventName
+     * @return mixed
+     * @throws Exception
      */
-    public static function info(string $message, string $eventName = ""): Response
+    public static function info(string $message, string $eventName = "")
     {
         return self::log('info', $eventName, $message);
     }
 
     /**
-     * @param string $eventName
      * @param string $message
      *
-     * @return Response
-     * @throws GuzzleException
+     * @param string $eventName
+     * @return mixed
+     * @throws Exception
      */
-    public static function error(string $message, string $eventName = ""): Response
+    public static function error(string $message, string $eventName = "")
     {
         return self::log('error', $eventName, $message);
     }
@@ -173,10 +168,10 @@ class Log extends AbstractApi
      * @param string $eventName
      * @param string $message
      *
-     * @return Response
-     * @throws GuzzleException
+     * @return mixed
+     * @throws Exception
      */
-    public static function log(string $severity, string $eventName, string $message): Response
+    public static function log(string $severity, string $eventName, string $message)
     {
         $instance = self::getInstance();
         $instance->setParams([
@@ -195,11 +190,9 @@ class Log extends AbstractApi
     }
 
     /**
-     * @param Response $response
-     *
-     * @return Response
+     * @param $response
      */
-    protected function parseResponse(Response $response): Response
+    protected function parseResponse($response)
     {
         return $response;
     }

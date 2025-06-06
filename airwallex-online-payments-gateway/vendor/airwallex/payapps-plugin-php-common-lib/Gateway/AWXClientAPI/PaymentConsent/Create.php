@@ -4,7 +4,6 @@ namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentCons
 
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\AbstractApi;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentConsent;
-use GuzzleHttp\Psr7\Response;
 
 class Create extends AbstractApi
 {
@@ -37,11 +36,11 @@ class Create extends AbstractApi
     }
 
     /**
-     * @param Response $response
+     * @param $response
      *
      * @return PaymentConsent
      */
-    protected function parseResponse(Response $response): PaymentConsent
+    protected function parseResponse($response): PaymentConsent
     {
         return new PaymentConsent(json_decode($response->getBody(), true));
     }

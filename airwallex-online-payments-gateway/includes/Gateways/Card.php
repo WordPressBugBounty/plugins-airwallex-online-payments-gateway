@@ -133,27 +133,12 @@ class Card extends WC_Payment_Gateway {
 
 	public function registerHooks() {
 		add_filter( 'wc_airwallex_settings_nav_tabs', array( $this, 'adminNavTab' ), 11 );
-		add_filter( 'woocommerce_get_customer_payment_tokens', array( $this, 'filterTokens' ), 10, 3 );
 		add_action( 'woocommerce_airwallex_settings_checkout_' . $this->id, array( $this, 'enqueueAdminScripts' ) );
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueueScriptsForEmbeddedCard' ) );
 		add_action( 'wc_ajax_airwallex_get_tokens', [$this, 'getTokens']);
 		add_action( 'wc_ajax_airwallex_get_customer_client_secret', [$this, 'getCustomerClientSecret']);
 		add_action( 'woocommerce_payment_token_deleted', array( $this, 'deletePaymentMethod' ), 10, 2 );
-	}
-
-	public function filterTokens($tokens, $customer_id, $gateway_id) {
-		$isBlockCheckout = function_exists('has_block') && has_block('woocommerce/checkout');
-		$hasSubscription = $this->isContainSubscription();
-		$hasRenewal = function_exists('wcs_cart_contains_renewal') && wcs_cart_contains_renewal();
-
-		if ($isBlockCheckout && ($hasSubscription || $hasRenewal)) {
-			return array_filter($tokens, function($token) {
-				return $token->get_gateway_id() !== Card::GATEWAY_ID;
-			});
-		}
-
-		return $tokens;
 	}
 
 	protected function consentsInCloud() {
@@ -311,8 +296,8 @@ class Card extends WC_Payment_Gateway {
 		$isChangePaymentMethod = is_checkout_pay_page() && isset( $_REQUEST['change_payment_method'] );
 		$isContainSubscription = $this->isContainSubscription() || $isChangePaymentMethod;
 		$isSaveCardEnabled = $this->is_save_card_enabled();
-		$saveCardsHtml = $isLoggedIn && $isSaveCardEnabled && ! $isContainSubscription && ! is_account_page() ? '<div class="save-cards"></div>' : '';
-		$newCardRadioHtml = $isLoggedIn && $isSaveCardEnabled && ! $isContainSubscription ? sprintf(
+		$saveCardsHtml = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? '<div class="save-cards"></div>' : '';
+		$newCardRadioHtml = $isLoggedIn && $isSaveCardEnabled && ! $isChangePaymentMethod ? sprintf(
 			/* translators: Placeholder 1: Use new card message. */
 			'<div class="new-card line" style="display: none;">
 				<input type="radio" name="new-card" id="airwallex-new-card">
@@ -332,8 +317,8 @@ class Card extends WC_Payment_Gateway {
 			$savePaymentMessage
 		) : '';
 		
-		$spinnerHtml = $isLoggedIn && $isSaveCardEnabled && ! $isContainSubscription && ! is_account_page() ? '<div class="wc-awx-checkbox-spinner" style="display: block;"></div>' : '';
-		$showAirwallexContainer = $isLoggedIn && $isSaveCardEnabled && ! $isContainSubscription && ! is_account_page() ? 'none' : 'block';
+		$spinnerHtml = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? '<div class="wc-awx-checkbox-spinner" style="display: block;"></div>' : '';
+		$showAirwallexContainer = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? 'none' : 'block';
 		echo wp_kses_post( '<p>' . $this->description . '</p>' );
 		$managePaymentMethod = ( is_account_page() || ! empty($_REQUEST['change_payment_method']) ) ? 'manage-payment-method' : '';
 
@@ -511,6 +496,8 @@ class Card extends WC_Payment_Gateway {
 				if ($tokenId) {
 					$token = WC_Payment_Tokens::get( $tokenId );
 					$result['consentId'] = $token->get_token();
+					$paymentMethod = $apiClient->getPaymentConsent( $result['consentId'] )->getPaymentMethod();
+					$result['paymentMethodId'] = $paymentMethod['id'] ?? '';
 					$result['tokenId'] = $tokenId;
 				}
 			}
@@ -609,7 +596,7 @@ class Card extends WC_Payment_Gateway {
 			$paymentIntent             = $apiClient->getPaymentIntent( $paymentIntentId );
 			$paymentIntentClientSecret = $paymentIntent->getClientSecret();
 			$airwallexCustomerId       = $paymentIntent->getCustomerId();
-			$confirmationUrl           = $this->get_payment_confirmation_url();
+			$confirmationUrl           = $this->get_payment_confirmation_url($orderId, $paymentIntentId);
 			$isSandbox                 = $this->is_sandbox();
 			$autoCapture = $this->is_capture_immediately();
 			$orderService = new OrderService();

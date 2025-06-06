@@ -30,15 +30,31 @@ const confirmPayment      = ({
 
 	let request;
 	if (paymentDetails.createConsent) {
-		request = createAirwallexPaymentConsent({
-			intent_id: paymentDetails.paymentIntent,
-			customer_id: paymentDetails.customerId,
-			client_secret: paymentDetails.clientSecret,
-			currency: paymentDetails.currency,
-			element: card,
-			next_triggered_by: 'merchant',
-			billing: getBillingInformation(billingData),
-		});
+		if (paymentDetails.consentId) {
+			request = cvcElementRef.current.confirm({
+				client_secret: paymentDetails.clientSecret,
+				billing: getBillingInformation(billingData),
+				currency: paymentDetails.currency,
+				customer_id: paymentDetails.customerId,
+				intent_id: paymentDetails.paymentIntent,
+				payment_method_id: paymentDetails.paymentMethodId,
+				payment_consent: {
+					merchant_trigger_reason: 'scheduled',
+					next_triggered_by: 'merchant'
+				}
+			});
+		} else {
+			request = createAirwallexPaymentConsent({
+				intent_id: paymentDetails.paymentIntent,
+				customer_id: paymentDetails.customerId,
+				client_secret: paymentDetails.clientSecret,
+				currency: paymentDetails.currency,
+				element: card,
+				next_triggered_by: 'merchant',
+				billing: getBillingInformation(billingData),
+			});
+		}
+
 	} else if (paymentDetails.consentId) {
 		request = confirmAirwallexPaymentIntent({
 			intent_id: paymentDetails.paymentIntent,

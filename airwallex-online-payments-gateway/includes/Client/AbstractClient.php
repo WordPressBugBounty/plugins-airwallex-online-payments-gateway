@@ -181,6 +181,10 @@ abstract class AbstractClient {
 		$order       = wc_get_order( (int) $orderId );
 		$orderNumber = $order->get_meta( '_order_number' );
 		$orderNumber = $orderNumber ? $orderNumber : $orderId;
+
+		$url = WC()->api_request_url( Main::ROUTE_SLUG_CONFIRMATION );
+		$url .= strpos($url, '?') !== false ? '&' : '?';
+		$url .= "order_id=$orderId";		
 		$data        = array(
 			'amount'            => $amount,
 			'currency'          => $order->get_currency(),
@@ -190,7 +194,7 @@ abstract class AbstractClient {
 				'wp_instance_key' => Main::getInstanceKey(),
 			),
 			'merchant_order_id' => $orderNumber,
-			'return_url'        => WC()->api_request_url( Main::ROUTE_SLUG_CONFIRMATION ),
+			'return_url'        => $url,
 			'order'             => array(
 				'type' => 'physical_goods',
 			),
