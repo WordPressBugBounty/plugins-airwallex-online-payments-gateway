@@ -50,6 +50,7 @@ class ComposerStaticInit9b313891561292d572215682e3ff012d
         'Airwallex\\Gateways\\AbstractAirwallexGateway' => __DIR__ . '/../..' . '/includes/Gateways/AbstractAirwallexGateway.php',
         'Airwallex\\Gateways\\AirwallexGatewayLocalPaymentMethod' => __DIR__ . '/../..' . '/includes/Gateways/AirwallexGatewayLocalPaymentMethod.php',
         'Airwallex\\Gateways\\AirwallexGatewayTrait' => __DIR__ . '/../..' . '/includes/Gateways/AirwallexGatewayTrait.php',
+        'Airwallex\\Gateways\\AirwallexOnboardingPaymentGateway' => __DIR__ . '/../..' . '/includes/Gateways/AirwallexOnboardingPaymentGateway.php',
         'Airwallex\\Gateways\\Blocks\\AirwallexCardWCBlockSupport' => __DIR__ . '/../..' . '/includes/Gateways/Blocks/AirwallexCardWCBlockSupport.php',
         'Airwallex\\Gateways\\Blocks\\AirwallexExpressCheckoutWCBlockSupport' => __DIR__ . '/../..' . '/includes/Gateways/Blocks/AirwallexExpressCheckoutWCBlockSupport.php',
         'Airwallex\\Gateways\\Blocks\\AirwallexKlarnaWCBlockSupport' => __DIR__ . '/../..' . '/includes/Gateways/Blocks/AirwallexKlarnaWCBlockSupport.php',

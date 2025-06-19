@@ -6,12 +6,12 @@
  * Author: Airwallex
  * Author URI: https://www.airwallex.com
  * License: GPLv3 or later
- * Version: 1.21.0
+ * Version: 1.22.0
  * Requires at least: 4.5
- * Tested up to: 6.7.2
+ * Tested up to: 6.8.1
  * Requires PHP: 7.3
  * WC requires at least: 3.0
- * WC tested up to: 9.7.1
+ * WC tested up to: 9.9.3
  * Text Domain: airwallex-online-payments-gateway
  */
 
@@ -29,7 +29,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 /**
  * Required minimums and constants
  */
-define( 'AIRWALLEX_VERSION', '1.21.0' );
+define( 'AIRWALLEX_VERSION', '1.22.0' );
 define( 'AIRWALLEX_PLUGIN_URL', untrailingslashit( plugins_url( basename( plugin_dir_path( __FILE__ ) ), basename( __FILE__ ) ) ) );
 define( 'AIRWALLEX_PLUGIN_PATH', __DIR__ . '/' );
 define( 'AIRWALLEX_PLUGIN_NAME', 'airwallex-online-payments-gateway' );

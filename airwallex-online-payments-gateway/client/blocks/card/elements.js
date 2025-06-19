@@ -29,45 +29,36 @@ const confirmPayment      = ({
 	paymentResponse.confirmUrl = confirmUrl;
 
 	let request;
-	if (paymentDetails.createConsent) {
-		if (paymentDetails.consentId) {
-			request = cvcElementRef.current.confirm({
-				client_secret: paymentDetails.clientSecret,
-				billing: getBillingInformation(billingData),
-				currency: paymentDetails.currency,
-				customer_id: paymentDetails.customerId,
-				intent_id: paymentDetails.paymentIntent,
-				payment_method_id: paymentDetails.paymentMethodId,
-				payment_consent: {
-					merchant_trigger_reason: 'scheduled',
-					next_triggered_by: 'merchant'
-				}
-			});
-		} else {
-			request = createAirwallexPaymentConsent({
-				intent_id: paymentDetails.paymentIntent,
-				customer_id: paymentDetails.customerId,
-				client_secret: paymentDetails.clientSecret,
-				currency: paymentDetails.currency,
-				element: card,
-				next_triggered_by: 'merchant',
-				billing: getBillingInformation(billingData),
-			});
-		}
-
-	} else if (paymentDetails.consentId) {
-		request = confirmAirwallexPaymentIntent({
-			intent_id: paymentDetails.paymentIntent,
-			payment_consent_id: paymentDetails.consentId,
+	if (paymentDetails.paymentMethodId) {
+		let confirmData = {
 			client_secret: paymentDetails.clientSecret,
-			currency: paymentDetails.currency,
-			element: cvcElementRef.current,
 			billing: getBillingInformation(billingData),
+			customer_id: paymentDetails.customerId,
+			intent_id: paymentDetails.paymentIntent,
+			payment_method_id: paymentDetails.paymentMethodId,
 			payment_method_options: {
 				card: {
 					auto_capture: settings.capture_immediately
 				}
 			},
+		}
+		if (paymentDetails.createConsent) {
+			confirmData.currency = paymentDetails.currency;
+			confirmData.payment_consent = {
+				merchant_trigger_reason: 'scheduled',
+				next_triggered_by: 'merchant'
+			};
+		}
+		request = cvcElementRef.current.confirm(confirmData);
+	} else if (paymentDetails.createConsent) {
+		request = createAirwallexPaymentConsent({
+			intent_id: paymentDetails.paymentIntent,
+			customer_id: paymentDetails.customerId,
+			client_secret: paymentDetails.clientSecret,
+			currency: paymentDetails.currency,
+			element: card,
+			next_triggered_by: 'merchant',
+			billing: getBillingInformation(billingData),
 		});
 	} else if (airwallexSaveChecked) {
 		request = createAirwallexPaymentConsent({

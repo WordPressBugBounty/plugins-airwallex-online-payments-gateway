@@ -77,7 +77,7 @@ class AirwallexController {
 			$gateway->enqueueScripts();
 			$apiClient = MainClient::getInstance();
 			list( $order, $paymentIntentId, $paymentIntentClientSecret, $airwallexCustomerId, $confirmationUrl, $isSandbox ) = $this->getPaymentDetailForRedirect($apiClient, $gateway);
-			
+			$isShowOrderDetails = $gateway->isShowOrderDetails();
 			$orderService = new OrderService();
 			$isSubscription = $orderService->containsSubscription( $order->get_id() );
 			$this->logService->debug(
@@ -253,11 +253,13 @@ class AirwallexController {
 
 			WC()->cart->empty_cart();
 
-			if ( ! empty($_GET['is_airwallex_save_checked']) && in_array($_GET['is_airwallex_save_checked'], ['true', '1'], true) ) {
+			if ( (! empty($_GET['is_airwallex_save_checked']) && in_array($_GET['is_airwallex_save_checked'], ['true', '1'], true))
+				|| $orderService->containsSubscription( $order->get_id() )) {
 				$attempt = $paymentIntent->getLatestPaymentAttempt();
 				try {
 					if (!empty($attempt) && !empty($attempt['payment_method']['type']) && $attempt['payment_method']['type'] === 'card') {
-						(new Card())->syncSaveCards();
+						$airwallexCustomerId = (new OrderService())->getAirwallexCustomerId( get_current_user_id(), CardClient::getInstance() );
+						(new Card())->syncSaveCards($airwallexCustomerId, get_current_user_id());
 					}
 				} catch ( Exception | Error $e ) {
 					$this->logService->error('Error syncing save cards: ', $e->getMessage());

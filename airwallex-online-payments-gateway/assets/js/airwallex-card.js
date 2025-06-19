@@ -278,49 +278,37 @@ jQuery(function ($) {
         }
 
         try {
-            if (result.createConsent) {
-                if (result.consentId) {
-                    await cvcElement.confirm({
-                        client_secret: result.clientSecret,
-                        billing: AirwallexClient.getBillingInformation(),
-                        currency: result.currency,
-                        customer_id: result.customerId,
-                        intent_id: result.paymentIntent,
-                        payment_method_id: result.paymentMethodId,
-                        payment_consent: {
-                            merchant_trigger_reason: 'scheduled',
-                            next_triggered_by: 'merchant'
-                        }
-                    });
-                } else {
-                    await Airwallex.createPaymentConsent({
-                        intent_id: result.paymentIntent,
-                        customer_id: result.customerId,
-                        client_secret: result.clientSecret,
-                        currency: result.currency,
-                        element: element,
-                        next_triggered_by: 'merchant',
-                        billing: AirwallexClient.getBillingInformation(),
-                    })
-                }
-            } else if (result.consentId) {
-                if ($("#" + result.tokenId + "-cvc").css('display') !== 'none' && (!cvcDetail || !cvcDetail.complete)) {
-                    throw new Error('Security Code is incomplete.');
-                }
-                await Airwallex.confirmPaymentIntent({
-                    element: cvcElement,
-                    intent_id: result.paymentIntent,
+            if (result.paymentMethodId) {
+                let confirmData = {
                     client_secret: result.clientSecret,
-                    payment_consent_id: result.consentId,
-                    payment_method: {
-                        billing: AirwallexClient.getBillingInformation()
-                    },
+                    billing: AirwallexClient.getBillingInformation(),
+                    customer_id: result.customerId,
+                    intent_id: result.paymentIntent,
+                    payment_method_id: result.paymentMethodId,
                     payment_method_options: {
                         card: {
                             auto_capture: autoCapture
                         }
                     },
-                });
+                }
+                if (result.createConsent) {
+                    confirmData.currency = result.currency;
+                    confirmData.payment_consent = {
+                        merchant_trigger_reason: 'scheduled',
+                        next_triggered_by: 'merchant'
+                    };
+                }
+                await cvcElement.confirm(confirmData);
+            } else if (result.createConsent) {
+                await Airwallex.createPaymentConsent({
+                    intent_id: result.paymentIntent,
+                    customer_id: result.customerId,
+                    client_secret: result.clientSecret,
+                    currency: result.currency,
+                    element: element,
+                    next_triggered_by: 'merchant',
+                    billing: AirwallexClient.getBillingInformation(),
+                })
             } else if ($('#airwallex-save').prop('checked')) {
                 await Airwallex.createPaymentConsent({
                     intent_id: result.paymentIntent,

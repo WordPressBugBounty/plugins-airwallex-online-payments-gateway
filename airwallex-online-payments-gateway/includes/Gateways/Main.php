@@ -227,8 +227,18 @@ class Main extends WC_Payment_Gateway {
 					),
 					'default'  => '2col-1',
 				),
+				'order_details' => array(
+					'title'    => __( 'Show order details', 'airwallex-online-payments-gateway' ),
+					'label'    => __( 'Enable this to display order details on checkout', 'airwallex-online-payments-gateway' ),
+					'type'     => 'checkbox',
+					'default'  => 'no',
+				),
 			)
 		);
+	}
+
+	public function isShowOrderDetails() {
+		return in_array( $this->get_option( 'order_details' ), array( true, 'yes' ), true );
 	}
 
 	public function process_payment( $order_id ) {
@@ -504,6 +514,7 @@ class Main extends WC_Payment_Gateway {
 			$isSandbox                 = $this->is_sandbox();
 			$orderService = new OrderService();
 			$isSubscription = $orderService->containsSubscription( $orderId );
+			$isShowOrderDetails = $this->isShowOrderDetails();
 
 			$this->logService->debug(
 				__METHOD__ . ' - Redirect to the dropIn payment page',

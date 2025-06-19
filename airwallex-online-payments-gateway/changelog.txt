@@ -1,5 +1,10 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-06-18 - version 1.22.0
+
+* Add - Display cards in the saved cards list that were previously saved when creating subscription orders
+* Add - Display product options to shoppers during checkout through the All Payment Methods payment flow
+
 2025-06-06 - version 1.21.0
 
 * Add - Support payment for subscription orders using saved cards

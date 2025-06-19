@@ -518,3 +518,7 @@ label[for="airwallex-new-card"] {
     display: flex;
     flex-wrap: wrap;
 }
+
+.airwallex-content-drop-in .product-info .wc-item-meta p {
+    display: inline;
+}

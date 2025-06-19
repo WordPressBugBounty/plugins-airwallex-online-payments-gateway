@@ -22,6 +22,7 @@ use Airwallex\Controllers\GatewaySettingsController;
 use Airwallex\Controllers\OrderController;
 use Airwallex\Controllers\PaymentConsentController;
 use Airwallex\Controllers\PaymentSessionController;
+use Airwallex\Gateways\AirwallexOnboardingPaymentGateway;
 use Airwallex\Gateways\Blocks\AirwallexExpressCheckoutWCBlockSupport;
 use Airwallex\Gateways\ExpressCheckout;
 use Airwallex\Gateways\Settings\AdminSettings;
@@ -366,6 +367,10 @@ class Main {
 	}
 
 	public function addPaymentGateways( $gateways ) {
+		if (!empty($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/wp-json/wc-admin/settings/payments/providers') === 0) {
+			$gateways[] = AirwallexOnboardingPaymentGateway::class;
+			return $gateways;
+		}
 		$gateways[] = MainGateway::class;
 		if ( class_exists( 'WC_Subscriptions_Order' ) && function_exists( 'wcs_create_renewal_order' ) ) {
 			$gateways[] = CardSubscriptions::class;

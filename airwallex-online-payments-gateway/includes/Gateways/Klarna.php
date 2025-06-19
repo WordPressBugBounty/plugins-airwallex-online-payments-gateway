@@ -3,6 +3,7 @@
 namespace Airwallex\Gateways;
 
 use Airwallex\Services\Util;
+use Exception;
 
 defined( 'ABSPATH' ) || exit();
 
@@ -142,5 +143,17 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
 
     public function getPaymentMethodDocURL() {
         return 'https://help.airwallex.com/hc/en-gb/articles/9514119772047-What-countries-can-I-use-Klarna-in';
+    }
+
+    public function process_payment( $order_id ) {
+        $order = wc_get_order( $order_id );
+        if ( empty( $order ) ) {
+            $this->logService->debug(__METHOD__ . ' can not find order', [ 'orderId' => $order_id ] );
+            throw new Exception( sprintf( __( 'Order not found: %s', 'airwallex-online-payments-gateway' ), $order_id ) );
+        }
+        if ( empty(self::SUPPORTED_COUNTRY_TO_CURRENCY[$order->get_billing_country()]) ) {
+            throw new Exception( __('Klarna is not available in your billing country. Please use a different payment method.', 'airwallex-online-payments-gateway') );
+        }
+        return parent::process_payment( $order_id );
     }
 }

@@ -13,6 +13,7 @@ use Airwallex\Services\LogService;
 use Airwallex\Services\OrderService;
 use Airwallex\Services\Util;
 use Airwallex\Struct\PaymentIntent;
+use Airwallex\Controllers\PaymentConsentController;
 use Exception;
 use WC_AJAX;
 use WC_HTTPS;
@@ -21,6 +22,7 @@ use WC_Payment_Gateway;
 use WC_Payment_Token_CC;
 use WC_Payment_Tokens;
 use WC_Subscriptions_Cart;
+use WCS_Payment_Tokens;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -35,6 +37,7 @@ class Card extends WC_Payment_Gateway {
 	const ROUTE_SLUG_WECHAT       = 'airwallex_wechat';
 	const GATEWAY_ID              = 'airwallex_card';
 	const DESCRIPTION_PLACEHOLDER = '<!-- -->';
+	const TOKEN_META_KEY_CONSENT_DETAIL = 'awx_payment_consent_detail';
 
 	public $method_title = 'Airwallex - Cards';
 	public $method_description;
@@ -82,31 +85,64 @@ class Card extends WC_Payment_Gateway {
 		return parent::has_fields();
 	}
 
-	public function syncSaveCards() {
-		$consentsInCloud = $this->consentsInCloud();
-		$consentsInDB = WC_Payment_Tokens::get_customer_tokens(get_current_user_id());
+	public function getPaymentConsentIdsInDB($wpUserId) {
+		$consentIdsInDB = [];
+		$page = 1;
+		$maxPages = 100;
+		while ($page <= $maxPages) {
+			$paymentConsentsInDB = WC_Payment_Tokens::get_tokens([
+				'user_id'    => $wpUserId,
+				'gateway_id' => Card::GATEWAY_ID,
+				'limit'      => 1000,
+				'page'       => $page,
+			]);
 
-		$existsInWP = [];
-		foreach($consentsInDB as $index => $consent) {
-			if ($consent->get_gateway_id() === Card::GATEWAY_ID) {
-				$existsInWP[$consent->get_token()] = $index;
+			if (count($paymentConsentsInDB) === 0) {
+				break;
+			}
+			$page++;
+
+			foreach($paymentConsentsInDB as $paymentConsentInDB) {
+				$consentIdsInDB[$paymentConsentInDB->get_token()] = true;
 			}
 		}
+		return $consentIdsInDB;
+	}
 
-		foreach($consentsInCloud as $consent) {
-			if (!isset($existsInWP[$consent->getId()])) {
+	public function syncSaveCards($airwallexCustomerId, $wpUserId) {
+		$verifiedPaymentConsentsInCloud = (new AllPaymentConsents())->setNextTriggeredBy('')->setCustomerId($airwallexCustomerId)->get();
+		$consentIdsInDB = $this->getPaymentConsentIdsInDB($wpUserId);
+
+		foreach($verifiedPaymentConsentsInCloud as $verifiedPaymentConsentInCloud) {
+			$paymentMethodTypeInCloud = $verifiedPaymentConsentInCloud->getPaymentMethod()['type'] ?? '';
+			if ($paymentMethodTypeInCloud !== 'card') {
+				continue;
+			}
+			if (empty($consentIdsInDB[$verifiedPaymentConsentInCloud->getId()])) {
 				$token = new WC_Payment_Token_CC();
 				$token->set_gateway_id(Card::GATEWAY_ID);
-				$token->set_token($consent->getId());
-				$token->set_user_id(get_current_user_id());
-				$token->set_card_type($this->formatCardType($consent->getCardBrand()));
-				$token->set_last4($consent->getCardLast4());
-				$token->set_expiry_month($consent->getCardExpiryMonth());
-				$token->set_expiry_year($consent->getCardExpiryYear());
+				$token->set_token($verifiedPaymentConsentInCloud->getId());
+				$token->set_user_id($wpUserId);
+				$token->set_card_type($this->formatCardType($verifiedPaymentConsentInCloud->getCardBrand()));
+				$token->set_last4($verifiedPaymentConsentInCloud->getCardLast4());
+				$token->set_expiry_month($verifiedPaymentConsentInCloud->getCardExpiryMonth());
+				$token->set_expiry_year($verifiedPaymentConsentInCloud->getCardExpiryYear());
 				$token->save();
-				update_metadata('payment_token', $token->get_id(), 'number_type', $consent->getPaymentMethod()['card']['number_type'] ?? '');
+				$this->saveAwxPaymentConsentDetail($verifiedPaymentConsentInCloud, $token->get_id());
 			}
 		}
+	}
+
+	public function saveAwxPaymentConsentDetail($paymentConsent, $tokenId) {
+		$awxPaymentConsentDetail = [
+			'fingerprint' => $paymentConsent->getPaymentMethod()['card']['fingerprint'] ?? '',
+			'payment_method_id' => $paymentConsent->getPaymentMethod()['id'] ?? '',
+			'payment_consent_id' => $paymentConsent->getId(),
+			'number_type' => $paymentConsent->getPaymentMethod()['card']['number_type'] ?? '',
+			'airwallex_customer_id' => $paymentConsent->getCustomerId(),
+			'next_triggered_by' => $paymentConsent->getNextTriggeredBy(),
+		];
+		update_metadata('payment_token', $tokenId, self::TOKEN_META_KEY_CONSENT_DETAIL, $awxPaymentConsentDetail);
 	}
 
 	public function add_payment_method() {
@@ -115,7 +151,8 @@ class Card extends WC_Payment_Gateway {
 				throw new Exception( __( 'User must be logged in.', 'airwallex-online-payments-gateway' ) );
 			}
 
-			$this->syncSaveCards();
+			$airwallexCustomerId = (new OrderService())->getAirwallexCustomerId( get_current_user_id(), CardClient::getInstance() );
+			$this->syncSaveCards($airwallexCustomerId, get_current_user_id());
 
 			return array(
 				'result'   => 'success',
@@ -137,28 +174,45 @@ class Card extends WC_Payment_Gateway {
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueueScriptsForEmbeddedCard' ) );
 		add_action( 'wc_ajax_airwallex_get_tokens', [$this, 'getTokens']);
+		add_action( 'wc_ajax_airwallex_sync_all_consents', [new PaymentConsentController(CardClient::getInstance(), new CacheService( Util::getApiKey() ), new OrderService()), 'syncAllConsents']);
 		add_action( 'wc_ajax_airwallex_get_customer_client_secret', [$this, 'getCustomerClientSecret']);
 		add_action( 'woocommerce_payment_token_deleted', array( $this, 'deletePaymentMethod' ), 10, 2 );
+		add_action( 'wp', array( $this, 'deletePaymentMethodAction' ), 1 );
 	}
 
-	protected function consentsInCloud() {
-		$apiClient = CardClient::getInstance();
-		$customerId = (new OrderService())->getAirwallexCustomerId( get_current_user_id(), $apiClient );
-		$consents = (new AllPaymentConsents())->setNextTriggeredBy(PaymentConsent::TRIGGERED_BY_CUSTOMER)->setCustomerId($customerId)->get();
-		return $consents;
+	public function deletePaymentMethodAction() {
+		global $wp;
+
+		if ( isset( $wp->query_vars['delete-payment-method'] ) ) {
+			wc_nocache_headers();
+
+			$token_id = absint( $wp->query_vars['delete-payment-method'] );
+			$token    = WC_Payment_Tokens::get( $token_id );
+
+			if ( is_null( $token ) || get_current_user_id() !== $token->get_user_id() || ! isset( $_REQUEST['_wpnonce'] ) || false === wp_verify_nonce( wp_unslash( $_REQUEST['_wpnonce'] ), 'delete-payment-method-' . $token_id ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+				wc_add_notice( __( 'Invalid payment method.', 'airwallex-online-payments-gateway' ), 'error' );
+				wp_safe_redirect( wc_get_account_endpoint_url( 'payment-methods' ) );
+				exit();
+			} else {
+				if ($token->get_gateway_id() === Card::GATEWAY_ID && class_exists('WCS_Payment_Tokens')) {
+					$subscriptions = WCS_Payment_Tokens::get_subscriptions_from_token( $token );
+
+					if ( !empty( $subscriptions ) ) {
+						wc_add_notice( __( 'That payment method cannot be deleted because it is linked to an automatic subscription.', 'airwallex-online-payments-gateway' ), 'error' );
+						wp_safe_redirect( wc_get_account_endpoint_url( 'payment-methods' ) );
+						exit();
+					}
+				}
+			}
+		}
 	}
 
 	public function deletePaymentMethod($tokenId, $token) {
 		if ($token->get_gateway_id() !== Card::GATEWAY_ID) {
 			return;
 		}
-		$consents = $this->consentsInCloud();
-		foreach($consents as $consent) {
-			if ($token->get_token() === $consent->getId()) {
-				(new DisablePaymentConsent())->setPaymentConsentId($token->get_token())->send();
-				return;
-			}
-		}
+
+		(new DisablePaymentConsent())->setPaymentConsentId($token->get_token())->send();
 	}
 	
 	public function getCustomerClientSecret() {
@@ -446,7 +500,7 @@ class Card extends WC_Payment_Gateway {
 				throw new Exception( 'Airwallex payment error: can not find order', 'airwallex-online-payments-gateway' );
 			}
 
-			if (isset($_REQUEST['is_change_payment_method']) && $_REQUEST['is_change_payment_method'] === 'true' && wcs_is_subscription($order)) {
+			if (isset($_REQUEST['is_change_payment_method']) && $_REQUEST['is_change_payment_method'] === 'true' && function_exists('wcs_is_subscription') && wcs_is_subscription($order)) {
 				return $this->change_subscription_payment_method( $order );
 			}
 
@@ -454,7 +508,25 @@ class Card extends WC_Payment_Gateway {
 			$orderService        = new OrderService();
 			$airwallexCustomerId = null;
 			$containsSubscription = $orderService->containsSubscription( $order->get_id() );
-			if ( $containsSubscription || is_user_logged_in() ) {
+
+			$tokenIdFromRequest = $_POST['token'] ?? 0;
+			$paymentMethodId = '';
+			if ($tokenIdFromRequest) {
+				$token = WC_Payment_Tokens::get( $tokenIdFromRequest );
+				if ($token->get_user_id() !== get_current_user_id()) {
+					throw new Exception( __( "This token doesn't belong to the current user.", 'airwallex-online-payments-gateway' ) );
+				}
+				$paymentConsentDetail = get_metadata('payment_token', $token->get_id(), self::TOKEN_META_KEY_CONSENT_DETAIL, true);
+				if (empty($paymentConsentDetail)) {
+					$paymentConsent = $apiClient->getPaymentConsent( $token->get_token() );
+					$this->saveAwxPaymentConsentDetail($paymentConsent, $token->get_id());
+					$paymentMethodId = $paymentConsent->getPaymentMethod()['id'];
+					$airwallexCustomerId = $paymentConsent->getCustomerId();
+				} else {
+					$paymentMethodId = $paymentConsentDetail['payment_method_id'] ?? '';
+					$airwallexCustomerId = $paymentConsentDetail['airwallex_customer_id'] ?? '';
+				}
+			} else if ( $containsSubscription || is_user_logged_in() ) {
 				$airwallexCustomerId = $orderService->getAirwallexCustomerId( get_current_user_id(), $apiClient );
 			}
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
@@ -477,9 +549,8 @@ class Card extends WC_Payment_Gateway {
 			$order->save();
 
 
-			$tokenId = $_POST['token'] ?? 0;
 			$result = ['result' => 'success'];
-			if ( 'redirect' === $this->get_option( 'checkout_form_type' ) && ! $tokenId ) {
+			if ( 'redirect' === $this->get_option( 'checkout_form_type' ) && ! $tokenIdFromRequest ) {
 				$redirectUrl = $this->get_payment_url( 'airwallex_payment_method_card' );
 				$redirectUrl .= ( strpos( $redirectUrl, '?' ) === false ) ? '?' : '&';
 				$redirectUrl .= 'order_id=' . $order_id;
@@ -493,18 +564,16 @@ class Card extends WC_Payment_Gateway {
 					'currency'      => $order->get_currency( '' ),
 					'clientSecret'  => $paymentIntent->getClientSecret(),
 				];
-				if ($tokenId) {
-					$token = WC_Payment_Tokens::get( $tokenId );
-					$result['consentId'] = $token->get_token();
-					$paymentMethod = $apiClient->getPaymentConsent( $result['consentId'] )->getPaymentMethod();
-					$result['paymentMethodId'] = $paymentMethod['id'] ?? '';
-					$result['tokenId'] = $tokenId;
+				if ($tokenIdFromRequest) {
+					$result['paymentMethodId'] = $paymentMethodId;
+					$result['customerId'] = $airwallexCustomerId;
+					$result['tokenId'] = $tokenIdFromRequest;
 				}
 			}
 
 			return $result;
 		} catch ( Exception $e ) {
-			$this->logService->error( __METHOD__ . ' - card payment create intent failed.', $e->getMessage(), LogService::CARD_ELEMENT_TYPE );
+			$this->logService->error( __METHOD__ . ' - card payment create intent failed.', $e->getMessage() . ': ' . json_encode($e->getTrace()), LogService::CARD_ELEMENT_TYPE );
 			throw new Exception( esc_html__( 'Airwallex payment error', 'airwallex-online-payments-gateway' ) );
 		}
 	}
@@ -669,7 +738,11 @@ class Card extends WC_Payment_Gateway {
 		/** @var WC_Payment_Token_CC $token */
 		foreach ($tokens as $token) {
 			if ($token->get_gateway_id() === Card::GATEWAY_ID) {
+				$paymentConsentDetail = get_metadata('payment_token', $token->get_id(), self::TOKEN_META_KEY_CONSENT_DETAIL, true);
 				$numberType = get_metadata('payment_token', $token->get_id(), 'number_type', true);
+				if (empty($numberType)) {
+					$numberType = $paymentConsentDetail['number_type'] ?? '';
+				}
 				$result[$token->get_id()] = [
 					'id' => $token->get_id(),
 					'last4' => $token->get_last4(),
@@ -678,7 +751,7 @@ class Card extends WC_Payment_Gateway {
 					'expiry_month' => $token->get_expiry_month(),
 					'expiry_year' => $token->get_expiry_year(),
 					'number_type' => $numberType,
-					'is_skip_cvc' => $this->is_skip_cvc_enabled() && $numberType !== 'PAN',
+					'is_skip_cvc' => $this->is_skip_cvc_enabled() && in_array($numberType, ['EXTERNAL_NETWORK_TOKEN', 'AIRWALLEX_NETWORK_TOKEN'], true),
 				];
 			}
 		}

@@ -181,7 +181,10 @@ export const AirwallexLpmContent = ({
     }
 	
 	useEffect( () => {
-		document.getElementById('wc-block-airwallex-currency-switching-container').style.display = 'none';
+		const currencySwitchingContainerElement = document.getElementById('wc-block-airwallex-currency-switching-container');
+		if (currencySwitchingContainerElement) {
+			currencySwitchingContainerElement.style.display = 'none';
+		}
 		handleCurrencySwitching(billing.billingAddress.country, activePaymentMethod);
 		try {
 			document.getElementById('wc-airwallex-quote-expire-confirm').innerHTML = document.getElementsByClassName('wc-block-components-checkout-place-order-button')[0].innerText;

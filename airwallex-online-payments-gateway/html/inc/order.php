@@ -45,7 +45,20 @@ $awx_order_items = $order->get_items(apply_filters('woocommerce_purchase_order_i
                     <td class="product-info">
                         <?php echo wp_kses_post(apply_filters('woocommerce_order_item_quantity_html', ' <strong class="product-quantity">' . sprintf('%s&nbsp;&times;', $awx_product_qty) . '</strong>', $awx_item)); ?>
                         <?php echo wp_kses_post(apply_filters('woocommerce_order_item_name', $awx_item->get_name(), $awx_item, $awx_product->is_visible()) . '&nbsp;'); ?>
-                        
+                        <?php
+                            if ($isShowOrderDetails) {
+                                wc_display_item_meta( $awx_item, array(
+                                        'before'       => '<div class="wc-item-meta"><div>',
+                                        'after'        => '</div></div>',
+                                        'separator'    => '</div><div>',
+                                        'echo'         => true,
+                                        'autop'        => false,
+                                        'label_before' => '<strong class="wc-item-meta-label">',
+                                        'label_after'  => ': </strong> ',
+                                    )
+                                );                            
+                            }
+                        ?>
                         <div class="price">
                             <?php echo wp_kses_post( WC()->cart->get_product_subtotal( $awx_product, $awx_product_qty )); ?>
                         </div>
