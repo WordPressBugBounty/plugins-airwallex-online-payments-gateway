@@ -6,7 +6,7 @@
  * Author: Airwallex
  * Author URI: https://www.airwallex.com
  * License: GPLv3 or later
- * Version: 1.22.0
+ * Version: 1.23.0
  * Requires at least: 4.5
  * Tested up to: 6.8.1
  * Requires PHP: 7.3
@@ -29,7 +29,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 /**
  * Required minimums and constants
  */
-define( 'AIRWALLEX_VERSION', '1.22.0' );
+define( 'AIRWALLEX_VERSION', '1.23.0' );
 define( 'AIRWALLEX_PLUGIN_URL', untrailingslashit( plugins_url( basename( plugin_dir_path( __FILE__ ) ), basename( __FILE__ ) ) ) );
 define( 'AIRWALLEX_PLUGIN_PATH', __DIR__ . '/' );
 define( 'AIRWALLEX_PLUGIN_NAME', 'airwallex-online-payments-gateway' );
@@ -68,7 +68,7 @@ function airwallex_init() {
         ]),
     ]);
 
-    CacheManager::setInstance(new CacheService());
+    CacheManager::setInstance(new CacheService(Util::getClientId()));
 
     $airwallex = \Airwallex\Main::getInstance();
     $airwallex->init();

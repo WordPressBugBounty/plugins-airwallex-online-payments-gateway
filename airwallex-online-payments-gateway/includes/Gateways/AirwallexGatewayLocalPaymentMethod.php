@@ -2,6 +2,7 @@
 
 namespace Airwallex\Gateways;
 
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
 use Airwallex\Services\Util;
 use Airwallex\Struct\Quote;
 use WC_AJAX;
@@ -15,11 +16,8 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
     public function registerHooks() {
         parent::registerHooks();
         // remove_filter( 'wc_airwallex_settings_nav_tabs', [ $this, 'adminNavTab' ] );
-		// add_filter( 'wc_airwallex_local_gateways_tab', [ $this, 'adminNavTab' ] );
+        // add_filter( 'wc_airwallex_local_gateways_tab', [ $this, 'adminNavTab' ] );
         add_filter( 'airwallex-lpm-script-data', [ $this, 'getLPMMethodScriptData' ] );
-        add_action('wc_ajax_airwallex_currency_switcher_create_quote', [$this->quoteController, 'createQuoteForCurrencySwitching']);
-        add_action('wc_ajax_airwallex_get_store_currency', [$this->orderController, 'getStoreCurrency']);
-        add_action('woocommerce_review_order_after_order_total', [$this, 'renderCurrencySwitchingHtml']);
         add_action('wp_footer', [$this, 'renderQuoteExpireHtml']);
         add_action('wp_enqueue_scripts', [$this, 'enqueueScripts']);
     }
@@ -55,16 +53,8 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
                     'getStoreCurrency' => wp_create_nonce('wc-airwallex-lpm-get-store-currency'),
                 ],
                 'textTemplate' => [
-                    'currencyIneligibleCWOn' => sprintf(
-                        /* translators: Placeholder 1: Payment method name. */
-                        __('%1$s is not available in $$original_currency$$ for your billing country. We have converted your total to $$converted_currency$$ for you to complete your payment.', 'airwallex-online-payments-gateway'),
-                        $this->paymentMethodName
-                    ),
-                    'currencyIneligibleCWOff' => sprintf(
-                        /* translators: Placeholder 1: Payment method name. */
-                        __('%1$s is not available in $$original_currency$$ for your billing country. Please use a different payment method to complete your purchase.', 'airwallex-online-payments-gateway'),
-                        $this->paymentMethodName
-                    ),
+                    'currencyIneligibleCWOn' => __('$$payment_method_name$$ is not available in $$original_currency$$ for your billing country. We have converted your total to $$converted_currency$$ for you to complete your payment.', 'airwallex-online-payments-gateway'),
+                    'currencyIneligibleCWOff' => __('$$payment_method_name$$ is not available in $$original_currency$$ for your billing country. Please use a different payment method to complete your purchase.', 'airwallex-online-payments-gateway'),
                     'conversionRate' => __('1 $$original_currency$$ = $$conversion_rate$$ $$converted_currency$$', 'airwallex-online-payments-gateway'),
                     'convertedAmount' => __('$$converted_amount$$ $$converted_currency$$', 'airwallex-online-payments-gateway'),
                 ],
@@ -72,6 +62,7 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
                     'criticalIcon' => AIRWALLEX_PLUGIN_URL . '/assets/images/critical_filled.svg',
                     'warningIcon' => AIRWALLEX_PLUGIN_URL . '/assets/images/warning_filled.svg',
                     'infoIcon' => AIRWALLEX_PLUGIN_URL . '/assets/images/info_filled.svg',
+                    'selectArrowIcon' => AIRWALLEX_PLUGIN_URL . '/assets/images/select_arrow.svg',
                 ],
                 'paymentMethods' => [],
             ];
@@ -93,28 +84,6 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 
         return []; 
     }
-
-    public function payment_fields() {
-        echo wp_kses_post( '<p style="display: flex; align-items: center;"><span>' . $this->description . '</span><span class="wc-airwallex-loader"></span></p>' );
-
-        $this->renderCountryIneligibleHtml();
-		$this->renderCurrencyIneligibleCWOnHtml();
-		$this->renderCurrencyIneligibleCWOffHtml();
-    }
-
-    public function renderCountryIneligibleHtml() {
-		$awxAlertAdditionalClass = 'wc-airwallex-lpm-country-ineligible';
-		$awxAlertType            = 'critical';
-		$awxAlertText            = sprintf(
-            /* translators: Placeholder 1: Payment method name. Placeholder 2: Open link tag. Placeholder 3: Close link tag. */
-            __('%1$s is not available in your billing country. Please change your billing address to a %2$s compatible country %3$s or choose a different payment method.', 'airwallex-online-payments-gateway'),
-            $this->paymentMethodName,
-            '<a target=_blank href="' . $this->getPaymentMethodDocUrl() . '">',
-            '</a>'
-        );
-
-		include AIRWALLEX_PLUGIN_PATH . 'templates/airwallex-alert-box.php';
-	}
 
 	/**
 	 * Render the alter box for ineligible currency with currency switching turned on
@@ -138,18 +107,14 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 		include AIRWALLEX_PLUGIN_PATH . 'templates/airwallex-alert-box.php';
 	}
 
-    /**
-     * Render the currency switching box to display the original amount and the converted amount
-     */
-    public function renderCurrencySwitchingHtml() {
-        include_once AIRWALLEX_PLUGIN_PATH . 'templates/airwallex-currency-switching.php';
-    }
-
     public function renderQuoteExpireHtml() {
         include_once AIRWALLEX_PLUGIN_PATH . 'templates/airwallex-currency-switching-quote-expire.php';
     }
 
     public function process_payment( $order_id ) {
+        if ( !empty( $_POST['is_payment_aborted']) && $_POST['is_payment_aborted'] === 'true' ) {
+            throw new Exception( __( 'Payment aborted.', 'airwallex-online-payments-gateway' ));
+        }
         $result = [];
         try {
             $deviceData = isset($_POST['airwallex_device_data']) ? json_decode(wc_clean(wp_unslash($_POST['airwallex_device_data']))) : [];
@@ -168,7 +133,9 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 			}
 
             $this->logService->debug(__METHOD__ . ' create payment intent', [ 'orderId' => $order_id ] );
-			$paymentIntent   = $this->gatewayClient->createPaymentIntent( $order->get_total(), $order->get_id(), true, $airwallexCustomerId );
+            $paymentMethodType = empty(static::GATEWAY_ID) ? 'woo_commerce' : 'woo_commerce_' . static::GATEWAY_ID;
+
+            $paymentIntent   = $this->gatewayClient->createPaymentIntent( $order->get_total(), $order->get_id(), true, $airwallexCustomerId, $paymentMethodType );
             $this->logService->debug(__METHOD__ . ' payment intent created', [ 'payment intent' => $paymentIntent->toArray() ] );
 
             $this->logService->debug(__METHOD__ . ' confirm payment intent', [ 'payment intent id' => $paymentIntent->getId() ] );
@@ -185,8 +152,9 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
                     'target_currency' => $targetCurrency,
                     'quote_id' => $quote->getId(),
                 ];
-                $this->updateOrderDetails($order, $quote);
+                $order->update_meta_data( '_tmp_airwallex_payment_client_rate', $quote->getClientRate() );
             }
+
             $confirmedIntent = $this->gatewayClient->confirmPaymentIntent($paymentIntent->getId(), $confirmPayload);
             $this->logService->debug(__METHOD__ . ' payment intent confirmed', [ 'payment intent' => $confirmedIntent ] );
 
@@ -206,6 +174,7 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 			$order->save();
         } catch (Exception $e) {
             $this->logService->error(__METHOD__ . ' Some went wrong during checkout.', $e->getMessage());
+            RemoteLog::error( $e->getMessage(), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
             $result = [
                 'result' => 'failed',
                 'message' => $e->getMessage(),
@@ -215,56 +184,6 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 
         return $result;
 	}
-
-    // update order details with the quote currency rate
-    public function updateOrderDetails(WC_Order $order, Quote $quote) {
-        $rate = $quote->getClientRate();
-        $orderItemTypes = array( 'line_item', 'shipping', 'fee', 'tax', 'coupon' );
-		foreach ( $orderItemTypes as $type ) {
-			foreach ( $order->get_items( $type ) as $item ) {
-                switch ($type) {
-                    case 'line_item':
-                        if (is_callable([$item, 'set_subtotal']) && is_callable([$item, 'get_subtotal'])) {
-                            $item->set_subtotal($item->get_subtotal(false) * $rate);
-                        }
-                        if (is_callable([$item, 'set_total']) && is_callable([$item, 'get_total'])) {
-                            $item->set_total($item->get_total(false) * $rate);
-                        }
-                        break;
-                    case 'shipping':
-                        if (is_callable([$item, 'set_total']) && is_callable([$item, 'get_total'])) {
-                            $item->set_total($item->get_total(false) * $rate);
-                        }
-                        break;
-                    case 'fee':
-                        if (is_callable([$item, 'set_total']) && is_callable([$item, 'get_total'])) {
-                            $item->set_total($item->get_total(false) * $rate);
-                        }
-                        if (is_callable([$item, 'set_amount']) && is_callable([$item, 'get_amount'])) {
-                            $item->set_amount($item->get_amount(false) * $rate);
-                        }
-                        break;
-                    case 'tax':
-                        if (is_callable([$item, 'set_tax_total']) && is_callable([$item, 'get_tax_total'])) {
-                            $item->set_tax_total($item->get_tax_total(false) * $rate);
-                        }
-                        break;
-                    case 'coupon':
-                        if (is_callable([$item, 'set_discount']) && is_callable([$item, 'get_discount'])) {
-                            $item->set_discount($item->get_discount(false) * $rate);
-                        }
-                        break;
-                    default:
-                        break;
-                }
-			}
-		}
-
-        $order->calculate_totals();
-        $order->set_total( $quote->getTargetAmount());
-        $order->set_currency($quote->getTargetCurrency());
-        $order->add_meta_data('airwallex_payment_currency', $quote->getTargetCurrency());
-    }
 
     public function getBillingDetail($order) {
         $billing = [];
@@ -293,6 +212,4 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
     abstract public function getPaymentMethod($order, $paymentIntentId);
 
     abstract public function getPaymentMethodOptions();
-
-    abstract public function getPaymentMethodDocURL();
 }

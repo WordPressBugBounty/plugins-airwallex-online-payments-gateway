@@ -9,11 +9,6 @@ use Airwallex\PayappsPlugin\CommonLibrary\Struct\GetList as StructGetList;
 class GetList extends AbstractApi
 {
     /**
-     * @var string
-     */
-    protected $paymentConsentId;
-
-    /**
      * @inheritDoc
      */
     protected function getMethod(): string
@@ -53,7 +48,6 @@ class GetList extends AbstractApi
             ->setParam('page_size', $pageSize);
     }
 
-
     /**
      * @param string $triggerReason
      *
@@ -71,18 +65,6 @@ class GetList extends AbstractApi
     {
         return 'pa/payment_consents';
     }
-
-    /**
-     * @param string $paymentConsentId
-     *
-     * @return GetList
-     */
-    public function setPaymentConsentId(string $paymentConsentId): GetList
-    {
-        $this->paymentConsentId = $paymentConsentId;
-        return $this;
-    }
-
 
     /**
      * @param string $triggeredBy

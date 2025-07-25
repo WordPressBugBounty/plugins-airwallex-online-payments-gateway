@@ -271,7 +271,7 @@ export const InlineCard                             = ({
 		<>
 			<div className                     ='airwallex-checkout-loading-mask' style={{ display: isSubmitting ? 'block' : 'none' }}></div>
 			<div id                            ="airwallex-card" style={{ 
-				display: elementShow ? 'block' : 'none',
+				display: elementShow ? 'flex' : 'none',
 				border: "1px solid var(--Border-decorative, rgba(232, 234, 237, 1))",
 				background: "rgb(250, 250, 251)",
 				padding: "0 16px",
@@ -279,7 +279,6 @@ export const InlineCard                             = ({
 				marginTop: "4px",
 				minHeight: "40px",
 				borderRadius: "4px",
-				display: "flex",
 				alignItems: "center",
 				width: "400px",
 			}}></div>
@@ -290,7 +289,7 @@ export const InlineCard                             = ({
 
 export const AirwallexSaveCard = (props) => {
 	const [isCVCCompleted, setIsCVCCompleted] = useState(false);
-	const [isSkipCVC, setIsSkipCVC] = useState(false);
+	const [isHideCvcElement, setIsHideCvcElement] = useState(false);
 	const [cvcLength, setCvcLength] = useState(3);
 	const {
 		emitResponse,
@@ -307,7 +306,7 @@ export const AirwallexSaveCard = (props) => {
 	useEffect(() => {
 		const { tokens } = settings;
 		const tokenData = tokens?.[token];
-		setIsSkipCVC(tokenData?.is_skip_cvc);
+		setIsHideCvcElement(tokenData?.is_hide_cvc_element);
 		setCvcLength(['amex', 'american express'].includes(tokenData?.type?.toLowerCase()) ? 4 : 3);
 	}, [token, settings]);
 
@@ -347,10 +346,10 @@ export const AirwallexSaveCard = (props) => {
 		const onSuccess = async ({ processingResponse }) => {
 			const { tokens } = settings;
 			const tokenData = tokens?.[token];
-			if (!isCVCCompleted && ! tokenData?.is_skip_cvc) {
+			if (!awxEmbeddedCardData.isSkipCVCEnabled && !isCVCCompleted && !tokenData?.is_hide_cvc_element) {
 				return {
 					type: emitResponse.responseTypes.ERROR,
-					message: __('CVC is not completed.', 'airwallex-online-payments-gateway'),
+					message: awxEmbeddedCardData.CVCIsNotCompletedMessage,
 					messageContext: emitResponse.noticeContexts.PAYMENTS,
 				};
 			}
@@ -383,7 +382,7 @@ export const AirwallexSaveCard = (props) => {
 	]);
 
 	return (
-		<div style={{ display: isSkipCVC ? 'none' : 'block' }}>
+		<div style={{ display: isHideCvcElement ? 'none' : 'block' }}>
 			<div className="cvc-title" style={{ marginBottom: "4px" }}>Security code</div>   
 			<div id="airwallex-cvc" className="cvc-container" style={{
 				border: "1px solid var(--Border-decorative, rgba(232, 234, 237, 1))",

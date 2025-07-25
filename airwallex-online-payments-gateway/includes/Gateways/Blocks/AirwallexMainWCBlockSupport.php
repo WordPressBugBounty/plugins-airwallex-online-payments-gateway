@@ -41,6 +41,9 @@ class AirwallexMainWCBlockSupport extends AirwallexWCBlockSupport {
 	public function getActivePaymentLogos() {
 		$logos       = $this->gateway->getPaymentLogos();
 		$chosenLogos = $this->gateway->get_option( 'icons' );
+		if ( empty( $chosenLogos ) || ! is_array( $chosenLogos ) ) {
+			return [];
+		}
 
 		$chosenLogoUrls = array();
 		foreach ( $chosenLogos as $name ) {

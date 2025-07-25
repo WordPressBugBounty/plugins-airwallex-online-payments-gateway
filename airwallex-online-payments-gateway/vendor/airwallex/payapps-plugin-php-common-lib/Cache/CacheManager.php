@@ -11,7 +11,9 @@ class CacheManager
      */
     private static $cache = null;
 
-    private function __construct() {}
+    private function __construct()
+    {
+    }
 
     /**
      * @param CacheInterface $cache

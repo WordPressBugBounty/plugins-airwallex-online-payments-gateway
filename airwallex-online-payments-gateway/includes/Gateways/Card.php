@@ -39,6 +39,8 @@ class Card extends WC_Payment_Gateway {
 	const DESCRIPTION_PLACEHOLDER = '<!-- -->';
 	const TOKEN_META_KEY_CONSENT_DETAIL = 'awx_payment_consent_detail';
 
+	protected static $instance = null;
+
 	public $method_title = 'Airwallex - Cards';
 	public $method_description;
 	public $title       = 'Airwallex - Cards';
@@ -51,7 +53,6 @@ class Card extends WC_Payment_Gateway {
 		'refunds',
 	);
 	public $logService;
-	public static $initialized = null;
 
 	public function __construct() {
 		$this->plugin_id = AIRWALLEX_PLUGIN_NAME;
@@ -66,15 +67,19 @@ class Card extends WC_Payment_Gateway {
 		$this->tabTitle   = 'Cards';
 		$this->logService = LogService::getInstance();
 
-		if (self::$initialized === null) {
-			self::$initialized = true;
-			$this->registerHooks();
-		}
+		$this->registerHooks();
 
 		if ($this->is_save_card_enabled()) {
 			$this->supports[] = 'tokenization';
 			$this->supports[] = 'add_payment_method';
 		}
+	}
+
+	public static function getInstance() {
+		if ( ! isset( self::$instance ) ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
 	}
 
 	public function has_fields()
@@ -173,9 +178,6 @@ class Card extends WC_Payment_Gateway {
 		add_action( 'woocommerce_airwallex_settings_checkout_' . $this->id, array( $this, 'enqueueAdminScripts' ) );
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueueScriptsForEmbeddedCard' ) );
-		add_action( 'wc_ajax_airwallex_get_tokens', [$this, 'getTokens']);
-		add_action( 'wc_ajax_airwallex_sync_all_consents', [new PaymentConsentController(CardClient::getInstance(), new CacheService( Util::getApiKey() ), new OrderService()), 'syncAllConsents']);
-		add_action( 'wc_ajax_airwallex_get_customer_client_secret', [$this, 'getCustomerClientSecret']);
 		add_action( 'woocommerce_payment_token_deleted', array( $this, 'deletePaymentMethod' ), 10, 2 );
 		add_action( 'wp', array( $this, 'deletePaymentMethodAction' ), 1 );
 	}
@@ -266,6 +268,8 @@ class Card extends WC_Payment_Gateway {
 			'incompleteMessage' => __( 'Your credit card details are incomplete', 'airwallex-online-payments-gateway' ),
 			'resourceAlreadyExistsMessage' => __( 'This payment method has already been saved. Please use a different payment method.', 'airwallex-online-payments-gateway' ),
 			'CVC' => __( 'CVC', 'airwallex-online-payments-gateway' ),
+			'CVCIsNotCompletedMessage' => __( 'CVC is not completed.', 'airwallex-online-payments-gateway' ),
+			'isSkipCVCEnabled' => $this->is_skip_cvc_enabled(),
 			'isSaveCardEnabled' => $this->is_save_card_enabled(),
 			'isContainSubscription' => $this->isContainSubscription(),
 			'currency' => $currency,
@@ -351,7 +355,7 @@ class Card extends WC_Payment_Gateway {
 		$isContainSubscription = $this->isContainSubscription() || $isChangePaymentMethod;
 		$isSaveCardEnabled = $this->is_save_card_enabled();
 		$saveCardsHtml = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? '<div class="save-cards"></div>' : '';
-		$newCardRadioHtml = $isLoggedIn && $isSaveCardEnabled && ! $isChangePaymentMethod ? sprintf(
+		$newCardRadioHtml = $isLoggedIn && $isSaveCardEnabled ? sprintf(
 			/* translators: Placeholder 1: Use new card message. */
 			'<div class="new-card line" style="display: none;">
 				<input type="radio" name="new-card" id="airwallex-new-card">
@@ -530,7 +534,7 @@ class Card extends WC_Payment_Gateway {
 				$airwallexCustomerId = $orderService->getAirwallexCustomerId( get_current_user_id(), $apiClient );
 			}
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
-			$paymentIntent = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId );
+			$paymentIntent = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, 'woo_commerce_credit_card' );
 			$this->logService->debug(
 				__METHOD__ . ' - payment intent created ',
 				array(
@@ -708,7 +712,7 @@ class Card extends WC_Payment_Gateway {
 		$settings = self::getSettings();
 		
 		/* translators: Placeholder 1: Order number. */
-		return isset($settings['payment_descriptor']) ? $settings['payment_descriptor'] : __( 'Your order %order%', 'airwallex-online-payments-gateway' );
+		return $settings['payment_descriptor'] ?? __( 'Your order %order%', 'airwallex-online-payments-gateway' );
 	}
 
 	public function getTokens() {
@@ -751,7 +755,7 @@ class Card extends WC_Payment_Gateway {
 					'expiry_month' => $token->get_expiry_month(),
 					'expiry_year' => $token->get_expiry_year(),
 					'number_type' => $numberType,
-					'is_skip_cvc' => $this->is_skip_cvc_enabled() && in_array($numberType, ['EXTERNAL_NETWORK_TOKEN', 'AIRWALLEX_NETWORK_TOKEN'], true),
+					'is_hide_cvc_element' => $this->is_skip_cvc_enabled() && in_array($numberType, ['EXTERNAL_NETWORK_TOKEN', 'AIRWALLEX_NETWORK_TOKEN'], true),
 				];
 			}
 		}

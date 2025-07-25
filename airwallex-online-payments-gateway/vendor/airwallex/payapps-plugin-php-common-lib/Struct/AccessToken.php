@@ -7,19 +7,19 @@ class AccessToken extends AbstractBase
     /**
      * @var string
      */
-    protected $token;
+    private $token;
 
     /**
      * @var string
      */
-    protected $expiresAt;
+    private $expiresAt;
 
     /**
      * @return string
      */
     public function getToken(): string
     {
-        return $this->token;
+        return $this->token ?? '';
     }
 
     /**
@@ -38,7 +38,7 @@ class AccessToken extends AbstractBase
      */
     public function getExpiresAt(): string
     {
-        return $this->expiresAt;
+        return $this->expiresAt ?? '';
     }
 
     /**

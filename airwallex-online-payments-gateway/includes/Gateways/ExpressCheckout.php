@@ -19,6 +19,8 @@ use WC_Payment_Gateway;
 use WC_AJAX;
 use WP_Error;
 use WC_Subscriptions_Product;
+use Airwallex\Controllers\ControllerFactory;
+use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
 
 if (!defined('ABSPATH')) {
 	exit;
@@ -51,16 +53,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 	protected $cacheService;
 	protected $cardClient;
 
-	public function __construct(
-		Card $cardGateway,
-		GatewaySettingsController $gatewaySettingsController,
-		OrderController $orderController,
-		PaymentConsentController $paymentConsentController,
-		PaymentSessionController $paymentSessionController,
-		OrderService $orderService,
-		CacheService $cacheService,
-		CardClient $cardClient
-	) {
+	public function __construct() {
 		$this->plugin_id          = AIRWALLEX_PLUGIN_NAME;
 		$this->id                 = self::GATEWAY_ID;
 		$this->method_title       = __('Airwallex - Express Checkout', 'airwallex-online-payments-gateway');
@@ -84,13 +77,13 @@ class ExpressCheckout extends WC_Payment_Gateway {
 		$this->description               = __('Express Checkout', 'airwallex-online-payments-gateway');
 		$this->has_fields                = false;
 		$this->cardGateway               = GatewayFactory::create(Card::class);
-		$this->gatewaySettingsController = $gatewaySettingsController;
-		$this->orderController           = $orderController;
-		$this->paymentConsentController  = $paymentConsentController;
-		$this->paymentSessionController  = $paymentSessionController;
-		$this->cacheService              = $cacheService;
-		$this->orderService              = $orderService;
-		$this->cardClient                = $cardClient;
+		$this->gatewaySettingsController = ControllerFactory::createGatewaySettingsController();
+		$this->orderController           = ControllerFactory::createOrderController();
+		$this->paymentConsentController  = ControllerFactory::createPaymentConsentController();
+		$this->paymentSessionController  = ControllerFactory::createPaymentSessionController();
+		$this->cacheService              = CacheManager::getInstance();
+		$this->orderService              = OrderService::getInstance();
+		$this->cardClient                = CardClient::getInstance();
 
 		$this->init_settings();
 		$this->init_form_fields();
@@ -103,16 +96,10 @@ class ExpressCheckout extends WC_Payment_Gateway {
 		add_action( 'woocommerce_airwallex_settings_checkout_' . $this->id, array( $this, 'enqueueAdminScripts' ) );
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options' ));
 		add_action( 'woocommerce_checkout_order_processed', [ $this, 'addOrderMeta' ], 10, 2 );
-
-		add_action('wc_ajax_airwallex_get_cart_details', [$this->orderController, 'getCartDetails']);
-		add_action('wc_ajax_airwallex_get_shipping_options', [$this->orderController, 'getShippingOptions']);
-		add_action('wc_ajax_airwallex_update_shipping_method', [$this->orderController, 'updateShippingMethod']);
-		add_action('wc_ajax_airwallex_create_order', [$this->orderController, 'createOrderFromCart']);
-		add_action('wc_ajax_airwallex_add_to_cart', [$this->orderController, 'addToCart']);
-		add_action('wc_ajax_airwallex_start_payment_session', [$this->paymentSessionController, 'startPaymentSession']);
-		add_action('wc_ajax_airwallex_activate_payment_method', [$this->gatewaySettingsController, 'activatePaymentMethod']);
-		add_action('wc_ajax_airwallex_get_estimated_cart_details', [$this->orderController, 'getEstimatedCartDetail']);
-
+		add_action( 'woocommerce_subscription_failing_payment_method_updated_' . $this->id, array( $this, 'update_failing_payment_method' ), 10, 2 );
+		add_action( 'woocommerce_subscription_validate_payment_meta', [ $this, 'validate_subscription_payment_meta' ], 10, 2 );
+	   
+		add_filter( 'woocommerce_subscription_payment_meta', [ $this, 'add_subscription_payment_meta' ], 10, 2 );
 		add_filter('woocommerce_registration_error_email_exists', [$this, 'registrationEmailExistsError'], 10, 2);
 
 		if ( class_exists( 'WC_Subscriptions_Order' ) ) {
@@ -1009,8 +996,15 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( get_current_user_id(), $apiClient );
 			}
 
+
+			// phpcs:ignore WordPress.Security.NonceVerification
+			$paymentMethodType = wc_clean( wp_unslash( $_POST['payment_method_type'] ) );
+			if ( !in_array($paymentMethodType, ['googlepay', 'applepay'], true) ) {
+				$paymentMethodType = '';
+			}
+			$referrerPaymentMethodType = $paymentMethodType ? 'woo_commerce_' . $paymentMethodType : 'woo_commerce';
 			LogService::getInstance()->debug(__METHOD__ . ' before create intent', array( 'orderId' => $order_id ) );
-			$paymentIntent = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId );
+			$paymentIntent = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, $referrerPaymentMethodType );
 			WC()->session->set( 'airwallex_payment_intent_id', $paymentIntent->getId() );
 
 			$order->update_meta_data( '_tmp_airwallex_payment_intent', $paymentIntent->getId() );

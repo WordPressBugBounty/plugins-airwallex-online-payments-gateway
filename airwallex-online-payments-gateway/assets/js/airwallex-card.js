@@ -39,7 +39,7 @@ jQuery(function ($) {
 
     let tokens = [];
     let cvcElement, airwallexSlimCard;
-    let cvcDetail = null;
+    let isCVCCompleted = true;
 
     const initCardElement = () => {
         airwallexSlimCard = Airwallex.createElement('card', {
@@ -279,6 +279,11 @@ jQuery(function ($) {
 
         try {
             if (result.paymentMethodId) {
+                if (! isCVCCompleted && !awxEmbeddedCardData.isSkipCVCEnabled) {
+                    AirwallexClient.displayCheckoutError(awxCheckoutForm, awxEmbeddedCardData.CVCIsNotCompletedMessage);
+                    $(awxCheckoutForm).unblock();
+                    return;
+                }
                 let confirmData = {
                     client_secret: result.clientSecret,
                     billing: AirwallexClient.getBillingInformation(),
@@ -364,7 +369,7 @@ jQuery(function ($) {
         let tokenId = $('input[name="save-card"]:checked').attr('id');
         $('label[for="' + tokenId + '"]').css('font-weight', 700);
         let cvcContainerElement = $(".save-card-" + tokenId + " .cvc-title, .save-card-" + tokenId + " .cvc-container");
-        if (tokens?.[tokenId]?.is_skip_cvc) {
+        if (tokens?.[tokenId]?.is_hide_cvc_element) {
             cvcContainerElement.hide();
         } else {
             cvcContainerElement.show();
@@ -389,10 +394,13 @@ jQuery(function ($) {
             cvcLength
         });
         cvcElement.mount(tokenId + '-cvc', { autoCapture });
-        cvcDetail = null;
-        cvcElement.on('change', (event) => {
-            cvcDetail = event.detail;
-        })
+        isCVCCompleted = true;
+        if (!tokens?.[tokenId]?.is_hide_cvc_element) {
+            isCVCCompleted = false;
+            cvcElement.on('change', (event) => {
+                isCVCCompleted = event.detail.complete;
+            })
+        }
     });
 
     $(document).on('change', 'input[name="new-card"]', function() {

@@ -19,7 +19,7 @@ export const getBillingInformation = (billingData) => {
 
 export const getReplacedText = function(template, values) {
 	for (const key in values) {
-		template = template.replace(key, values[key]);
+		template = template.split(key).join(values[key]);
 	}
 
 	return template;

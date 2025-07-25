@@ -7,74 +7,74 @@ class Customer extends AbstractBase
     /**
      * @var string
      */
-    protected $id;
+    private $id;
 
     /**
      * @var string
      */
-    protected $requestId;
+    private $requestId;
 
     /**
      * @var string
      */
-    protected $businessName;
+    private $businessName;
 
     /**
      * @var string
      */
-    protected $clientSecret;
+    private $clientSecret;
 
     /**
      * @var array
      */
-    protected $address;
+    private $address;
 
     /**
      * @var array
      */
-    protected $metadata;
+    private $metadata;
 
     /**
      * @var string
      */
-    protected $email;
+    private $email;
 
     /**
      * @var string
      */
-    protected $firstName;
+    private $firstName;
 
     /**
      * @var string
      */
-    protected $lastName;
+    private $lastName;
 
     /**
      * @var string
      */
-    protected $merchantCustomerId;
+    private $merchantCustomerId;
 
     /**
      * @var string
      */
-    protected $createdAt;
+    private $createdAt;
 
     /**
      * @var string
      */
-    protected $updatedAt;
+    private $updatedAt;
 
     /**
      * @var string
      */
-    protected $phoneNumber;
+    private $phoneNumber;
 
     /**
      * @return string
      */
     public function getId(): string
     {
-        return $this->id;
+        return $this->id ?? '';
     }
 
     /**
@@ -93,7 +93,7 @@ class Customer extends AbstractBase
      */
     public function getRequestId(): string
     {
-        return $this->requestId;
+        return $this->requestId ?? '';
     }
 
     /**
@@ -112,7 +112,7 @@ class Customer extends AbstractBase
      */
     public function getBusinessName(): string
     {
-        return $this->businessName;
+        return $this->businessName ?? '';
     }
 
     /**
@@ -131,7 +131,7 @@ class Customer extends AbstractBase
      */
     public function getClientSecret(): string
     {
-        return $this->clientSecret;
+        return $this->clientSecret ?? '';
     }
 
     /**
@@ -150,7 +150,7 @@ class Customer extends AbstractBase
      */
     public function getAddress(): array
     {
-        return $this->address;
+        return $this->address ?? [];
     }
 
     /**
@@ -169,7 +169,7 @@ class Customer extends AbstractBase
      */
     public function getMetadata(): array
     {
-        return $this->metadata;
+        return $this->metadata ?? [];
     }
 
     /**
@@ -188,7 +188,7 @@ class Customer extends AbstractBase
      */
     public function getEmail(): string
     {
-        return $this->email;
+        return $this->email ?? '';
     }
 
     /**
@@ -207,7 +207,7 @@ class Customer extends AbstractBase
      */
     public function getFirstName(): string
     {
-        return $this->firstName;
+        return $this->firstName ?? '';
     }
 
     /**
@@ -226,7 +226,7 @@ class Customer extends AbstractBase
      */
     public function getLastName(): string
     {
-        return $this->lastName;
+        return $this->lastName ?? '';
     }
 
     /**
@@ -245,7 +245,7 @@ class Customer extends AbstractBase
      */
     public function getMerchantCustomerId(): string
     {
-        return $this->merchantCustomerId;
+        return $this->merchantCustomerId ?? '';
     }
 
     /**
@@ -264,7 +264,7 @@ class Customer extends AbstractBase
      */
     public function getCreatedAt(): string
     {
-        return $this->createdAt;
+        return $this->createdAt ?? '';
     }
 
     /**
@@ -283,7 +283,7 @@ class Customer extends AbstractBase
      */
     public function getUpdatedAt(): string
     {
-        return $this->updatedAt;
+        return $this->updatedAt ?? '';
     }
 
     /**
@@ -302,7 +302,7 @@ class Customer extends AbstractBase
      */
     public function getPhoneNumber(): string
     {
-        return $this->phoneNumber;
+        return $this->phoneNumber ?? '';
     }
 
     /**

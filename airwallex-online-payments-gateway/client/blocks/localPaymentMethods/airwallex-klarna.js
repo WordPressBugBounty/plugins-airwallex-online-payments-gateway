@@ -16,6 +16,47 @@ const canMakePayment = () => {
 	return settings?.enabled ?? false;
 }
 
+const handleCurrencySwitching = ({
+	country,
+	currency,
+	settings,
+	paymentMethod,
+	updateCurrencySwitchingInfo,
+	setShowEntityIneligible,
+	setShowCountryIneligible,
+	setShowCurrencyIneligibleCWOff,
+	setShowCurrencyIneligibleCWOn,
+	setConvertCurrency,
+}) => {
+    if (!settings[paymentMethod]) {
+        return;
+    }
+    const { availableCurrencies } = settings;
+    const { supportedCountryCurrency } = settings[paymentMethod];
+
+    if (supportedCountryCurrency && country in supportedCountryCurrency) {
+        const requiredCurrency = supportedCountryCurrency[country];
+        setConvertCurrency(requiredCurrency);
+
+        if (currency.code === requiredCurrency) {
+            setShowCountryIneligible(false);
+            setShowCurrencyIneligibleCWOff(false);
+            setShowCurrencyIneligibleCWOn(false);
+        } else if (availableCurrencies && availableCurrencies.includes(requiredCurrency)) {
+            updateCurrencySwitchingInfo(requiredCurrency);
+            setShowCountryIneligible(false);
+        } else {
+            setShowCountryIneligible(false);
+            setShowCurrencyIneligibleCWOff(true);
+            setShowCurrencyIneligibleCWOn(false);
+        }
+        return;
+    }
+    setShowCountryIneligible(true);
+    setShowCurrencyIneligibleCWOff(false);
+    setShowCurrencyIneligibleCWOn(false);
+};
+
 export const airwallexKlarnaOption = {
 	name: settings?.name ?? 'airwallex_klarna',
 	label: <AirwallexLpmLabel
@@ -25,6 +66,8 @@ export const airwallexKlarnaOption = {
 	content: <AirwallexLpmContent
         settings={settings}
         description={description}
+        paymentMethodName={title}
+        handleCurrencySwitching={handleCurrencySwitching}
     />,
 	edit: <AirwallexLpmContentAdmin
         description={description}

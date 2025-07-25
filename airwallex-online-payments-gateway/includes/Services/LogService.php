@@ -13,6 +13,7 @@ class LogService {
 	const APPLE_EXPRESS_CHECKOUT_TYPE  = 'appleExpressCheckout';
 	const ON_PROCESS_WEBHOOK_ERROR     = 'onProcessWebhookError';
 	const ON_PAYMENT_CONFIRMATION_ERROR= 'onPaymentConfirmationError';
+	const ON_PAYMENT_INTENT_CREATE_ERROR= 'onPaymentIntentCreateError';
 
 	private $logDir;
 	private $loggingClient;
@@ -60,10 +61,6 @@ class LogService {
 		$this->log( '💣 ' . $message, 'debug', $data );
 		$this->log( $message, 'error', $data );
 		$this->getLoggingClient()->log( LoggingClient::LOG_SEVERITY_ERROR, 'wp_error', $message, $data, $type );
-	}
-
-	public function remoteError( $eventName, $message, $data = null, $type = 'unknown' ) {
-		$this->getLoggingClient()->log( LoggingClient::LOG_SEVERITY_ERROR, $eventName, $message, $data, $type, true );
 	}
 
 	protected function getLoggingClient() {

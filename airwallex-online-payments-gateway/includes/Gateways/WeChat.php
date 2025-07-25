@@ -103,7 +103,7 @@ class WeChat extends WC_Payment_Gateway {
 
 			$apiClient           = WeChatClient::getInstance();
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
-			$paymentIntent             = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details() );
+			$paymentIntent             = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), null, 'woo_commerce_wechat' );
 			$this->logService->debug(
 				__METHOD__ . ' - payment intent created ',
 				array(

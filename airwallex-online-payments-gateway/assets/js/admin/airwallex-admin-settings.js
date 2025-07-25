@@ -456,4 +456,9 @@ jQuery(function ($) {
 	}
 	toggleSaveCardField();
 	$(formTypeSelector).on('change', toggleSaveCardField);
+
+	const paymentPageTemplateSelector = '#airwallex-online-payments-gatewayairwallex_general_payment_page_template';
+	if (awxAdminSettings.apiSettings.isForceSetPaymentFormAsWPPage) {
+		$(paymentPageTemplateSelector).val('wordpress_page');
+	}
 });

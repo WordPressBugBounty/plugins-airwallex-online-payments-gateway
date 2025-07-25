@@ -7,14 +7,14 @@ class Response extends AbstractBase
     /**
      * @var string
      */
-    protected $body;
+    private $body;
 
     /**
      * @return string
      */
     public function getBody(): string
     {
-        return $this->body;
+        return $this->body ?? '';
     }
 
     /**

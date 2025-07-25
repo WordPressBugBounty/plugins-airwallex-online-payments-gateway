@@ -1,8 +1,8 @@
 <?php return array(
     'root' => array(
         'name' => 'airwallex/airwallex-online-payments-gateway',
-        'pretty_version' => '1.22.0',
-        'version' => '1.22.0.0',
+        'pretty_version' => '1.23.0',
+        'version' => '1.23.0.0',
         'reference' => null,
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
@@ -11,8 +11,8 @@
     ),
     'versions' => array(
         'airwallex/airwallex-online-payments-gateway' => array(
-            'pretty_version' => '1.22.0',
-            'version' => '1.22.0.0',
+            'pretty_version' => '1.23.0',
+            'version' => '1.23.0.0',
             'reference' => null,
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
@@ -20,9 +20,9 @@
             'dev_requirement' => false,
         ),
         'airwallex/payapps-plugin-php-common-lib' => array(
-            'pretty_version' => '1.1.2',
-            'version' => '1.1.2.0',
-            'reference' => 'b451baa9125a3e68ff028c8e47d6c483cc440729',
+            'pretty_version' => '1.2.0',
+            'version' => '1.2.0.0',
+            'reference' => 'f84c1a5772c79505f366c27f13b1b667fa00a3f7',
             'type' => 'library',
             'install_path' => __DIR__ . '/../airwallex/payapps-plugin-php-common-lib',
             'aliases' => array(),

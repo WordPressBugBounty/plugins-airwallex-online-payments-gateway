@@ -238,8 +238,8 @@ class Util {
 	 * 
 	 * @return bool
 	 */
-	public static function isNewClient() {
-		return empty(Util::getApiKey()) || empty(Util::getClientId());
+	public static function isNewClient($env = '') {
+		return empty(Util::getApiKey($env)) || empty(Util::getClientId($env));
 	}
 
 	/**

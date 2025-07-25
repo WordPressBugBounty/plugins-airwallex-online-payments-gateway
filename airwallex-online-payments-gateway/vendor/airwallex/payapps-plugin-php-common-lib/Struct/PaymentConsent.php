@@ -22,94 +22,109 @@ class PaymentConsent extends AbstractBase
     /**
      * @var string
      */
-    protected $id;
+    const MERCHANT_TRIGGER_REASON_SCHEDULED = 'scheduled';
 
     /**
      * @var string
      */
-    protected $clientSecret;
+    const MERCHANT_TRIGGER_REASON_UNSCHEDULED = 'unscheduled';
 
     /**
      * @var string
      */
-    protected $connectedAccountId;
+    const MERCHANT_TRIGGER_REASON_INSTALLMENTS = 'installments';
 
     /**
      * @var string
      */
-    protected $createdAt;
+    private $id;
 
     /**
      * @var string
      */
-    protected $customerId;
+    private $clientSecret;
 
     /**
      * @var string
      */
-    protected $disableReason = '';
+    private $connectedAccountId;
+
+    /**
+     * @var string
+     */
+    private $createdAt;
+
+    /**
+     * @var string
+     */
+    private $customerId;
+
+    /**
+     * @var string
+     */
+    private $disableReason = '';
 
     /**
      * @var array
      */
-    protected $mandate = [];
+    private $mandate = [];
 
     /**
      * @var array
      */
-    protected $metadata = [];
+    private $metadata = [];
 
     /**
      * @var string
      */
-    protected $status;
+    private $status;
 
     /**
      * @var string
      */
-    protected $initialPaymentIntentId;
+    private $initialPaymentIntentId;
 
     /**
      * @var string
      */
-    protected $updatedAt;
+    private $updatedAt;
 
     /**
      * @var array
      */
-    protected $nextAction;
+    private $nextAction;
 
     /**
      * @var array
      */
-    protected $failureReason = [];
+    private $failureReason = [];
 
     /**
      * @var string
      */
-    protected $merchantTriggerReason;
+    private $merchantTriggerReason;
 
     /**
      * @var string
      */
-    protected $nextTriggeredBy;
+    private $nextTriggeredBy;
 
     /**
      * @var array
      */
-    protected $paymentMethod = [];
+    private $paymentMethod = [];
 
     /**
      * @var string
      */
-    protected $requestId;
+    private $requestId;
 
     /**
      * @return string
      */
     public function getId(): string
     {
-        return $this->id;
+        return $this->id ?? '';
     }
 
     /**
@@ -128,7 +143,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getClientSecret(): string
     {
-        return $this->clientSecret;
+        return $this->clientSecret ?? '';
     }
 
     /**
@@ -147,7 +162,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getConnectedAccountId(): string
     {
-        return $this->connectedAccountId;
+        return $this->connectedAccountId ?? '';
     }
 
     /**
@@ -166,7 +181,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getCreatedAt(): string
     {
-        return $this->createdAt;
+        return $this->createdAt ?? '';
     }
 
     /**
@@ -185,7 +200,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getCustomerId(): string
     {
-        return $this->customerId;
+        return $this->customerId ?? '';
     }
 
     /**
@@ -204,7 +219,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getDisableReason(): string
     {
-        return $this->disableReason;
+        return $this->disableReason ?? '';
     }
 
     /**
@@ -223,7 +238,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getMetadata(): array
     {
-        return $this->metadata;
+        return $this->metadata ?? [];
     }
 
     /**
@@ -242,7 +257,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getMandate(): array
     {
-        return $this->mandate;
+        return $this->mandate ?? [];
     }
 
     /**
@@ -261,7 +276,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getStatus(): string
     {
-        return $this->status;
+        return $this->status ?? '';
     }
 
     /**
@@ -280,7 +295,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getInitialPaymentIntentId(): string
     {
-        return $this->initialPaymentIntentId;
+        return $this->initialPaymentIntentId ?? '';
     }
 
     /**
@@ -299,7 +314,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getUpdatedAt(): string
     {
-        return $this->updatedAt;
+        return $this->updatedAt ?? '';
     }
 
     /**
@@ -318,7 +333,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getNextAction(): array
     {
-        return $this->nextAction;
+        return $this->nextAction ?? [];
     }
 
     /**
@@ -337,7 +352,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getFailureReason(): array
     {
-        return $this->failureReason;
+        return $this->failureReason ?? [];
     }
 
     /**
@@ -356,7 +371,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getMerchantTriggerReason(): string
     {
-        return $this->merchantTriggerReason;
+        return $this->merchantTriggerReason ?? '';
     }
 
     /**
@@ -375,7 +390,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getNextTriggeredBy(): string
     {
-        return $this->nextTriggeredBy;
+        return $this->nextTriggeredBy ?? '';
     }
 
     /**
@@ -394,7 +409,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getPaymentMethod(): array
     {
-        return $this->paymentMethod;
+        return $this->paymentMethod ?? [];
     }
 
     /**
@@ -413,7 +428,7 @@ class PaymentConsent extends AbstractBase
      */
     public function getRequestId(): string
     {
-        return $this->requestId;
+        return $this->requestId ?? '';
     }
 
     /**

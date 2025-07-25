@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit();
 
 $awxAlertBoxClass = '';
 $awxAlertBoxIcon  = '';
-switch ($awxAlertType) {
+switch ($awxAlertType ?? '') {
     case 'critical':
         $awxAlertBoxClass = 'wc-airwallex-error';
         $awxAlertBoxIcon = 'critical_filled.svg';
@@ -31,12 +31,12 @@ switch ($awxAlertType) {
 }
 ?>
 
-<div class="<?php echo esc_attr($awxAlertTitle ? 'wc-airwallex-alert-box-with-title' : 'wc-airwallex-alert-box') ?> <?php echo esc_attr( $awxAlertBoxClass ); ?> <?php echo esc_attr($awxAlertAdditionalClass); ?>" style="display: none;">
+<div class="<?php echo esc_attr(!empty($awxAlertTitle) ? 'wc-airwallex-alert-box-with-title' : 'wc-airwallex-alert-box') ?> <?php echo esc_attr( $awxAlertBoxClass ); ?> <?php echo esc_attr($awxAlertAdditionalClass ?? ''); ?>" style="display: none;">
     <div class="wc-airwallex-alert-box-icon"><img src="<?php echo esc_url( AIRWALLEX_PLUGIN_URL . '/assets/images/' . $awxAlertBoxIcon ); ?>"></img></div>
     <div class="wc-airwallex-alert-box-content">
-        <?php if ($awxAlertTitle) : ?>
+        <?php if (!empty($awxAlertTitle)) : ?>
             <p style="font-weight: bold;"><?php echo esc_html($awxAlertTitle); ?></p>
         <?php endif; ?>
-        <p><?php echo wp_kses_post($awxAlertText); ?></p>
+        <p><?php echo wp_kses_post($awxAlertText ?? ''); ?></p>
     </div>
 </div>

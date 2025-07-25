@@ -15,12 +15,22 @@ use Exception;
 use WC_Order;
 
 class OrderService {
+    protected static $instance = null;
 
     const PAYMENT_COMPLETE_MESSAGE = 'Airwallex payment complete';
     const PAYMENT_CAPTURED_MESSAGE = 'Airwallex payment captured';
     const PAYMENT_AUTHORIZED_MESSAGE = 'Airwallex payment authorized';
     const META_KEY_PREFIX_PAYMENT_PROCESSED = 'airwallex_payment_processed_';
     const META_KEY_INTENT_ID = '_tmp_airwallex_payment_intent';
+    const META_KEY_ORDER_ORIGINAL_CURRENCY = '_tmp_airwallex_order_original_currency';
+    const META_KEY_ORDER_ORIGINAL_AMOUNT = '_tmp_airwallex_order_original_amount';
+
+    public static function getInstance() {
+        if ( ! isset( self::$instance ) ) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
 
     public function getOrderMetaTableName() {
         if ( class_exists(OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
@@ -388,6 +398,58 @@ class OrderService {
 		}
 	}
 
+	public function updateOrderDetails(WC_Order $order, PaymentIntent $paymentIntent) {
+		if ($paymentIntent->getCurrency() === $paymentIntent->getBaseCurrency()) {
+			return;
+		}
+		$rate = $order->get_meta('_tmp_airwallex_payment_client_rate', true);
+		$orderItemTypes = array( 'line_item', 'shipping', 'fee', 'tax', 'coupon' );
+		foreach ( $orderItemTypes as $type ) {
+			foreach ( $order->get_items( $type ) as $item ) {
+				switch ($type) {
+					case 'line_item':
+						if (is_callable([$item, 'set_subtotal']) && is_callable([$item, 'get_subtotal'])) {
+							$item->set_subtotal($item->get_subtotal(false) * $rate);
+						}
+						if (is_callable([$item, 'set_total']) && is_callable([$item, 'get_total'])) {
+							$item->set_total($item->get_total(false) * $rate);
+						}
+						break;
+					case 'shipping':
+						if (is_callable([$item, 'set_total']) && is_callable([$item, 'get_total'])) {
+							$item->set_total($item->get_total(false) * $rate);
+						}
+						break;
+					case 'fee':
+						if (is_callable([$item, 'set_total']) && is_callable([$item, 'get_total'])) {
+							$item->set_total($item->get_total(false) * $rate);
+						}
+						if (is_callable([$item, 'set_amount']) && is_callable([$item, 'get_amount'])) {
+							$item->set_amount($item->get_amount(false) * $rate);
+						}
+						break;
+					case 'tax':
+						if (is_callable([$item, 'set_tax_total']) && is_callable([$item, 'get_tax_total'])) {
+							$item->set_tax_total($item->get_tax_total(false) * $rate);
+						}
+						break;
+					case 'coupon':
+						if (is_callable([$item, 'set_discount']) && is_callable([$item, 'get_discount'])) {
+							$item->set_discount($item->get_discount(false) * $rate);
+						}
+						break;
+					default:
+						break;
+				}
+			}
+		}
+
+		$order->calculate_totals();
+		$order->set_total( $paymentIntent->getAmount() );
+		$order->set_currency($paymentIntent->getCurrency());
+		$order->add_meta_data('airwallex_payment_currency', $paymentIntent->getCurrency());
+	}
+
 	public function paymentCompleteByCapture($order, $logService, $referrer, $paymentIntent) {
 		global $wpdb;
 
@@ -405,7 +467,8 @@ class OrderService {
 				) 
 			);
 			$order->read_meta_data(true);
-			if ( !$order->meta_exists( $metaKey ) ) {
+			$isProcessed = $order->meta_exists( $metaKey );
+			if ( !$isProcessed ) {
 				$this->update_consent( $paymentIntent, $order );
 				$order->payment_complete( $paymentIntent->getId() );
 				$order->add_meta_data( $metaKey, 'processed' );
@@ -413,6 +476,9 @@ class OrderService {
 				$order->add_order_note( __( self::PAYMENT_COMPLETE_MESSAGE, 'airwallex-online-payments-gateway' ) );
 			}
 			$wpdb->query( "COMMIT" );
+			if ( !$isProcessed ) {
+				$this->updateOrderDetails( $order, $paymentIntent );
+			}
 		} catch ( Exception $e ) {
 			$wpdb->query( "ROLLBACK" );
 			$logService->error( "$referrer " . __METHOD__ . $e->getMessage() );
@@ -434,10 +500,11 @@ class OrderService {
 				$wpdb->prepare("SELECT * FROM $tableName WHERE $orderIdColumnName = %d  AND meta_key = %s FOR UPDATE",
 					$orderId,
 					self::META_KEY_INTENT_ID
-				) 
+				)
 			);
 			$order->read_meta_data(true);
-			if ( !$order->meta_exists( $metaKey ) ) {
+			$isProcessed = $order->meta_exists( $metaKey );
+			if ( !$isProcessed ) {
 				$this->update_consent( $paymentIntent, $order );
 				$this->setAuthorizedStatus( $order );
 				$paymentGateway = wc_get_payment_gateway_by_order( $order );
@@ -472,6 +539,9 @@ class OrderService {
 				}
 			}
 			$wpdb->query( "COMMIT" );
+			if ( !$isProcessed ) {
+				$this->updateOrderDetails( $order, $paymentIntent );
+			}
 		} catch ( Exception $e ) {
 			$wpdb->query( "ROLLBACK" );
 			$logService->error( "$referrer " . __METHOD__ . $e->getMessage() );

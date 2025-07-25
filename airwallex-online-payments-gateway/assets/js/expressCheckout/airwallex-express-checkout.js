@@ -8,7 +8,6 @@ import {
 	getEstimatedCartDetails,
 } from './api.js';
 import {
-	deviceSupportApplePay,
 	applePayRequiredBillingContactFields,
 	applePayRequiredShippingContactFields,
 	getAppleFormattedShippingOptions,
@@ -197,11 +196,9 @@ jQuery(function ($) {
 			applePay.mount('awx-ec-apple-pay-btn');
 
 			applePay.on('ready', (event) => {
-				if (deviceSupportApplePay()) {
-					$('#awx-express-checkout-wrapper').show();
-					$('.awx-apple-pay-btn').show();
-					$('#awx-express-checkout-button-separator').show();
-				}
+				$('#awx-express-checkout-wrapper').show();
+				$('.awx-apple-pay-btn').show();
+				$('#awx-express-checkout-button-separator').show();
 			});
 
 			applePay.on('click', (event) => {

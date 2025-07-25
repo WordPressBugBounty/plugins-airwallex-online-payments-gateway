@@ -4,6 +4,7 @@ import { airwallexCardOption } from './card/airwallex-card.js';
 import { airwallexWeChatOption } from './airwallex-wechat.js';
 import { airwallexExpressCheckoutOption } from './airwallex-express-checkout.js';
 import { airwallexKlarnaOption } from './localPaymentMethods/airwallex-klarna.js';
+import { airwallexAfterpayOption } from './localPaymentMethods/airwallex-afterpay.js';
 import { registerPlugin } from '@wordpress/plugins';
 import { ExperimentalOrderMeta, registerCheckoutFilters } from '@woocommerce/blocks-checkout';
 import { __ } from '@wordpress/i18n';
@@ -15,6 +16,7 @@ registerPaymentMethod(airwallexCardOption);
 registerPaymentMethod(airwallexWeChatOption);
 registerPaymentMethod(airwallexExpressCheckoutOption);
 registerPaymentMethod(airwallexKlarnaOption);
+registerPaymentMethod(airwallexAfterpayOption);
 
 const CurrencySwitchingDetail = ({ cart, extensions }) => {
 
@@ -54,7 +56,7 @@ registerPlugin('airwallex-lpm', {
 });
 
 window.addEventListener('change', (event) => {
-    if (event?.target?.name === 'radio-control-wc-payment-method-options' && select(PAYMENT_STORE_KEY).getActivePaymentMethod() !== 'airwallex_klarna') {
+    if (event?.target?.name === 'radio-control-wc-payment-method-options' && !['airwallex_klarna', 'airwallex_afterpay'].includes(select(PAYMENT_STORE_KEY).getActivePaymentMethod())) {
         document.getElementById('wc-block-airwallex-currency-switching-container').style.display = 'none';
     }
 });

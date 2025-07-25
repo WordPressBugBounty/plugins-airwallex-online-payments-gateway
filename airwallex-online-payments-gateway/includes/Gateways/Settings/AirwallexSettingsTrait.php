@@ -107,7 +107,7 @@ trait AirwallexSettingsTrait {
 				try {
 					self::$connected = MainClient::getInstance()->testAuth();
 				} catch (Exception $e) {
-					LogService::getInstance()->error('Authentication failed.');
+					LogService::getInstance()->error('Authentication failed: ', $e->getMessage());
 					self::$connected = false;
 				}
 			}

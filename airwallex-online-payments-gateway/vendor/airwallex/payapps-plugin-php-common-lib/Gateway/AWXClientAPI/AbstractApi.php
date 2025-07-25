@@ -2,15 +2,17 @@
 
 namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI;
 
-use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
+use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheTrait;
 use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init;
-use Airwallex\PayappsPlugin\CommonLibrary\Struct\AccessToken;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\Response;
+use Error;
 use Exception;
 use Composer\InstalledVersions;
 
 abstract class AbstractApi
 {
+    use CacheTrait;
+
     /**
      * @var int
      */
@@ -19,12 +21,12 @@ abstract class AbstractApi
     /**
      * @var string
      */
-    const DEMO_BASE_URL = 'https://pci-api-demo.airwallex.com/api/v1/';
+    const DEMO_BASE_URL = 'https://api-demo.airwallex.com/api/v1/';
 
     /**
      * @var string
      */
-    const PRODUCTION_BASE_URL = 'https://pci-api.airwallex.com/api/v1/';
+    const PRODUCTION_BASE_URL = 'https://api.airwallex.com/api/v1/';
 
     /**
      * @var string
@@ -42,10 +44,14 @@ abstract class AbstractApi
      */
     public function send()
     {
-        if (Init::getInstance()->get('plugin_type') === 'woo_commerce') {
-            return $this->wpHttpSend();
+        try {
+            if (Init::getInstance()->get('plugin_type') === 'woo_commerce') {
+                return $this->wpHttpSend();
+            }
+            return $this->guzzleHttpSend();
+        } catch (Error $e) {
+            throw new Exception($e->getMessage());
         }
-        return $this->guzzleHttpSend();
     }
 
     /**
@@ -229,16 +235,10 @@ abstract class AbstractApi
      */
     protected function getToken(): string
     {
-        $cache = CacheManager::getInstance();
-        $token = $cache->get('airwallex_token');
-
-        if (!$token) {
-            /** @var AccessToken $accessToken */
+        $cacheName = 'airwallex_token' . Init::getInstance()->get('api_key');
+        return $this->cacheRemember($cacheName, function () {
             $accessToken = (new Authentication())->send();
-            $token = $accessToken->getToken();
-            $cache->set('airwallex_token', $token, 60 * 30);
-        }
-
-        return $token;
+            return $accessToken->getToken();
+        }, 60 * 30);
     }
 }

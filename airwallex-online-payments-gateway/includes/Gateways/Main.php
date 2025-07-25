@@ -258,7 +258,7 @@ class Main extends WC_Payment_Gateway {
 			}
 
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
-			$paymentIntent             = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId );
+			$paymentIntent             = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, 'woo_commerce_apm' );
 			$this->logService->debug(
 				__METHOD__ . ' - payment intent created ',
 				array(

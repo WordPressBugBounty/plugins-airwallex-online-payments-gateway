@@ -44,54 +44,6 @@ class CardSubscriptions extends Card {
 		}
 	}
 
-	/**
-	 * @param WC_Subscription $subscription
-	 * @param WC_Order        $order
-	 */
-	public function update_failing_payment_method( $subscription, $order ) {
-		$subscription->update_meta_data( 'airwallex_consent_id', $order->get_meta( 'airwallex_consent_id', true ) );
-		$subscription->update_meta_data( 'airwallex_customer_id', $order->get_meta( 'airwallex_customer_id', true ) );
-		$subscription->save();
-	}
-
-	public function add_subscription_payment_meta( $paymentMeta, $subscription ) {
-		$subscription->read_meta_data( true );
-		$paymentMeta[ $this->id ] = [
-			'post_meta' => [
-				'airwallex_customer_id' => [
-					'value' => $subscription->get_meta( 'airwallex_customer_id', true ),
-					'label' => 'Airwallex Customer ID',
-				],
-				'airwallex_consent_id'   => [
-					'value' => $subscription->get_meta( 'airwallex_consent_id', true ),
-					'label' => 'Airwallex Payment Consent ID',
-				],
-			],
-		];
-
-		return $paymentMeta;
-	}
-
-	public function validate_subscription_payment_meta( $paymentMethodId, $paymentMethodData ) {
-		if ( $paymentMethodId === $this->id ) {
-            if ( empty( $paymentMethodData['post_meta']['airwallex_customer_id']['value'] ) ) {
-                throw new Exception( __('"Airwallex Customer ID" is required.', 'airwallex-online-payments-gateway') );
-			}
-            if ( empty( $paymentMethodData['post_meta']['airwallex_consent_id']['value'] ) ) {
-                throw new Exception( __('"Airwallex Payment Consent ID" is required.', 'airwallex-online-payments-gateway') );
-			}
-			$paymentConsent  = (new CardClient())->getPaymentConsent(
-				$paymentMethodData['post_meta']['airwallex_consent_id']['value']
-			);
-			if ( empty($paymentConsent->getStatus()) || $paymentConsent->getStatus() !== 'VERIFIED' ) {
-				throw new Exception( __("Invalid Airwallex Payment Consent.", 'airwallex-online-payments-gateway') );
-			}
-			if ( $paymentConsent->getCustomerId() !== $paymentMethodData['post_meta']['airwallex_customer_id']['value'] ) {
-				throw new Exception( __('The provided "Airwallex Customer ID" does not match the associated "Airwallex Payment Consent ID".', 'airwallex-online-payments-gateway') );
-			}
-		}
-	}
-
 	public function mustSaveCard( $mustSaveCard ) {
 		if ( WC_Subscriptions_Cart::cart_contains_subscription() ) {
 			return true;

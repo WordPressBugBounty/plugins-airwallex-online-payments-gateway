@@ -10,7 +10,7 @@ class Disable extends AbstractApi
     /**
      * @var string
      */
-    protected $paymentConsentId;
+    private $paymentConsentId;
 
     /**
      * @inheritDoc

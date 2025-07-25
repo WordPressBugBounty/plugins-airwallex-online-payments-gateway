@@ -19,6 +19,7 @@ use Airwallex\Services\Util;
 use Airwallex\Gateways\ExpressCheckout;
 use Airwallex\Services\LogService;
 use Airwallex\Services\CacheService;
+use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
 
 class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
 
@@ -30,21 +31,12 @@ class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
 	public function initialize() {
 		$this->settings              = get_option( 'airwallex-online-payments-gatewayairwallex_card_settings', array() );
 		$this->enabled               = ! empty( $this->settings['enabled'] ) && in_array( $this->settings['enabled'], array( 'yes', 1, true, '1' ), true ) ? 'yes' : 'no';
-		$cardClient                  = new CardClient();
-		$applePayClient              = new ApplePayClient();
-		$gatewayClient			     = new GatewayClient();
-		$cacheService                = new CacheService(Util::getClientId());
-		$orderService                = new OrderService();
-		$this->gateway               = new ExpressCheckout(
-			new Card(),
-			new GatewaySettingsController($cardClient, $applePayClient, $gatewayClient, $cacheService),
-			new OrderController(),
-			new PaymentConsentController($cardClient, $cacheService, $orderService),
-			new PaymentSessionController($cardClient),
-			$orderService,
-			new CacheService(Util::getClientId()),
-			$cardClient
-		);
+		$cardClient                  = CardClient::getInstance();
+		$applePayClient              = ApplePayClient::getInstance();
+		$gatewayClient               = GatewayClient::getInstance();
+		$cacheService                = CacheManager::getInstance();
+		$orderService                = OrderService::getInstance();
+		$this->gateway               = new ExpressCheckout();
 	}
 
 	/**

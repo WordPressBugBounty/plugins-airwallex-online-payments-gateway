@@ -15,8 +15,8 @@ class PaymentSessionController {
 
 	protected $cardClient;
 
-	public function __construct(CardClient $cardClient) {
-		$this->cardClient = $cardClient;
+	public function __construct() {
+		$this->cardClient = CardClient::getInstance();
 	}
 
 	public function startPaymentSession() {

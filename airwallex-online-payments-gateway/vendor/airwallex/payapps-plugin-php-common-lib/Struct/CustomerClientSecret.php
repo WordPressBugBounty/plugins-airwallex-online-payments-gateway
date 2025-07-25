@@ -7,19 +7,19 @@ class CustomerClientSecret extends AbstractBase
     /**
      * @var string
      */
-    protected $expiredTime;
+    private $expiredTime;
 
     /**
      * @var string
      */
-    protected $clientSecret;
+    private $clientSecret;
 
     /**
      * @return string
      */
     public function getExpiredTime(): string
     {
-        return $this->expiredTime;
+        return $this->expiredTime ?? '';
     }
 
     /**
@@ -38,7 +38,7 @@ class CustomerClientSecret extends AbstractBase
      */
     public function getClientSecret(): string
     {
-        return $this->clientSecret;
+        return $this->clientSecret ?? '';
     }
 
     /**

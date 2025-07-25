@@ -145,6 +145,28 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
         return 'https://help.airwallex.com/hc/en-gb/articles/9514119772047-What-countries-can-I-use-Klarna-in';
     }
 
+    public function payment_fields() {
+        echo wp_kses_post( '<p style="display: flex; align-items: center;"><span>' . $this->description . '</span><span class="wc-airwallex-loader"></span></p>' );
+
+        $this->renderCountryIneligibleHtml();
+        $this->renderCurrencyIneligibleCWOnHtml();
+        $this->renderCurrencyIneligibleCWOffHtml();
+    }
+
+    public function renderCountryIneligibleHtml() {
+        $awxAlertAdditionalClass = 'wc-airwallex-lpm-country-ineligible';
+        $awxAlertType            = 'critical';
+        $awxAlertText            = sprintf(
+            /* translators: Placeholder 1: Payment method name. Placeholder 2: Open link tag. Placeholder 3: Close link tag. */
+            __('%1$s is not available in your billing country. Please change your billing address to a %2$s compatible country %3$s or choose a different payment method.', 'airwallex-online-payments-gateway'),
+            $this->paymentMethodName,
+            '<a target=_blank href="' . $this->getPaymentMethodDocUrl() . '">',
+            '</a>'
+        );
+
+        include AIRWALLEX_PLUGIN_PATH . 'templates/airwallex-alert-box.php';
+    }
+
     public function process_payment( $order_id ) {
         $order = wc_get_order( $order_id );
         if ( empty( $order ) ) {

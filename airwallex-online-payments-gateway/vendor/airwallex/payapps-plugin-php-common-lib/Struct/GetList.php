@@ -7,19 +7,19 @@ class GetList extends AbstractBase
     /**
      * @var bool
      */
-    protected $hasMore;
+    private $hasMore;
 
     /**
      * @var array
      */
-    protected $items;
+    private $items;
 
     /**
      * @return bool
      */
     public function hasMore(): bool
     {
-        return $this->hasMore;
+        return $this->hasMore ?? false;
     }
 
     /**
@@ -38,7 +38,7 @@ class GetList extends AbstractBase
      */
     public function getItems(): array
     {
-        return $this->items;
+        return $this->items ?? [];
     }
 
     /**

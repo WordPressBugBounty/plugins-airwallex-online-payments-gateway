@@ -3,7 +3,7 @@ Contributors: airwallex
 Tags: credit card, airwallex, payments, wechat, alipay, apple pay
 Requires at least: 4.5
 Tested up to: 6.8.1
-Stable tag: 1.22.0
+Stable tag: 1.23.0
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -68,6 +68,11 @@ The non-compressed javascript files can be found under the ```assets/js``` folde
 We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) as our build tool.
 
 == Changelog ==
+
+= 1.23.0 =
+* Release Date - 16 july 2025*
+
+* Add - Afterpay standalone with currency switcher
 
 = 1.22.0 =
 * Release Date - 18 June 2025*

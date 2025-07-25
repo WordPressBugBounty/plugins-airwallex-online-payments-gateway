@@ -32,9 +32,6 @@ class APISettings extends AbstractAirwallexSettings {
 		add_filter('wc_airwallex_settings_nav_tabs', array($this, 'adminNavTab'), 10);
 		add_action('woocommerce_airwallex_settings_checkout_' . $this->id, array($this, 'admin_options'));
 		add_action('admin_enqueue_scripts', [$this, 'enqueueAdminScripts']);
-		add_action('wc_ajax_airwallex_connection_test', [new AirwallexController(), 'connectionTest']);
-		add_action('wc_ajax_airwallex_connection_click', [new AirwallexController(), 'connectionClick']);
-		add_action('wc_ajax_airwallex_start_connection_flow', [new ConnectionFlowController(), 'startConnection']);
 	}
 
 	public function init_form_fields() {
@@ -318,7 +315,7 @@ class APISettings extends AbstractAirwallexSettings {
 		$this->enqueueAdminSettingsScripts();
 		wp_add_inline_script(
 			'airwallex-admin-settings',
-			'var awxAdminSettings = ' . wp_json_encode($this->getExpressCheckoutSettingsScriptData()),
+			'var awxAdminSettings = ' . wp_json_encode($this->getSettingsScriptData()),
 			'before'
 		);
 		wp_add_inline_script(
@@ -328,7 +325,11 @@ class APISettings extends AbstractAirwallexSettings {
 		);
 	}
 
-	public function getExpressCheckoutSettingsScriptData() {
+	public function getSettingsScriptData() {
+		$isForceSetPaymentFormAsWPPage = Util::isNewClient('demo') && Util::isNewClient('prod') && !get_option( 'airwallex_payment_page_template' );
+		if ($isForceSetPaymentFormAsWPPage) {
+			update_option( 'airwallex_payment_page_template', 'wordpress_page' );
+		}
 		return [
 			'apiSettings' => [
 				'env' => Util::getEnvironment(),
@@ -358,6 +359,7 @@ class APISettings extends AbstractAirwallexSettings {
 				],
 				'connectedViaConnectionFlow' => Util::isConnectedViaConnectionFlow(),
 				'connectedViaApiKey' => Util::isConnectedViaApiKey(),
+				'isForceSetPaymentFormAsWPPage' => $isForceSetPaymentFormAsWPPage
 			],
 		];
 	}

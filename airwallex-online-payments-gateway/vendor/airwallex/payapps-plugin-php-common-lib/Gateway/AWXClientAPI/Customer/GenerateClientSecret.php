@@ -10,7 +10,7 @@ class GenerateClientSecret extends AbstractApi
     /**
      * @var string
      */
-    protected $customerId;
+    private $customerId;
 
     /**
      * @inheritDoc

@@ -100,7 +100,7 @@ class HttpClient {
 				$response->requestUrl  = $url;
 				return $response;
 			}
-			throw new Exception( 'API response invalid' );
+			throw new Exception( 'API response invalid: ' . $rawResponse );
 		}
 		$response              = new Response();
 		$response->data        = $responseData;

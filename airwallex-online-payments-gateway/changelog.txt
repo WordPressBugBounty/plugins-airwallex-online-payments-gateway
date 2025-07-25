@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-07-16 - version 1.23.0
+
+* Add - Afterpay standalone with currency switcher
+
 2025-06-18 - version 1.22.0
 
 * Add - Display cards in the saved cards list that were previously saved when creating subscription orders

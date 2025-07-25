@@ -10,7 +10,7 @@ class Retrieve extends AbstractApi
     /**
      * @var string
      */
-    protected $id;
+    private $id;
 
     /**
      * @inheritDoc

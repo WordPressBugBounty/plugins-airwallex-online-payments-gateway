@@ -8,7 +8,6 @@ import {
 import {
 	maskPageWhileLoading,
 	removePageMask,
-	deviceSupportApplePay,
 	applePayRequiredBillingContactFields,
 	applePayRequiredShippingContactFields,
 	getAppleFormattedShippingOptions,
@@ -285,7 +284,7 @@ const canMakePayment = ({
 		&& settings.applePayEnabled
 		&& mode in checkout.allowedCardNetworks.applepay
 		&& checkout.allowedCardNetworks.applepay[mode].length > 0
-		&& deviceSupportApplePay()) ?? false;
+		) ?? false;
 };
 
 export const airwallexApplePayOption = {

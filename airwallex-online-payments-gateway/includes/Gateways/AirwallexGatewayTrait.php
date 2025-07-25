@@ -5,6 +5,7 @@ namespace Airwallex\Gateways;
 use Airwallex\Client\GatewayClient;
 use Airwallex\Main;
 use Airwallex\Client\CardClient;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
 use Airwallex\Struct\Refund;
 use Exception;
 use Airwallex\Services\CacheService;
@@ -157,6 +158,7 @@ trait AirwallexGatewayTrait {
 			$originalOrder             = wc_get_order( $originalOrderId );
 			WC_Subscriptions_Manager::process_subscription_payment_failure_on_order($originalOrder);
 			LogService::getInstance()->error( 'do_subscription_payment failed', $e->getMessage() );
+			RemoteLog::error( $e->getMessage(), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
 		}
 	}
 
@@ -208,16 +210,64 @@ trait AirwallexGatewayTrait {
 
 		if (empty($orderId)) {
 			$errorMessage = 'Unable to retrieve a valid order ID.';
-			LogService::getInstance()->remoteError( LogService::ON_PAYMENT_CONFIRMATION_ERROR, $referrer . ' exception', array( 'msg' => $errorMessage, '$_GET' => json_encode($_GET) ) );
+			RemoteLog::error( json_encode(['msg' => $errorMessage, '$_GET' => $_GET]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
 			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
 		}
 
 		$order = wc_get_order( $orderId );
 		if ( empty($order) ) {
 			$errorMessage = 'Unable to retrieve a valid order.';
-			LogService::getInstance()->remoteError( LogService::ON_PAYMENT_CONFIRMATION_ERROR, $referrer . ' exception', array( 'msg' => $errorMessage, '$_GET' => json_encode($_GET) ) );
+			RemoteLog::error( json_encode(['msg' => $errorMessage, '$_GET' => $_GET]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
 			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
 		}
 		return $order;
+	}
+
+	public function add_subscription_payment_meta( $paymentMeta, $subscription ) {
+		$subscription->read_meta_data( true );
+		$paymentMeta[ $this->id ] = [
+			'post_meta' => [
+				'airwallex_customer_id' => [
+					'value' => $subscription->get_meta( 'airwallex_customer_id', true ),
+					'label' => 'Airwallex Customer ID',
+				],
+				'airwallex_consent_id'   => [
+					'value' => $subscription->get_meta( 'airwallex_consent_id', true ),
+					'label' => 'Airwallex Payment Consent ID',
+				],
+			],
+		];
+
+		return $paymentMeta;
+	}
+
+	public function validate_subscription_payment_meta( $paymentMethodId, $paymentMethodData ) {
+		if ( $paymentMethodId === $this->id ) {
+			if ( empty( $paymentMethodData['post_meta']['airwallex_customer_id']['value'] ) ) {
+				throw new Exception( __('"Airwallex Customer ID" is required.', 'airwallex-online-payments-gateway') );
+			}
+			if ( empty( $paymentMethodData['post_meta']['airwallex_consent_id']['value'] ) ) {
+				throw new Exception( __('"Airwallex Payment Consent ID" is required.', 'airwallex-online-payments-gateway') );
+			}
+			$paymentConsent  = (new CardClient())->getPaymentConsent(
+				$paymentMethodData['post_meta']['airwallex_consent_id']['value']
+			);
+			if ( empty($paymentConsent->getStatus()) || $paymentConsent->getStatus() !== 'VERIFIED' ) {
+				throw new Exception( __("Invalid Airwallex Payment Consent.", 'airwallex-online-payments-gateway') );
+			}
+			if ( $paymentConsent->getCustomerId() !== $paymentMethodData['post_meta']['airwallex_customer_id']['value'] ) {
+				throw new Exception( __('The provided "Airwallex Customer ID" does not match the associated "Airwallex Payment Consent ID".', 'airwallex-online-payments-gateway') );
+			}
+		}
+	}
+
+	/**
+	 * @param \WC_Subscription $subscription
+	 * @param \WC_Order        $order
+	 */
+	public function update_failing_payment_method( $subscription, $order ) {
+		$subscription->update_meta_data( 'airwallex_consent_id', $order->get_meta( 'airwallex_consent_id', true ) );
+		$subscription->update_meta_data( 'airwallex_customer_id', $order->get_meta( 'airwallex_customer_id', true ) );
+		$subscription->save();
 	}
 }

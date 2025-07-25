@@ -2,11 +2,12 @@
 
 namespace Airwallex\Client;
 
-use Airwallex\Client\HttpClient;
 use Airwallex\Controllers\PaymentSessionController;
 use Airwallex\Gateways\Card;
 use Airwallex\Gateways\ExpressCheckout;
 use Airwallex\Services\CacheService;
+use Airwallex\Services\LogService;
+use Airwallex\Services\OrderService;
 use Airwallex\Struct\Customer;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Struct\Refund;
@@ -15,6 +16,8 @@ use Airwallex\Services\Util;
 use Airwallex\Main;
 use Airwallex\Struct\PaymentConsent;
 use Airwallex\Struct\PaymentSession;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Customer\Retrieve as RetrieveCustomer;
 
 abstract class AbstractClient {
 
@@ -33,7 +36,6 @@ abstract class AbstractClient {
 	protected $gateway;
 	protected $token;
 	protected $tokenExpiry;
-	protected $paymentDescriptor;
 	protected $cacheService;
 
 	/**
@@ -52,7 +54,10 @@ abstract class AbstractClient {
 		$this->clientId = Util::getClientId();
 		$this->apiKey = Util::getApiKey();
 		$this->isSandbox = in_array( get_option( 'airwallex_enable_sandbox' ), array( true, 'yes' ), true );
-		$this->paymentDescriptor = (string) get_option( 'airwallex_payment_descriptor', Card::getDescriptorSetting() );
+	}
+
+	public function getPaymentDescriptor() {
+		return get_option( 'airwallex_payment_descriptor', Card::getDescriptorSetting());
 	}
 
 	final public function getAuthUrl( $action ) {
@@ -173,10 +178,12 @@ abstract class AbstractClient {
 	 * @param $orderId
 	 * @param bool $withDetails
 	 * @param null $customerId
+	 * @param string $paymentMethodType
+	 *
 	 * @return PaymentIntent
 	 * @throws Exception
 	 */
-	final public function createPaymentIntent( $amount, $orderId, $withDetails = false, $customerId = null ) {
+	final public function createPaymentIntent( $amount, $orderId, $withDetails = false, $customerId = null, $paymentMethodType = 'woo_commerce' ) {
 		$client      = $this->getHttpClient();
 		$order       = wc_get_order( (int) $orderId );
 		$orderNumber = $order->get_meta( '_order_number' );
@@ -188,7 +195,7 @@ abstract class AbstractClient {
 		$data        = array(
 			'amount'            => $amount,
 			'currency'          => $order->get_currency(),
-			'descriptor'        => str_replace( '%order%', $orderId, $this->paymentDescriptor ),
+			'descriptor'        => str_replace( '%order%', $orderId, $this->getPaymentDescriptor() ),
 			'metadata'          => array(
 				'wp_order_id'     => $orderId,
 				'wp_instance_key' => Main::getInstanceKey(),
@@ -223,11 +230,31 @@ abstract class AbstractClient {
 			'phone_number'         => $order->get_billing_phone(),
 		);
 
-		if ( $order->get_billing_city() && $order->get_billing_country() && $order->get_billing_address_1() ) {
+		$data['customer'] = null === $customerId ? $customer : null;
+
+		if ( $data['customer'] && $order->get_billing_city() && $order->get_billing_country() && $order->get_billing_address_1() ) {
 			$data['customer']['address'] = $customerAddress;
 		}
 
-		$data['customer'] = null === $customerId ? $customer : null;
+		if (!empty($customerId)) {
+			try {
+				$customerObject = (new RetrieveCustomer())->setCustomerId($customerId)->send();
+				if (!$customerObject->getEmail()) {
+					$updateData = [
+						'email' => $order->get_billing_email() ?? '',
+						'first_name' => $order->get_billing_first_name() ?? '',
+						'last_name' => $order->get_billing_last_name() ?? '',
+						'phone_number' => $order->get_billing_phone() ?? '',
+						'address' => $customerAddress,
+					];
+					$this->updateCustomer($customerId, $updateData);
+				}
+			} catch (\Exception $e) {
+				RemoteLog::error( 'Error update customer failed: ' . $e->getMessage() );
+			} catch (\Error $e) {
+				RemoteLog::error( 'Error update customer failed: ' . $e->getMessage() );
+			}
+		}
 
 		// Set order details
 		$orderData = array(
@@ -336,7 +363,7 @@ abstract class AbstractClient {
 			$this->getPciUrl( 'pa/payment_intents/create' ),
 			wp_json_encode(
 				$data
-				+ $this->getReferrer()
+				+ $this->getReferrer($paymentMethodType)
 			),
 			array(
 				'Authorization' => 'Bearer ' . $this->getToken(),
@@ -345,8 +372,14 @@ abstract class AbstractClient {
 		);
 
 		if ( empty( $response->data['id'] ) ) {
-			throw new Exception( 'payment intent creation failed: ' . wp_json_encode( $response ) );
+			$message = 'Payment intent creation failed: ' . wp_json_encode( $response );
+			RemoteLog::error( $message, RemoteLog::ON_PAYMENT_CREATION_ERROR);
+			throw new Exception( $message );
 		}
+
+		$order->update_meta_data( OrderService::META_KEY_ORDER_ORIGINAL_CURRENCY, $order->get_currency() );
+		$order->update_meta_data( OrderService::META_KEY_ORDER_ORIGINAL_AMOUNT, $order->get_total() );
+		$order->save_meta_data();
 
 		$returnIntent = new PaymentIntent( $response->data );
 		$this->savePaymentIntentToCache( $data, $returnIntent );
@@ -520,6 +553,32 @@ abstract class AbstractClient {
 					'request_id'           => uniqid(),
 					//TODO add details
 				)
+				+ $this->getReferrer()
+			),
+			array(
+				'Authorization' => 'Bearer ' . $this->getToken(),
+			)
+		);
+
+		if ( empty( $response->data['id'] ) ) {
+			throw new Exception( 'customer creation failed: ' . wp_json_encode( $response ) );
+		}
+
+		return new Customer( $response->data );
+	}
+	final public function updateCustomer( $airwallexCustomerId, $data ) {
+		if ( empty( $airwallexCustomerId ) ) {
+			throw new Exception( 'customer id must not be empty' );
+		}
+		$client   = $this->getHttpClient();
+		$response = $client->call(
+			'POST',
+			$this->getPciUrl( 'pa/customers/' . $airwallexCustomerId . '/update' ),
+			wp_json_encode(
+				array(
+					'request_id'           => uniqid(),
+				)
+				+ $data
 				+ $this->getReferrer()
 			),
 			array(
@@ -727,10 +786,10 @@ abstract class AbstractClient {
 		};
 	}
 
-	protected function getReferrer() {
+	protected function getReferrer( $paymentMethodType = 'woo_commerce') {
 		return array(
 			'referrer_data' => array(
-				'type'    => 'woo_commerce',
+				'type'    => $paymentMethodType,
 				'version' => AIRWALLEX_VERSION,
 			),
 		);

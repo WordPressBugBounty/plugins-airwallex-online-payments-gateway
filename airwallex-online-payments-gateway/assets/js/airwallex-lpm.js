@@ -4,16 +4,40 @@ import {
     getLocaleFromBrowserLanguage,
     getSessionId,
 } from "./utils";
+
 import {
-    getStoreCurrency,
     createQuote,
 } from "./api";
+
+import { handleCurrencySwitchingForKlarna } from './airwallex-klarna';
+import { handleCurrencySwitchingForAfterpay } from './airwallex-afterpay';
 
 /** global awxEmbeddedLPMData */
 jQuery(function ($) {
     let originalCurrency = '', requiredCurrency = '';
     let currentQuote = {};
     let isLoading = false;
+
+    const switcherMap = {
+        airwallex_klarna: handleCurrencySwitchingForKlarna,
+        airwallex_afterpay: handleCurrencySwitchingForAfterpay,
+    };
+
+    const handleCurrencySwitching = function () {
+        const selectedPaymentMethod = getSelectedPaymentMethod();
+        const switcher = switcherMap[selectedPaymentMethod];
+        if (switcher) {
+            return switcher({
+                awxEmbeddedLPMData,
+                originalCurrency,
+                setRequiredCurrency: (val) => requiredCurrency = val,
+                displayCurrencySwitchingInfo,
+                displayCurrencyIneligibleInfo,
+            });
+        }
+
+        return true;
+    };
 
     const addCustomDataToCheckoutForm = function (form) {
         $('<input>').prop({
@@ -42,48 +66,13 @@ jQuery(function ($) {
         }).appendTo(form);
     }
 
-    const handleCurrencySwitching = function () {
-        let canMakePayment = true;
-        const selectedCountry = getSelectedCountry();
-        const selectedPaymentMethod = getSelectedPaymentMethod();
-
-        if (selectedPaymentMethod in awxEmbeddedLPMData) {
-            const { availableCurrencies } = awxEmbeddedLPMData;
-            const { supportedCountryCurrency } = awxEmbeddedLPMData[selectedPaymentMethod];
-            const { currencyIneligibleCWOff } = awxEmbeddedLPMData.textTemplate;
-
-            if (selectedCountry in supportedCountryCurrency) {
-                requiredCurrency = supportedCountryCurrency[selectedCountry];
-                const values = {
-                    '$$original_currency$$': originalCurrency,
-                    '$$converted_currency$$': requiredCurrency,
-                };
-
-                if (originalCurrency === requiredCurrency) {
-                    // no action here
-                } else if (availableCurrencies && availableCurrencies.includes(requiredCurrency)) {
-                    displayCurrencySwitchingInfo(originalCurrency, requiredCurrency);
-                } else {
-                    canMakePayment = false;
-                    $('.wc-airwallex-lpm-currency-ineligible-switcher-off .wc-airwallex-alert-box-content').html(getReplacedText(currencyIneligibleCWOff, values));
-                    $('.wc-airwallex-lpm-currency-ineligible-switcher-off').show();
-                }
-            } else {
-                canMakePayment = false;
-                $('.wc-airwallex-lpm-country-ineligible').show();
-            }
-        }
-
-        return canMakePayment;
-    }
-
-    const handleQuoteExpire = function() {
+    const handleQuoteExpire = function(paymentMethodName) {
         if (Object.keys(currentQuote).length === 0) {
             return Promise.resolve(true);
         } else if (currentQuote && currentQuote.refreshAt && new Date(currentQuote.refreshAt).getTime() >= new Date().getTime()) {
             return Promise.resolve(true);
         } else {
-            displayCurrencySwitchingInfo(originalCurrency, requiredCurrency);
+            displayCurrencySwitchingInfo(paymentMethodName, originalCurrency, requiredCurrency);
             showQuoteExpire();
             $('.wc-airwallex-currency-switching-quote-expire-close').off('click');
             $('.wc-airwallex-currency-switching-quote-expire-place-back').off('click');
@@ -100,7 +89,18 @@ jQuery(function ($) {
         }
     }
 
-    const displayCurrencySwitchingInfo = function(originalCurrency, requiredCurrency) {
+    const displayCurrencyIneligibleInfo = function(paymentMethodName, originalCurrency) {
+        const { currencyIneligibleCWOff } = awxEmbeddedLPMData.textTemplate;
+        const values = {
+            '$$payment_method_name$$': paymentMethodName,
+            '$$original_currency$$': originalCurrency,
+        };
+        $('.wc-airwallex-lpm-currency-ineligible-switcher-off .wc-airwallex-alert-box-content')
+            .html(getReplacedText(currencyIneligibleCWOff, values));
+        $('.wc-airwallex-lpm-currency-ineligible-switcher-off').show();
+    }
+
+    const displayCurrencySwitchingInfo = function(paymentMethodName, originalCurrency, requiredCurrency) {
         isLoading = true;
         disablePlaceOrderButton(true);
         disableConfirmButton(true);
@@ -111,6 +111,7 @@ jQuery(function ($) {
             if (quote) {
                 currentQuote = quote;
                 const values = {
+                    '$$payment_method_name$$': paymentMethodName,
                     '$$original_currency$$': originalCurrency,
                     '$$conversion_rate$$': quote.clientRate,
                     '$$converted_currency$$': quote.targetCurrency,
@@ -128,6 +129,7 @@ jQuery(function ($) {
             } else {
                 hideCurrencySwitchingInfo();
                 const values = {
+                    '$$payment_method_name$$': paymentMethodName,
                     '$$original_currency$$': originalCurrency,
                     '$$converted_currency$$': requiredCurrency,
                 };
@@ -172,14 +174,14 @@ jQuery(function ($) {
 
     const getReplacedText = function(template, values) {
         for (const key in values) {
-            template = template.replace(key, values[key]);
+            template = template.split(key).join(values[key]);
         }
 
         return template;
     }
 
     const getSelectedCountry = function () {
-        return $('#billing_country').val();
+        return jQuery('#billing_country').val();
     }
 
     const getSelectedPaymentMethod = function () {
@@ -199,7 +201,7 @@ jQuery(function ($) {
             $('.wc-airwallex-currency-switching-quote-expire-place-order-mask').hide();
         }
     }
-    
+
     const registerEventListener = function () {
         $(document.body).on('country_to_state_changed payment_method_selected updated_checkout', function () {
             hideCurrencySwitchingInfo();
@@ -214,7 +216,7 @@ jQuery(function ($) {
         // $(document.body).on('click', '#place_order', function (event, data) {
         //     if (count < 3 && (!data || !data.includes(firedByAirwallex) ) && getSelectedPaymentMethod() in awxEmbeddedLPMData) {
         //         event.preventDefault();
-        //         handleQuoteExpire().then(function(result) {
+        //         handleQuoteExpire(paymentMethodName).then(function(result) {
         //             $('#place_order').trigger('click', [ firedByAirwallex ]);
         //             count++;
         //         }).catch(function(error) {
@@ -229,7 +231,7 @@ jQuery(function ($) {
             if (getSelectedPaymentMethod() in awxEmbeddedLPMData) {
                 addCustomDataToCheckoutForm(wcCheckoutForm ? wcCheckoutForm.$checkout_form : 'form.checkout');
             }
-            
+
             return true;
         });
     }
@@ -238,10 +240,8 @@ jQuery(function ($) {
         const { env, locale } = awxCommonData;
         initAirwallex(env, locale, () => {});
 
-        getStoreCurrency().done(function(response) {
-            originalCurrency = response.currency;
-            registerEventListener();
-        });
+        originalCurrency = awxEmbeddedLPMData.originalCurrency;
+        registerEventListener();
 
         $('#wc-airwallex-quote-expire-confirm').text($('#place_order').text());
     }

@@ -11,7 +11,7 @@ use Airwallex\Services\LogService;
 use Airwallex\Client\CardClient;
 use Airwallex\Client\GatewayClient;
 use Airwallex\Gateways\AbstractAirwallexGateway;
-use Airwallex\Services\CacheService;
+use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
 use Exception;
 
 class GatewaySettingsController {
@@ -25,16 +25,11 @@ class GatewaySettingsController {
 	protected $gatewayClient;
 	protected $cacheService;
 
-	public function __construct(
-		CardClient $cardClient,
-		ApplePayClient $applePayClient,
-		GatewayClient $gatewayClient,
-		CacheService $cacheService
-	) {
-		$this->cardClient = $cardClient;
-		$this->applePayClient = $applePayClient;
-		$this->gatewayClient = $gatewayClient;
-		$this->cacheService = $cacheService;
+	public function __construct() {
+		$this->cardClient = CardClient::getInstance();
+		$this->applePayClient = ApplePayClient::getInstance();
+		$this->gatewayClient = GatewayClient::getInstance();
+		$this->cacheService = CacheManager::getInstance();
 	}
 
 	public function activatePaymentMethod() {

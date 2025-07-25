@@ -17,6 +17,7 @@ class AirwallexOnboardingPaymentGateway extends WC_Payment_Gateway {
 	public $method_description = 'Accept 160+ payment methods including cards, Apple Pay, Alipay, and Klarna to reach more customers globally.';
 	public $icon = AIRWALLEX_PLUGIN_URL . '/assets/images/airwallex.svg';
 	public $isConnected = null;
+	public $id = 'awx_onboarding_gateway';
 
 	public function __construct() {
 		if ($this->isConnected === null) {

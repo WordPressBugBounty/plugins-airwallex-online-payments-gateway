@@ -19,6 +19,7 @@ use Airwallex\Services\Util;
 use Exception;
 use Error;
 use WC_Order;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
 
 class AirwallexController {
 
@@ -45,7 +46,7 @@ class AirwallexController {
 
 	public function cardPayment() {
 		try {
-			$gateway = new Card();
+			$gateway = Card::getInstance();
 			$gateway->enqueueScriptForRedirectCard();
 			$apiClient = CardClient::getInstance();
 			list( $order, $paymentIntentId, $paymentIntentClientSecret, $airwallexCustomerId, $confirmationUrl, $isSandbox ) = $this->getPaymentDetailForRedirect($apiClient, $gateway);
@@ -105,6 +106,7 @@ class AirwallexController {
 			$gateway->enqueueScripts();
 			$apiClient = WeChatClient::getInstance();
 			list( $order, $paymentIntentId, $paymentIntentClientSecret, $airwallexCustomerId, $confirmationUrl, $isSandbox ) = $this->getPaymentDetailForRedirect($apiClient, $gateway);
+			$orderId = $order->get_id();
 			$this->logService->debug(
 				__METHOD__ . 'WeChat payment redirect',
 				array(
@@ -173,7 +175,7 @@ class AirwallexController {
 
 		if (empty($paymentIntentId)) {
 			$errorMessage = 'Order confirmation error: Unable to retrieve a valid intent ID.';
-			$this->logService->remoteError( LogService::ON_PAYMENT_CONFIRMATION_ERROR, 'payment confirmation exception', array( 'msg' => $errorMessage, '$_GET' => json_encode($_GET) ) );
+			RemoteLog::error( json_encode(['msg' => $errorMessage, '$_GET' => $_GET]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
 			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
 		}
 
@@ -221,9 +223,17 @@ class AirwallexController {
 				throw new Exception( 'Order not found: ' . $orderId );
 			}
 
-			if ( number_format( $paymentIntent->getAmount(), 2 ) !== number_format( $order->get_total(), 2 ) ) {
+			$intentAmount = null;
+			$orderOriginalCurrency = $order->get_meta(OrderService::META_KEY_ORDER_ORIGINAL_CURRENCY, true) ?: $order->get_currency();
+			$orderOriginalAmount = $order->get_meta(OrderService::META_KEY_ORDER_ORIGINAL_AMOUNT, true) ?: $order->get_total();
+			if ($paymentIntent->getCurrency() === $orderOriginalCurrency) {
+				$intentAmount = $paymentIntent->getAmount();
+			} else if ( $paymentIntent->getBaseCurrency() === $orderOriginalCurrency ) {
+				$intentAmount = $paymentIntent->getBaseAmount();
+			}
+			if ( empty($intentAmount) || number_format( $intentAmount, 2 ) !== number_format( (float)$orderOriginalAmount, 2 ) ) {
 				//amount mismatch
-				$this->logService->error( 'paymentConfirmation() payment amounts did not match', array( number_format( $paymentIntent->getAmount(), 2 ), number_format( $order->get_total(), 2 ), $paymentIntent->toArray() ) );
+				$this->logService->error( 'paymentConfirmation() payment amounts did not match', array( empty($intentAmount) ? 0 : number_format( $intentAmount, 2 ), number_format( (float)$orderOriginalAmount, 2 ), $paymentIntent->toArray() ) );
 				$this->setTemporaryOrderStateAfterDecline( $order );
 				wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );
 				wp_safe_redirect( wc_get_checkout_url() );
@@ -259,7 +269,7 @@ class AirwallexController {
 				try {
 					if (!empty($attempt) && !empty($attempt['payment_method']['type']) && $attempt['payment_method']['type'] === 'card') {
 						$airwallexCustomerId = (new OrderService())->getAirwallexCustomerId( get_current_user_id(), CardClient::getInstance() );
-						(new Card())->syncSaveCards($airwallexCustomerId, get_current_user_id());
+						Card::getInstance()->syncSaveCards($airwallexCustomerId, get_current_user_id());
 					}
 				} catch ( Exception | Error $e ) {
 					$this->logService->error('Error syncing save cards: ', $e->getMessage());
@@ -328,13 +338,14 @@ class AirwallexController {
 		$body = file_get_contents( 'php://input' );
 		$this->logService->debug( '🖧 webhook body', array( 'body' => $body ) );
 		$webhookService = new WebhookService();
+
 		try {
 			$webhookService->process( $this->getRequestHeaders(), $body );
 			wp_send_json( array( 'success' => 1 ), 200 );
 			die;
 		} catch ( Exception $exception ) {
 			$this->logService->warning( 'webhook exception', array( 'msg' => $exception->getMessage() ) );
-			$this->logService->remoteError( LogService::ON_PROCESS_WEBHOOK_ERROR, 'webhook exception', array( 'msg' => $exception->getMessage() ) );
+			RemoteLog::error( json_encode(['msg' => $exception->getMessage(), 'body' => $body]), RemoteLog::ON_PROCESS_WEBHOOK_ERROR);
 			wp_send_json( array( 'success' => 0 ), 401 );
 			die;
 		}

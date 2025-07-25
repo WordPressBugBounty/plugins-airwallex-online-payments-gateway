@@ -14,6 +14,7 @@ use Airwallex\Services\OrderService;
 use Airwallex\Main;
 use Airwallex\Gateways\Card;
 use Exception;
+use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
 
 class PaymentConsentController {
 
@@ -23,14 +24,10 @@ class PaymentConsentController {
 	protected $cacheService;
 	protected $orderService;
 
-	public function __construct(
-		CardClient $cardClient,
-		CacheService $cacheService,
-		OrderService $orderService
-	) {
-		$this->cardClient   = $cardClient;
-		$this->cacheService = $cacheService;
-		$this->orderService = $orderService;
+	public function __construct() {
+		$this->cardClient   = CardClient::getInstance();
+		$this->cacheService = CacheManager::getInstance();
+		$this->orderService = OrderService::getInstance();
 	}
 
 	public function syncAllConsents() {
@@ -43,7 +40,6 @@ class PaymentConsentController {
 		$paged = 1;
 		$maxPages = 1000;
 		$done = [];
-		$cardObject = new Card();
 		while ($paged <= $maxPages) {
 			$subscriptions = wcs_get_subscriptions(['subscriptions_per_page' => 100, 'paged' => $paged]);
 			if (count($subscriptions) === 0) {
@@ -57,7 +53,7 @@ class PaymentConsentController {
 				if (empty($airwallexCustomerId)) continue;
 				$doneKey = "$wpUserId-$airwallexCustomerId";
 				if (isset($done[$doneKey])) continue;
-				$cardObject->syncSaveCards($airwallexCustomerId, $wpUserId);
+				Card::getInstance()->syncSaveCards($airwallexCustomerId, $wpUserId);
 				$done[$doneKey] = true;
 			}
 		}
