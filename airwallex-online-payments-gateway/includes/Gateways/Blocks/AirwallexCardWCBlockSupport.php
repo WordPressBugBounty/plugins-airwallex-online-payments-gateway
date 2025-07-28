@@ -26,7 +26,7 @@ class AirwallexCardWCBlockSupport extends AirwallexWCBlockSupport {
 	public function initialize() {
 		$this->settings = get_option( 'airwallex-online-payments-gatewayairwallex_card_settings', array() );
 		$this->enabled  = ! empty( $this->settings['enabled'] ) && in_array( $this->settings['enabled'], array( 'yes', 1, true, '1' ), true ) ? 'yes' : 'no';
-		$this->gateway  = $this->canDoSubscription() ? GatewayFactory::create(CardSubscriptions::class) : GatewayFactory::create(Card::class);
+		$this->gateway  = $this->canDoSubscription() ? GatewayFactory::create(CardSubscriptions::class) : Card::getInstance();
 
 		add_action( 'woocommerce_rest_checkout_process_payment_with_context', array( $this, 'addPaymentIntent' ), 998, 2 );
 		add_action( 'woocommerce_rest_checkout_process_payment_with_context', array( $this, 'redirectToSeparatePage' ), 998, 2 );

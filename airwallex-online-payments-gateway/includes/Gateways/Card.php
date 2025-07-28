@@ -14,6 +14,7 @@ use Airwallex\Services\OrderService;
 use Airwallex\Services\Util;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Controllers\PaymentConsentController;
+use Error;
 use Exception;
 use WC_AJAX;
 use WC_HTTPS;
@@ -133,12 +134,12 @@ class Card extends WC_Payment_Gateway {
 				$token->set_expiry_month($verifiedPaymentConsentInCloud->getCardExpiryMonth());
 				$token->set_expiry_year($verifiedPaymentConsentInCloud->getCardExpiryYear());
 				$token->save();
-				$this->saveAwxPaymentConsentDetail($verifiedPaymentConsentInCloud, $token->get_id());
+				self::saveAwxPaymentConsentDetail($verifiedPaymentConsentInCloud, $token->get_id());
 			}
 		}
 	}
 
-	public function saveAwxPaymentConsentDetail($paymentConsent, $tokenId) {
+	public static function saveAwxPaymentConsentDetail($paymentConsent, $tokenId) {
 		$awxPaymentConsentDetail = [
 			'fingerprint' => $paymentConsent->getPaymentMethod()['card']['fingerprint'] ?? '',
 			'payment_method_id' => $paymentConsent->getPaymentMethod()['id'] ?? '',
@@ -174,12 +175,49 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function registerHooks() {
+		add_filter( 'woocommerce_get_customer_payment_tokens', [ Card::class, 'filterTokens' ], 8, 3 );
 		add_filter( 'wc_airwallex_settings_nav_tabs', array( $this, 'adminNavTab' ), 11 );
 		add_action( 'woocommerce_airwallex_settings_checkout_' . $this->id, array( $this, 'enqueueAdminScripts' ) );
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueueScriptsForEmbeddedCard' ) );
 		add_action( 'woocommerce_payment_token_deleted', array( $this, 'deletePaymentMethod' ), 10, 2 );
 		add_action( 'wp', array( $this, 'deletePaymentMethodAction' ), 1 );
+	}
+
+	public static function filterTokens($tokens, $user_id, $gateway_id) {
+		if ( empty( $tokens ) ) {
+			return [];
+		}
+		$airwallexCustomerIdFromDB = (new OrderService)->getAirwallexCustomerId(get_current_user_id(), CardClient::getInstance());
+		foreach ( $tokens as $index => $token ) {
+			if ( $token->get_gateway_id() !== Card::GATEWAY_ID ) {
+				continue;
+			}
+			$awxPaymentConsentDetail = get_metadata( 'payment_token', $token->get_id(), self::TOKEN_META_KEY_CONSENT_DETAIL, true );
+			if (!empty($awxPaymentConsentDetail) && !empty($awxPaymentConsentDetail['airwallex_customer_id'])) {
+				if ($airwallexCustomerIdFromDB !== $awxPaymentConsentDetail['airwallex_customer_id']) {
+					$token->delete();
+					unset( $tokens[ $index ] );
+				}
+			} else {
+				try {
+					$paymentConsent = CardClient::getInstance()->getPaymentConsent( $token->get_token() );
+					$airwallexCustomerId = $paymentConsent->getCustomerId();
+
+					if ($airwallexCustomerIdFromDB !== $airwallexCustomerId) {
+						$token->delete();
+						unset( $tokens[ $index ] );
+					} else {
+						self::saveAwxPaymentConsentDetail($paymentConsent, $token->get_id());
+					}
+				} catch ( Exception $e ) {
+					LogService::getInstance()->error( 'filter tokens error: ' . $e->getMessage() );
+				} catch ( Error $e) {
+					LogService::getInstance()->error( 'filter tokens error: ' . $e->getMessage() );
+				}
+			}
+		}
+		return $tokens;
 	}
 
 	public function deletePaymentMethodAction() {
@@ -523,7 +561,7 @@ class Card extends WC_Payment_Gateway {
 				$paymentConsentDetail = get_metadata('payment_token', $token->get_id(), self::TOKEN_META_KEY_CONSENT_DETAIL, true);
 				if (empty($paymentConsentDetail)) {
 					$paymentConsent = $apiClient->getPaymentConsent( $token->get_token() );
-					$this->saveAwxPaymentConsentDetail($paymentConsent, $token->get_id());
+					self::saveAwxPaymentConsentDetail($paymentConsent, $token->get_id());
 					$paymentMethodId = $paymentConsent->getPaymentMethod()['id'];
 					$airwallexCustomerId = $paymentConsent->getCustomerId();
 				} else {

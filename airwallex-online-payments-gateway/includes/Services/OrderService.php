@@ -399,10 +399,16 @@ class OrderService {
 	}
 
 	public function updateOrderDetails(WC_Order $order, PaymentIntent $paymentIntent) {
+		if (empty($paymentIntent->getBaseCurrency()) || empty($paymentIntent->getCurrency())) {
+			return;
+		}
 		if ($paymentIntent->getCurrency() === $paymentIntent->getBaseCurrency()) {
 			return;
 		}
 		$rate = $order->get_meta('_tmp_airwallex_payment_client_rate', true);
+		if (empty($rate)) {
+			return;
+		}
 		$orderItemTypes = array( 'line_item', 'shipping', 'fee', 'tax', 'coupon' );
 		foreach ( $orderItemTypes as $type ) {
 			foreach ( $order->get_items( $type ) as $item ) {

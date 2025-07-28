@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-07-28 - version 1.23.1
+
+* Fix - Removed invalid saved cards for users after switching the Airwallex account
+
 2025-07-16 - version 1.23.0
 
 * Add - Afterpay standalone with currency switcher
