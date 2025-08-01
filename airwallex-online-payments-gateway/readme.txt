@@ -3,7 +3,7 @@ Contributors: airwallex
 Tags: credit card, airwallex, payments, wechat, alipay, apple pay
 Requires at least: 4.5
 Tested up to: 6.8.2
-Stable tag: 1.23.1
+Stable tag: 1.23.2
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -69,13 +69,18 @@ We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/ref
 
 == Changelog ==
 
+= 1.23.2 =
+* Release Date - 1 August 2025*
+
+* Fix - Enhanced the stability and reliability of all payment methods.
+
 = 1.23.1 =
-* Release Date - 28 july 2025*
+* Release Date - 28 July 2025*
 
 * Fix - Removed invalid saved cards for users after switching the Airwallex account
 
 = 1.23.0 =
-* Release Date - 16 july 2025*
+* Release Date - 16 July 2025*
 
 * Add - Afterpay standalone with currency switcher
 

@@ -67,7 +67,11 @@ class Main {
 	public function registerAjax() {
 		add_action('wc_ajax_airwallex_currency_switcher_create_quote', [ControllerFactory::createQuoteController(), 'createQuoteForCurrencySwitching']);
 		add_action('wc_ajax_airwallex_get_store_currency', [ControllerFactory::createOrderController(), 'getStoreCurrency']);
-		add_action('wc_ajax_airwallex_get_tokens', function(){ return Card::getInstance()->getTokens(); });
+		add_action('wc_ajax_airwallex_get_tokens', function(){ Card::getInstance()->getTokens(); });
+		add_action('wc_ajax_airwallex_get_apm_redirect_data', function(){ MainGateway::getInstance()->getApmRedirectData(); });
+		add_action('wc_ajax_airwallex_get_card_redirect_data', function(){ Card::getInstance()->getCardRedirectData(); });
+		add_action('wc_ajax_airwallex_get_wechat_redirect_data', function(){ WeChat::getInstance()->getWechatRedirectData(); });
+		add_action('wc_ajax_airwallex_get_express_checkout_data', function(){ ExpressCheckout::getInstance()->getExpressCheckoutData(); });
 		add_action('wc_ajax_airwallex_sync_all_consents', [ControllerFactory::createPaymentConsentController(), 'syncAllConsents']);
 		add_action('wc_ajax_airwallex_get_customer_client_secret', function(){ Card::getInstance()->getCustomerClientSecret(); });
 		add_action('wc_ajax_airwallex_connection_test', [ControllerFactory::createAirwallexController(), 'connectionTest']);
@@ -106,8 +110,8 @@ class Main {
 			'wp_loaded',
 			function () {
 				add_shortcode( 'airwallex_payment_method_card', array( Card::getInstance(), 'output' ) );
-				add_shortcode( 'airwallex_payment_method_wechat', array( new WeChat(), 'output' ) );
-				add_shortcode( 'airwallex_payment_method_all', array( new MainGateway(), 'output' ) );
+				add_shortcode( 'airwallex_payment_method_wechat', array( WeChat::getInstance(), 'output' ) );
+				add_shortcode( 'airwallex_payment_method_all', array( MainGateway::getInstance(), 'output' ) );
 			}
 		);
 		add_filter( 'display_post_states', array( $this, 'addDisplayPostStates' ), 10, 2 );
@@ -550,6 +554,14 @@ class Main {
 			}
 		}
 		$commonScriptData['confirmationUrl'] = $confirmationUrl;
+		$commonScriptData['getApmRedirectData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_apm_redirect_data');
+		$commonScriptData['getApmRedirectData']['nonce'] = wp_create_nonce('wc-airwallex-get-apm-redirect-data');
+		$commonScriptData['getCardRedirectData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_card_redirect_data');
+		$commonScriptData['getCardRedirectData']['nonce'] = wp_create_nonce('wc-airwallex-get-card-redirect-data');
+		$commonScriptData['getWechatRedirectData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_wechat_redirect_data');
+		$commonScriptData['getWechatRedirectData']['nonce'] = wp_create_nonce('wc-airwallex-get-wechat-redirect-data');
+		$commonScriptData['getExpressCheckoutData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_express_checkout_data');
+		$commonScriptData['getExpressCheckoutData']['nonce'] = wp_create_nonce('wc-airwallex-get-express-checkout-data');
 		wp_add_inline_script( 'airwallex-common-js', 'var awxCommonData=' . wp_json_encode($commonScriptData), 'before' );
 	}
 

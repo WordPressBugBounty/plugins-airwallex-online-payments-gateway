@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-08-01 - version 1.23.2
+
+* Fix - Enhanced the stability and reliability of all payment methods.
+
 2025-07-28 - version 1.23.1
 
 * Fix - Removed invalid saved cards for users after switching the Airwallex account

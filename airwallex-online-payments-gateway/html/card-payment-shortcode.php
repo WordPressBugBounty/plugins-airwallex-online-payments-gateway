@@ -33,33 +33,3 @@ wp_enqueue_style( 'airwallex-redirect-element-css' );
 			<?php echo esc_html__( 'Please hold on while your order is completed', 'airwallex-online-payments-gateway' ); ?>
 		</div>
 	</div>
-<?php
-
-$airwallexElementConfiguration = [
-    'intent' => [
-        'id' => $paymentIntentId,
-        'client_secret' => $paymentIntentClientSecret
-    ],
-    'style' => [
-        'popupWidth' => 400,
-        'popupHeight' => 549,
-    ],
-	'autoCapture' => $autoCapture,
-]
-+ ( $isSubscription ? [
-	'mode'             => 'recurring',
-	'recurringOptions' => [
-		'next_triggered_by'       => 'merchant',
-		'merchant_trigger_reason' => 'scheduled',
-		'currency'                => $order->get_currency(),
-	],
-] : [] )
-+ ( $airwallexCustomerId ? [ 'customer_id' => $airwallexCustomerId ] : [] );
-$airwallexRedirectElScriptData = [
-    'elementType' => 'fullFeaturedCard',
-    'elementOptions' => $airwallexElementConfiguration,
-    'containerId' => 'airwallex-full-featured-card',
-    'orderId' => $orderId,
-    'paymentIntentId' => $paymentIntentId,
-];
-wp_add_inline_script('airwallex-redirect-js', 'var awxRedirectElData=' . wp_json_encode($airwallexRedirectElScriptData), 'before');

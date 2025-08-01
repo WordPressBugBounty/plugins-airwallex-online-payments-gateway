@@ -12,8 +12,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-wp_enqueue_style( 'airwallex-redirect-element-css' );
-
 //@codingStandardsIgnoreStart
 if ( class_exists( 'Fusion_Template_Builder' ) ) {
 	global $post;
@@ -23,6 +21,7 @@ if ( class_exists( 'Fusion_Template_Builder' ) ) {
 //@codingStandardsIgnoreEnd
 
 get_header( 'shop' );
+wp_enqueue_style( 'airwallex-redirect-element-css' );
 ?>
 	<div class="airwallex-content-wechat">
 		<h2><?php echo esc_html__( 'Your WeChat Payment', 'airwallex-online-payments-gateway' ); ?></h2>
@@ -38,21 +37,7 @@ get_header( 'shop' );
 			<?php echo esc_html__( 'Please hold on while your order is completed', 'airwallex-online-payments-gateway' ); ?>
 		</div>
 	</div>
-<?php
 
-$airwallexElementConfiguration = [
-    'intent' => [
-        'id' => $paymentIntentId,
-        'client_secret' => $paymentIntentClientSecret
-    ],
-];
-$airwallexRedirectElScriptData = [
-    'elementType' => 'wechat',
-    'elementOptions' => $airwallexElementConfiguration,
-    'containerId' => 'airwallex-wechat',
-    'orderId' => $orderId,
-    'paymentIntentId' => $paymentIntentId,
-];
+<?php
 wp_enqueue_script('airwallex-redirect-js');
-wp_add_inline_script('airwallex-redirect-js', 'var awxRedirectElData=' . wp_json_encode($airwallexRedirectElScriptData), 'before');
 get_footer( 'shop' );

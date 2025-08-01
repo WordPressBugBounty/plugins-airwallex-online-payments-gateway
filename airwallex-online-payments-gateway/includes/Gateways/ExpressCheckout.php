@@ -52,6 +52,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 	protected $orderService;
 	protected $cacheService;
 	protected $cardClient;
+	public static $instance;
 
 	public function __construct() {
 		$this->plugin_id          = AIRWALLEX_PLUGIN_NAME;
@@ -438,11 +439,6 @@ class ExpressCheckout extends WC_Payment_Gateway {
 
 	public function enqueueScripts() {
 		wp_enqueue_script('airwallex-express-checkout');
-		wp_add_inline_script(
-			'airwallex-express-checkout',
-			'var awxExpressCheckoutSettings = ' . wp_json_encode($this->getExpressCheckoutScriptData(false)),
-			'before'
-		);
 	}
 
 	public function displayExpressCheckoutButtonHtml() {
@@ -902,6 +898,18 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			'subTotal' => $subTotal,
 		];
 
+	}
+
+
+    /**
+     * Load API data for Express Checkout without relying on wp_add_inline_script
+     */
+	public function getExpressCheckoutData() {
+		check_ajax_referer('wc-airwallex-get-express-checkout-data', 'security');
+		wp_send_json([
+				'success' => true,
+				'data' => $this->getExpressCheckoutScriptData(false),
+		]);
 	}
 
 	public function getExpressCheckoutScriptData($isBlock) {

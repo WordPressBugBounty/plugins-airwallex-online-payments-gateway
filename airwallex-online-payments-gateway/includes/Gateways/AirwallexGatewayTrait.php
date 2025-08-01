@@ -16,6 +16,13 @@ use WC_Subscriptions_Manager;
 
 trait AirwallexGatewayTrait {
 
+	public static function getInstance() {
+		if ( empty( static::$instance ) ) {
+			static::$instance = new static();
+		}
+		return static::$instance;
+	}
+
 	public $iconOrder = array(
 		'card_visa'       => 1,
 		'card_mastercard' => 2,

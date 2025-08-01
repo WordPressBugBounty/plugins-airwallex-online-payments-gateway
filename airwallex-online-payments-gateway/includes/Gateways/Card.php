@@ -76,19 +76,58 @@ class Card extends WC_Payment_Gateway {
 		}
 	}
 
-	public static function getInstance() {
-		if ( ! isset( self::$instance ) ) {
-			self::$instance = new self();
-		}
-		return self::$instance;
-	}
-
 	public function has_fields()
 	{
 		if ( is_account_page() || !empty($_REQUEST['change_payment_method'] ) ) {
 			return true;
 		}
 		return parent::has_fields();
+	}
+
+
+	public function getCardRedirectData() {
+		check_ajax_referer('wc-airwallex-get-card-redirect-data', 'security');
+
+		$autoCapture = $this->is_capture_immediately();
+		$client = CardClient::getInstance();
+		$order = $this->getOrderFromRequest('Main::getApmRedirectData');
+		$orderId = $order->get_id();
+		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+		$paymentIntent             = $client->getPaymentIntent( $paymentIntentId );
+		$paymentIntentClientSecret = $paymentIntent->getClientSecret();
+		$airwallexCustomerId = OrderService::getInstance()->getAirwallexCustomerId( get_current_user_id(), $client );
+		$isSubscription = OrderService::getInstance()->containsSubscription( $order->get_id() );
+
+		$airwallexElementConfiguration = [
+			'intent' => [
+				'id' => $paymentIntentId,
+				'client_secret' => $paymentIntentClientSecret
+			],
+			'style' => [
+				'popupWidth' => 400,
+				'popupHeight' => 549,
+			],
+			'autoCapture' => $autoCapture,
+        ] + ( $isSubscription ? [
+			'mode'             => 'recurring',
+			'recurringOptions' => [
+				'next_triggered_by'       => 'merchant',
+				'merchant_trigger_reason' => 'scheduled',
+				'currency'                => $order->get_currency(),
+			],
+		] : [] ) + ( $airwallexCustomerId ? [ 'customer_id' => $airwallexCustomerId ] : [] );
+		$airwallexRedirectElScriptData = [
+			'elementType' => 'fullFeaturedCard',
+			'elementOptions' => $airwallexElementConfiguration,
+			'containerId' => 'airwallex-full-featured-card',
+			'orderId' => $orderId,
+			'paymentIntentId' => $paymentIntentId,
+		];
+
+		wp_send_json([
+			'success' => true,
+			'data' => $airwallexRedirectElScriptData,
+		]);
 	}
 
 	public function getPaymentConsentIdsInDB($wpUserId) {
@@ -167,7 +206,7 @@ class Card extends WC_Payment_Gateway {
 		} catch ( Exception $e ) {
 			wc_add_notice( sprintf(
 				/* translators: Placeholder 1: Exception message. */
-				__( 'Error saving payment method. Reason: %s', 'airwallex-online-payments-gateway' ), 
+				__( 'Error saving payment method. Reason: %s', 'airwallex-online-payments-gateway' ),
 				$e->getMessage() ), 'error' );
 
 			return ['result' => 'error'];
@@ -254,7 +293,7 @@ class Card extends WC_Payment_Gateway {
 
 		(new DisablePaymentConsent())->setPaymentConsentId($token->get_token())->send();
 	}
-	
+
 	public function getCustomerClientSecret() {
 		$id = get_current_user_id();
 		if (empty($id)) {
@@ -412,7 +451,7 @@ class Card extends WC_Payment_Gateway {
 			</div>',
 			$savePaymentMessage
 		) : '';
-		
+
 		$spinnerHtml = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? '<div class="wc-awx-checkbox-spinner" style="display: block;"></div>' : '';
 		$showAirwallexContainer = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? 'none' : 'block';
 		echo wp_kses_post( '<p>' . $this->description . '</p>' );
@@ -530,7 +569,7 @@ class Card extends WC_Payment_Gateway {
 		}
 		$order->update_meta_data( 'airwallex_consent_id', sanitize_text_field($_REQUEST['awx_consent_id']) );
 		$order->update_meta_data( 'airwallex_customer_id', sanitize_text_field($_REQUEST['awx_customer_id']) );
-		$order->save();		
+		$order->save();
 		return array( 'result' => 'success', 'redirect' => $order->get_view_order_url());
 	}
 
@@ -665,7 +704,7 @@ class Card extends WC_Payment_Gateway {
 	public function is_capture_immediately() {
 		return in_array( $this->get_option( 'capture_immediately' ), array( true, 'yes' ), true );
 	}
-	
+
 	/**
 	 * Get is capture immediately option
 	 *
@@ -748,7 +787,7 @@ class Card extends WC_Payment_Gateway {
 
 	public static function getDescriptorSetting() {
 		$settings = self::getSettings();
-		
+
 		/* translators: Placeholder 1: Order number. */
 		return $settings['payment_descriptor'] ?? __( 'Your order %order%', 'airwallex-online-payments-gateway' );
 	}
@@ -775,7 +814,7 @@ class Card extends WC_Payment_Gateway {
 	public function savedTokens()
 	{
 		$tokens = WC_Payment_Tokens::get_customer_tokens(get_current_user_id());
-		
+
 		$result = [];
 		/** @var WC_Payment_Token_CC $token */
 		foreach ($tokens as $token) {

@@ -10,6 +10,33 @@ jQuery(function ($) {
     });
     
     const createElement = () => {
+        let getRedirectDataUrl = '';
+        let security = '';
+        if (location.href.includes('airwallex_payment_method_all') || location.href.includes('airwallex_main')) {
+            getRedirectDataUrl = awxCommonData.getApmRedirectData.url;
+            security = awxCommonData.getApmRedirectData.nonce;
+        } else if (location.href.includes('airwallex_payment_method_wechat') || location.href.includes('airwallex_wechat')) {
+            getRedirectDataUrl = awxCommonData.getWechatRedirectData.url;
+            security = awxCommonData.getWechatRedirectData.nonce;
+        } else if (location.href.includes('airwallex_payment_method_card') || location.href.includes('airwallex_card')) {
+            getRedirectDataUrl = awxCommonData.getCardRedirectData.url;
+            security = awxCommonData.getCardRedirectData.nonce;
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        $.ajax({
+            url: getRedirectDataUrl + '&security=' + security + '&order_id=' + urlParams.get('order_id'),
+            method: 'GET',
+            dataType: 'json',
+            async: false,
+            success: function(response) {
+                window.awxRedirectElData = response.data;
+            },
+            error: function(xhr, status, error) {
+                console.error(status, error);
+            }
+        });
+
         const {
             elementType,
             elementOptions,
@@ -17,6 +44,7 @@ jQuery(function ($) {
             orderId,
             paymentIntentId,
         } = awxRedirectElData;
+
         let { confirmationUrl } = awxCommonData;
         const element = Airwallex.createElement(elementType, elementOptions);
         let domElement = element.mount(containerId);

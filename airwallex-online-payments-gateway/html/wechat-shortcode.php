@@ -29,19 +29,3 @@ wp_enqueue_style( 'airwallex-redirect-element-css' );
 			<?php echo esc_html__( 'Please hold on while your order is completed', 'airwallex-online-payments-gateway' ); ?>
 		</div>
 	</div>
-<?php
-
-$airwallexElementConfiguration = [
-    'intent' => [
-        'id' => $paymentIntentId,
-        'client_secret' => $paymentIntentClientSecret
-    ],
-];
-$airwallexRedirectElScriptData = [
-    'elementType' => 'wechat',
-    'elementOptions' => $airwallexElementConfiguration,
-    'containerId' => 'airwallex-wechat',
-    'orderId' => $orderId,
-    'paymentIntentId' => $paymentIntentId,
-];
-wp_add_inline_script('airwallex-redirect-js', 'var awxRedirectElData=' . wp_json_encode($airwallexRedirectElScriptData), 'before');

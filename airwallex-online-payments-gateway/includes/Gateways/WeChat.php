@@ -35,6 +35,7 @@ class WeChat extends WC_Payment_Gateway {
 		'refunds',
 	);
 	public $logService;
+	public static $instance;
 
 	public function __construct() {
 		$this->plugin_id = AIRWALLEX_PLUGIN_NAME;
@@ -91,6 +92,36 @@ class WeChat extends WC_Payment_Gateway {
 				),
 			)
 		);
+	}
+
+	public function getWechatRedirectData() {
+		check_ajax_referer('wc-airwallex-get-wechat-redirect-data', 'security');
+
+		$client = WeChatClient::getInstance();
+		$order = $this->getOrderFromRequest('Main::getApmRedirectData');
+		$orderId = $order->get_id();
+		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+		$paymentIntent             = $client->getPaymentIntent( $paymentIntentId );
+		$paymentIntentClientSecret = $paymentIntent->getClientSecret();
+
+		$airwallexElementConfiguration = [
+			'intent' => [
+				'id' => $paymentIntentId,
+				'client_secret' => $paymentIntentClientSecret
+			],
+		];
+		$airwallexRedirectElScriptData = [
+			'elementType' => 'wechat',
+			'elementOptions' => $airwallexElementConfiguration,
+			'containerId' => 'airwallex-wechat',
+			'orderId' => $orderId,
+			'paymentIntentId' => $paymentIntentId,
+		];
+
+		wp_send_json([
+			'success' => true,
+			'data' => $airwallexRedirectElScriptData,
+		]);
 	}
 
 	public function process_payment( $order_id ) {

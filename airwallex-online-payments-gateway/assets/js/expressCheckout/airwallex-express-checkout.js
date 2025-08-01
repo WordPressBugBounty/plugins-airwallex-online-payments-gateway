@@ -22,6 +22,19 @@ import {
 jQuery(function ($) {
 	'use strict';
 
+	$.ajax({
+		url: awxCommonData.getExpressCheckoutData.url + '&security=' + awxCommonData.getExpressCheckoutData.nonce,
+		method: 'GET',
+		dataType: 'json',
+		async: false,
+		success: function(response) {
+			window.awxExpressCheckoutSettings = response.data;
+		},
+		error: function(xhr, status, error) {
+			console.error(status, error);
+		}
+	});
+
 	let awxShippingOptions = [], shippingMethods = [];
 	let globalCartDetails = {};
 

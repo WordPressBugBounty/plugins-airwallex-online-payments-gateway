@@ -47,7 +47,6 @@ class AirwallexController {
 	public function cardPayment() {
 		try {
 			$gateway = Card::getInstance();
-			$gateway->enqueueScriptForRedirectCard();
 			$apiClient = CardClient::getInstance();
 			list( $order, $paymentIntentId, $paymentIntentClientSecret, $airwallexCustomerId, $confirmationUrl, $isSandbox ) = $this->getPaymentDetailForRedirect($apiClient, $gateway);
 			$orderService = new OrderService();
@@ -74,8 +73,7 @@ class AirwallexController {
 
 	public function dropInPayment() {
 		try {
-			$gateway = new Main();
-			$gateway->enqueueScripts();
+			$gateway = Main::getInstance();
 			$apiClient = MainClient::getInstance();
 			list( $order, $paymentIntentId, $paymentIntentClientSecret, $airwallexCustomerId, $confirmationUrl, $isSandbox ) = $this->getPaymentDetailForRedirect($apiClient, $gateway);
 			$isShowOrderDetails = $gateway->isShowOrderDetails();
@@ -102,8 +100,7 @@ class AirwallexController {
 
 	public function weChatPayment() {
 		try {
-			$gateway = new WeChat();
-			$gateway->enqueueScripts();
+			$gateway = WeChat::getInstance();
 			$apiClient = WeChatClient::getInstance();
 			list( $order, $paymentIntentId, $paymentIntentClientSecret, $airwallexCustomerId, $confirmationUrl, $isSandbox ) = $this->getPaymentDetailForRedirect($apiClient, $gateway);
 			$orderId = $order->get_id();

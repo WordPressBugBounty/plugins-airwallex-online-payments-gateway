@@ -1,6 +1,6 @@
 import $ from 'jquery';
 
-/* global awxExpressCheckoutSettings, Airwallex */
+/* global Airwallex */
 /**
  * Get WC AJAX endpoint URL.
  *

@@ -2,6 +2,7 @@
 
 namespace Airwallex\Gateways;
 
+use Airwallex\Client\AbstractClient;
 use Airwallex\Client\MainClient;
 use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
 use Airwallex\Services\CacheService;
@@ -47,6 +48,7 @@ class Main extends WC_Payment_Gateway {
 	);
 	public static $status       = null;
 	public $logService;
+	public static $instance;
 
 	public function __construct() {
 		$this->max_number_of_logos = apply_filters( 'airwallex_max_number_of_logos', $this->max_number_of_logos ); // phpcs:ignore
@@ -83,6 +85,95 @@ class Main extends WC_Payment_Gateway {
 	}
 
 	public function enqueueAdminScripts() {
+	}
+
+    public function getApmRedirectData() {
+		check_ajax_referer('wc-airwallex-get-apm-redirect-data', 'security');
+
+		$client = MainClient::getInstance();
+		$order = $this->getOrderFromRequest('Main::getApmRedirectData');
+		$orderId = $order->get_id();
+		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+		$paymentIntent			 = $client->getPaymentIntent( $paymentIntentId );
+		$paymentIntentClientSecret = $paymentIntent->getClientSecret();
+		$airwallexCustomerId = OrderService::getInstance()->getAirwallexCustomerId( get_current_user_id(), $client );
+		$isSubscription = OrderService::getInstance()->containsSubscription( $order->get_id() );
+
+		$airwallexMethods		 = $this->get_option( 'methods' );
+		$airwallexMerchantCountry = strtoupper( substr( $paymentIntentId, 4, 2 ) );
+		if ( $order->has_billing_address() ) {
+			$airwallexBillingAddress	 = array(
+					'city'		 => $order->get_billing_city(),
+					'country_code' => $order->get_billing_country(),
+					'postcode'	 => $order->get_billing_postcode(),
+					'state'		=> $order->get_billing_state() ? $order->get_billing_state() : $order->get_shipping_state(),
+					'street'	   => trim($order->get_billing_address_1() . ' ' . $order->get_billing_address_2()),
+			);
+			$airwallexBilling['billing'] = array(
+					'first_name'   => $order->get_billing_first_name(),
+					'last_name'	=> $order->get_billing_last_name(),
+					'email'		=> $order->get_billing_email(),
+					'phone_number' => $order->get_billing_phone(),
+			);
+			if ( ! empty( $airwallexBillingAddress['city'] ) && ! empty( $airwallexBillingAddress['country_code'] ) && ! empty( $airwallexBillingAddress['street'] ) ) {
+				$airwallexBilling['billing']['address'] = $airwallexBillingAddress;
+			}
+		}
+
+		$airwallexElementConfiguration = [
+			'intent_id' => $paymentIntentId,
+			'client_secret' => $paymentIntentClientSecret,
+			'currency' => $order->get_currency(),
+			'country_code' => $order->get_billing_country(),
+			'autoCapture' => true,
+			'applePayRequestOptions' => array(
+				'countryCode' => $airwallexMerchantCountry,
+			),
+			'googlePayRequestOptions' => array(
+				'countryCode' => $airwallexMerchantCountry,
+			),
+			'style' => array(
+				'variant' => 'bootstrap',
+				'popupWidth' => 400,
+				'popupHeight' => 549,
+				'base' => array(
+					'color' => 'black',
+				),
+			),
+			'shopper_name' => $order->get_formatted_billing_full_name(),
+			'shopper_phone' => $order->get_billing_phone(),
+			'shopper_email' => $order->get_billing_email(),
+		]
+		+ ($airwallexCustomerId ? array(
+			'customer_id' => $airwallexCustomerId
+		) : array())
+		+ ($isSubscription ? array(
+			'mode' => 'recurring',
+			'recurringOptions' => array(
+				'card' => array(
+					'next_triggered_by' => 'merchant',
+					'merchant_trigger_reason' => 'scheduled',
+					'currency' => $order->get_currency(),
+				),
+			),
+		) : array())
+		+ (!empty($airwallexMethods) && is_array($airwallexMethods) ? array(
+			'methods' => $airwallexMethods,
+		) : array())
+		+ (isset($airwallexBilling) ? $airwallexBilling : array());
+
+
+		$airwallexRedirectElScriptData = [
+				'elementType' => 'dropIn',
+				'elementOptions' => $airwallexElementConfiguration,
+				'containerId' => 'airwallex-drop-in',
+				'orderId' => $orderId,
+				'paymentIntentId' => $paymentIntentId,
+		];
+		wp_send_json([
+				'success' => true,
+				'data' => $airwallexRedirectElScriptData,
+		]);
 	}
 
 	public function get_icon() {
@@ -437,7 +528,7 @@ class Main extends WC_Payment_Gateway {
 		);
 
 		$data  = wp_parse_args( $data, $defaults );
-		$value = (array) $this->get_option( $key, array() );	
+		$value = (array) $this->get_option( $key, array() );
 		ob_start();
 		?>
 		<tr valign="top">
@@ -526,7 +617,7 @@ class Main extends WC_Payment_Gateway {
 			);
 
 			$this->enqueueScripts();
-			
+
 			ob_start();
 			include_once AIRWALLEX_PLUGIN_PATH . '/html/drop-in-payment-shortcode.php';
 			return ob_get_clean();
