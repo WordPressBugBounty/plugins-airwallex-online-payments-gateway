@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-08-11 - version 1.23.3
+
+* Fix - Improved the guest checkout experience for Drop-in and redirect card payments
+
 2025-08-01 - version 1.23.2
 
 * Fix - Enhanced the stability and reliability of all payment methods.

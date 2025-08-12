@@ -562,6 +562,9 @@ class Main {
 		$commonScriptData['getWechatRedirectData']['nonce'] = wp_create_nonce('wc-airwallex-get-wechat-redirect-data');
 		$commonScriptData['getExpressCheckoutData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_express_checkout_data');
 		$commonScriptData['getExpressCheckoutData']['nonce'] = wp_create_nonce('wc-airwallex-get-express-checkout-data');
+		$commonScriptData['getExpressCheckoutData']['isProductPage'] = is_product() || wc_post_content_has_shortcode('product_page');
+		$commonScriptData['getExpressCheckoutData']['checkout'] = ExpressCheckout::getInstance()->getCheckoutDetail();
+		$commonScriptData['getExpressCheckoutData']['hasSubscriptionProduct'] = ExpressCheckout::getInstance()->hasSubscriptionProduct();
 		wp_add_inline_script( 'airwallex-common-js', 'var awxCommonData=' . wp_json_encode($commonScriptData), 'before' );
 	}
 

@@ -96,7 +96,7 @@ class Main extends WC_Payment_Gateway {
 		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
 		$paymentIntent			 = $client->getPaymentIntent( $paymentIntentId );
 		$paymentIntentClientSecret = $paymentIntent->getClientSecret();
-		$airwallexCustomerId = OrderService::getInstance()->getAirwallexCustomerId( get_current_user_id(), $client );
+		$airwallexCustomerId = $paymentIntent->getCustomerId();
 		$isSubscription = OrderService::getInstance()->containsSubscription( $order->get_id() );
 
 		$airwallexMethods		 = $this->get_option( 'methods' );

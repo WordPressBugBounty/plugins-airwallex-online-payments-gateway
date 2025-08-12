@@ -919,7 +919,6 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				'ajaxUrl' => WC_AJAX::get_endpoint('%%endpoint%%'),
 				'env' => $this->is_sandbox() ? 'demo' : 'prod',
 				'locale' => Util::getLocale(),
-				'isProductPage' => $this->isProduct(),
 				'login_confirmation' => $this->getLoginConfirmationSettings(),
 				'googlePayEnabled' => $this->isMethodEnabled('google_pay'),
 				'applePayEnabled' => $this->isMethodEnabled('apple_pay'),
@@ -929,12 +928,10 @@ class ExpressCheckout extends WC_Payment_Gateway {
 					['businessName' => get_bloginfo('name')]
 				),
 				'button' => [
-					'mode' => $this->hasSubscriptionProduct() ? 'recurring' : 'payment',
 					'buttonType' => $this->getButtonType(),
 					'theme' => $this->getButtonTheme(),
 					'height' => self::BUTTON_SIZE_MAP[$this->getButtonSize()],
 				],
-				'checkout' => $this->getCheckoutDetail(),
 				'nonce'              => [
 					'payment'                   => wp_create_nonce('wc-airwallex-express-checkout'),
 					'shipping'                  => wp_create_nonce('wc-airwallex-express-checkout-shipping'),

@@ -20,6 +20,8 @@ import {
 } from 'airwallex-payment-elements';
 
 const settings = getSetting('airwallex_express_checkout_data', {});
+settings.checkout = awxCommonData.getExpressCheckoutData.checkout;
+const paymentMode = awxCommonData.getExpressCheckoutData.hasSubscriptionProduct ? 'recurring' : 'oneoff';
 
 const getGoogleTransactionInfo = (cartDetails) => {
 	const { checkout, transactionId } = settings;
@@ -53,9 +55,8 @@ const getFormattedCartDetails = (billing) => {
 
 const getGooglePayRequestOptions = (billing, shippingData) => {
 	const { button, checkout, merchantInfo } = settings;
-
 	let paymentDataRequest = {
-		mode: button.mode,
+		mode: paymentMode,
 		buttonColor: button.theme,
 		buttonType: button.buttonType,
 		emailRequired: true,
@@ -308,12 +309,11 @@ const canMakePayment = ({
 	cartTotals,
 }) => {
 	const { button, checkout } = settings;
-	const mode = button.mode === 'recurring' ? 'recurring' : 'oneoff';
 
 	return (cartTotals.total_price != '0'
 		&& settings?.googlePayEnabled
-		&& mode in checkout.allowedCardNetworks.googlepay
-		&& checkout.allowedCardNetworks.googlepay[mode].length > 0
+		&& paymentMode in checkout.allowedCardNetworks.googlepay
+		&& checkout.allowedCardNetworks.googlepay[paymentMode].length > 0
 	) ?? false;
 };
 

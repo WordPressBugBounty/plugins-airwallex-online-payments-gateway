@@ -22,6 +22,9 @@ import {
 import { getSetting } from '@woocommerce/settings';
 
 const settings = getSetting('airwallex_express_checkout_data', {});
+settings.checkout = awxCommonData.getExpressCheckoutData.checkout;
+const paymentMode = awxCommonData.getExpressCheckoutData.hasSubscriptionProduct ? 'recurring' : 'oneoff';
+
 
 const getAppleFormattedLineItemsFromCart = (cartTotalItems, currencyMinorUnit) => {
 	return cartTotalItems.map((item) => {
@@ -49,7 +52,7 @@ const getApplePayRequestOptions = (billing, shippingData) => {
 	} = shippingData;
 
 	return {
-		mode: button.mode,
+		mode: paymentMode,
 		buttonColor: button.theme,
 		buttonType: button.buttonType,
 		origin: window.location.origin,
@@ -254,7 +257,7 @@ const AWXApplePayButtonPreview = (props) => {
 	useEffect(() => {
 		if ('Airwallex' in window) {
 			const element = airwallexCreateElement('applePayButton', {
-				mode: button.mode,
+				mode: paymentMode,
 				buttonColor: button.theme,
 				buttonType: button.buttonType,
 				origin: window.location.origin,
@@ -278,12 +281,11 @@ const canMakePayment = ({
 	cartTotals
 }) => {
 	const { button, checkout } = settings;
-	const mode = button.mode === 'recurring' ? 'recurring' : 'oneoff';
 
 	return (cartTotals.total_price != '0'
 		&& settings.applePayEnabled
-		&& mode in checkout.allowedCardNetworks.applepay
-		&& checkout.allowedCardNetworks.applepay[mode].length > 0
+		&& paymentMode in checkout.allowedCardNetworks.applepay
+		&& checkout.allowedCardNetworks.applepay[paymentMode].length > 0
 		) ?? false;
 };
 

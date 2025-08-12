@@ -29,14 +29,30 @@ jQuery(function ($) {
 		async: false,
 		success: function(response) {
 			window.awxExpressCheckoutSettings = response.data;
+			window.awxExpressCheckoutSettings.checkout = awxCommonData.getExpressCheckoutData.checkout;
 		},
 		error: function(xhr, status, error) {
 			console.error(status, error);
 		}
 	});
 
+	const paymentMode = awxCommonData.getExpressCheckoutData.hasSubscriptionProduct ? 'recurring' : 'oneoff';
 	let awxShippingOptions = [], shippingMethods = [];
 	let globalCartDetails = {};
+
+	let googlepay, applePay;
+	let isExpressCheckoutRendering = false;
+
+	const renderExpressCheckoutByEvent = function () {
+		if (isExpressCheckoutRendering) {
+			setTimeout(function(){
+				isExpressCheckoutRendering = false;
+			}, 1000)
+			return;
+		}
+		isExpressCheckoutRendering = true;
+		airwallexExpressCheckout.init();
+	};
 
 	const airwallexExpressCheckout = {
 		init: async function () {
@@ -46,33 +62,36 @@ jQuery(function ($) {
 			}
 
 			// get cart details
-			globalCartDetails = awxExpressCheckoutSettings.isProductPage ? await getEstimatedCartDetails() : await getCartDetails();
+			globalCartDetails = awxCommonData.getExpressCheckoutData.isProductPage ? await getEstimatedCartDetails() : await getCartDetails();
 			// if the order/product does not require initial payment, do not proceed
 			if (!globalCartDetails?.orderInfo?.total?.amount) return;
 
 			const { button, checkout } = awxExpressCheckoutSettings;
-			const mode = button.mode === 'recurring' ? 'recurring' : 'oneoff';
 			
 			if (awxExpressCheckoutSettings.applePayEnabled
-				&& mode in checkout.allowedCardNetworks.applepay
-				&& checkout.allowedCardNetworks.applepay[mode].length > 0) {
+				&& paymentMode in checkout.allowedCardNetworks.applepay
+				&& checkout.allowedCardNetworks.applepay[paymentMode].length > 0) {
 					// destroy the element first to prevent duplicate
-					Airwallex.destroyElement('applePayButton');
+					if (applePay) {
+						applePay.destroy();
+					}
 					airwallexExpressCheckout.initApplePayButton();
 			}
 			
 			if (awxExpressCheckoutSettings.googlePayEnabled
-				&& mode in checkout.allowedCardNetworks.googlepay
-				&& checkout.allowedCardNetworks.googlepay[mode].length > 0) {
+				&& paymentMode in checkout.allowedCardNetworks.googlepay
+				&& checkout.allowedCardNetworks.googlepay[paymentMode].length > 0) {
 					// destroy the element first to prevent duplicate
-					Airwallex.destroyElement('googlePayButton');
+					if (googlepay) {
+						googlepay.destroy();
+					}
 					airwallexExpressCheckout.initGooglePayButton();
 			}
 		},
 
 		initGooglePayButton: async function() {
 			const googlePayRequestOptions = await airwallexExpressCheckout.getGooglePayRequestOptions();
-			const googlepay = Airwallex.createElement('googlePayButton', googlePayRequestOptions);
+			googlepay = Airwallex.createElement('googlePayButton', googlePayRequestOptions);
 			const domElement = googlepay.mount('awx-ec-google-pay-btn');
 
 			googlepay.on('ready', (event) => {
@@ -90,7 +109,7 @@ jQuery(function ($) {
 				const { callbackTrigger, shippingAddress } = event.detail.intermediatePaymentData;
 
 				// add product to the cart which is required for shipping calculation
-				if (callbackTrigger == 'INITIALIZE' && awxExpressCheckoutSettings.isProductPage) {
+				if (callbackTrigger == 'INITIALIZE' && awxCommonData.getExpressCheckoutData.isProductPage) {
 					await addToCart();
 				}
 
@@ -136,7 +155,7 @@ jQuery(function ($) {
 			});
 
 			googlepay.on('authorized', async (event) => {
-				if (awxExpressCheckoutSettings.isProductPage) await addToCart();
+				if (awxCommonData.getExpressCheckoutData.isProductPage) await addToCart();
 				const order = await createOrder(event.detail.paymentData, 'googlepay');
 				airwallexExpressCheckout.processPayment(googlepay, order);
 			});
@@ -147,7 +166,7 @@ jQuery(function ($) {
 		},
 
 		getGooglePayRequestOptions: async function() {
-			const cartDetails = awxExpressCheckoutSettings.isProductPage ? await getEstimatedCartDetails() : await getCartDetails();
+			const cartDetails = awxCommonData.getExpressCheckoutData.isProductPage ? await getEstimatedCartDetails() : await getCartDetails();
 			const { button, checkout, merchantInfo, transactionId } = awxExpressCheckoutSettings;
 
 			if (!cartDetails.success) {
@@ -156,7 +175,7 @@ jQuery(function ($) {
 			}
 
 			let paymentDataRequest = {
-				mode: button.mode,
+				mode: paymentMode,
 				buttonColor: button.theme,
 				buttonType: button.buttonType,
 				emailRequired: true,
@@ -205,7 +224,7 @@ jQuery(function ($) {
 		initApplePayButton: () => {
 			const { checkout } = awxExpressCheckoutSettings;
 			const applePayRequestOptions = airwallexExpressCheckout.getApplePayRequestOptions(globalCartDetails);
-			const applePay = Airwallex.createElement('applePayButton', applePayRequestOptions);
+			applePay = Airwallex.createElement('applePayButton', applePayRequestOptions);
 			applePay.mount('awx-ec-apple-pay-btn');
 
 			applePay.on('ready', (event) => {
@@ -219,7 +238,7 @@ jQuery(function ($) {
 			});
 
 			applePay.on('validateMerchant', async (event) => {
-				if (awxExpressCheckoutSettings.isProductPage) await addToCart();
+				if (awxCommonData.getExpressCheckoutData.isProductPage) await addToCart();
 				const merchantSession = await startPaymentSession(event?.detail?.validationURL);
 				const { paymentSession, error } = merchantSession;
 
@@ -315,7 +334,7 @@ jQuery(function ($) {
 			} = cartDetails;
 
 			return {
-				mode: button.mode,
+				mode: paymentMode,
 				buttonColor: button.theme,
 				buttonType: button.buttonType,
 				origin: window.location.origin,
@@ -404,16 +423,16 @@ jQuery(function ($) {
 
 		// refresh payment data when total is updated.
 		$( document.body ).on( 'updated_cart_totals', function() {
-			airwallexExpressCheckout.init();
+			renderExpressCheckoutByEvent();
 		} );
 
 		// refresh payment data when total is updated.
 		$( document.body ).on( 'updated_checkout', function() {
-			airwallexExpressCheckout.init();
+			renderExpressCheckoutByEvent();
 		} );
 
 		$(document.body).on('change', '[name="quantity"]', function () {
-			airwallexExpressCheckout.init();
+			renderExpressCheckoutByEvent();
 		});
 	}
 });
