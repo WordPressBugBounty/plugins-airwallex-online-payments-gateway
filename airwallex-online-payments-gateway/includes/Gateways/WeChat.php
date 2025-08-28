@@ -161,6 +161,10 @@ class WeChat extends WC_Payment_Gateway {
 			];
 		} catch ( Exception $e ) {
 			$this->logService->error( 'Drop in payment action failed', $e->getMessage(), LogService::CARD_ELEMENT_TYPE );
+			$errorJson = json_decode($e->getMessage(), true);
+			if (json_last_error() === JSON_ERROR_NONE && !empty($errorJson['data']['message'])) {
+				throw new Exception(esc_html__($errorJson['data']['message'], 'airwallex-online-payments-gateway'));
+			}
 			throw new Exception( esc_html__( 'Airwallex payment error', 'airwallex-online-payments-gateway' ) );
 		}
 	}

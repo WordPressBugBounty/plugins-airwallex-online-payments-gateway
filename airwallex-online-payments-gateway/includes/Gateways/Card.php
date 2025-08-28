@@ -655,6 +655,10 @@ class Card extends WC_Payment_Gateway {
 			return $result;
 		} catch ( Exception $e ) {
 			$this->logService->error( __METHOD__ . ' - card payment create intent failed.', $e->getMessage() . ': ' . json_encode($e->getTrace()), LogService::CARD_ELEMENT_TYPE );
+			$errorJson = json_decode($e->getMessage(), true);
+			if (json_last_error() === JSON_ERROR_NONE && !empty($errorJson['data']['message'])) {
+				throw new Exception(esc_html__($errorJson['data']['message'], 'airwallex-online-payments-gateway'));
+			}			
 			throw new Exception( esc_html__( 'Airwallex payment error', 'airwallex-online-payments-gateway' ) );
 		}
 	}

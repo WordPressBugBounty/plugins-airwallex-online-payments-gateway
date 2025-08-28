@@ -175,6 +175,10 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
         } catch (Exception $e) {
             $this->logService->error(__METHOD__ . ' Some went wrong during checkout.', $e->getMessage());
             RemoteLog::error( $e->getMessage(), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
+			$errorJson = json_decode($e->getMessage(), true);
+			if (json_last_error() === JSON_ERROR_NONE && !empty($errorJson['data']['message'])) {
+				throw new Exception(esc_html__($errorJson['data']['message'], 'airwallex-online-payments-gateway'));
+			}            
             $result = [
                 'result' => 'failed',
                 'message' => $e->getMessage(),

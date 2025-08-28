@@ -268,6 +268,7 @@ abstract class AbstractClient {
 		$orderItemTypes = array( 'line_item', 'shipping', 'fee', 'tax' );
 		foreach ( $orderItemTypes as $type ) {
 			foreach ( $order->get_items( $type ) as $item ) {
+				if ($item->get_quantity() <= 0) continue;
 				$itemDetail = array(
 					'name'       => ( mb_strlen( $item->get_name() ) <= 120 ? $item->get_name() : mb_substr( $item->get_name(), 0, 117 ) . '...' ),
 					'desc'       => $item->get_name(),
@@ -372,9 +373,8 @@ abstract class AbstractClient {
 		);
 
 		if ( empty( $response->data['id'] ) ) {
-			$message = 'Payment intent creation failed: ' . wp_json_encode( $response );
-			RemoteLog::error( $message, RemoteLog::ON_PAYMENT_CREATION_ERROR);
-			throw new Exception( $message );
+			RemoteLog::error( wp_json_encode( $response ), RemoteLog::ON_PAYMENT_CREATION_ERROR);
+			throw new Exception( wp_json_encode( $response ) );
 		}
 
 		$order->update_meta_data( OrderService::META_KEY_ORDER_ORIGINAL_CURRENCY, $order->get_currency() );

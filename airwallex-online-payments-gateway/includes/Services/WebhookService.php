@@ -37,17 +37,6 @@ class WebhookService {
 			$paymentIntent = new PaymentIntent( $messageData['data']['object'] );
 			$orderId       = $this->getOrderIdForPaymentIntent( $paymentIntent );
 
-			if ( 0 === $orderId ) {
-				throw new Exception(
-					'no order found for payment intent: ' . wp_json_encode(
-						array(
-							'payment_intent' => $paymentIntent->toArray(),
-							'order_id'       => $orderId,
-						)
-					)
-				);
-			}
-
 			/**
 			 * WC_Order object
 			 *
@@ -56,6 +45,7 @@ class WebhookService {
 			$order = wc_get_order( $orderId );
 
 			if ( $order ) {
+				$this->verifyIntentFromOrder($order, $paymentIntent->getId());
 				switch ( $eventType ) {
 					case 'payment_intent.cancelled':
 						$order->update_status( 'failed', 'Airwallex Webhook' );
@@ -79,7 +69,7 @@ class WebhookService {
 					$order->add_order_note( 'Airwallex Webhook notification: ' . $eventType . "\n\n" . 'Amount: ' . $paymentIntent->getAmount() . $paymentIntent->getCurrency() . "\n\nCaptured amount: " . $paymentIntent->getCapturedAmount() );
 				}
 			}
-		} elseif ( 'refund.processing' === $eventType || 'refund.succeeded' === $eventType ) {
+		} elseif ( 'refund.processing' === $eventType || 'refund.accepted' === $eventType || 'refund.succeeded' === $eventType ) {
 			$logService->debug( '🖧 received refund webhook' );
 			$refund = new Refund( $messageData['data']['object'] );
 
@@ -151,6 +141,20 @@ class WebhookService {
 		}
 	}
 
+	public function verifyIntentFromOrder($order, $paymentIntentId) {
+		if ( empty( $order ) ) {
+			throw new Exception('No order found for the order id in webhook. Payment intent id: ' . $paymentIntentId);
+		}
+
+		$paymentIntentIdFromOrder = $order->get_meta( '_tmp_airwallex_payment_intent' );
+		if ( $paymentIntentId !== $paymentIntentIdFromOrder ) {
+			throw new Exception('Mismatch in payment intent ID from webhook and order. Debug info: ' . wp_json_encode([
+				'payment_intent_id_from_order' => $paymentIntentIdFromOrder,
+				'payment_intent_id_from_webhook' => $paymentIntentId,
+			]));
+		}
+	}
+
 	/**
 	 * Verify webhook content and signature
 	 *
@@ -184,11 +188,6 @@ class WebhookService {
 	 */
 	private function getOrderIdForPaymentIntent( PaymentIntent $paymentIntent ) {
 		$metaData = $paymentIntent->getMetadata();
-		if ( isset( $metaData['wp_instance_key'] ) ) {
-			if ( Main::getInstanceKey() !== $metaData['wp_instance_key'] ) {
-				return 0;
-			}
-		}
 		if ( ! empty( $metaData['wp_order_id'] ) ) {
 			return (int) $metaData['wp_order_id'];
 		} else {
