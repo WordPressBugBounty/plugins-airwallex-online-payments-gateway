@@ -153,7 +153,10 @@ const AWXApplePayButton = (props) => {
 		let payment = event?.detail?.paymentData || {};
 		payment['shippingMethods'] = shippingMethods;
 		const order = await createOrder(payment, 'applepay');
-
+		if (order.redirect_url) {
+			location.href = order.redirect_url;
+			return;
+		}
 		maskPageWhileLoading(50000);
 		if (order.result === 'success') {
 			const {

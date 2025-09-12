@@ -18,6 +18,7 @@ use Airwallex\Struct\PaymentConsent;
 use Airwallex\Struct\PaymentSession;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Customer\Retrieve as RetrieveCustomer;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Cancel as CancelPaymentIntent;
 
 abstract class AbstractClient {
 
@@ -349,6 +350,7 @@ abstract class AbstractClient {
 		$data['order'] = $orderData;
 		$data['metadata'] +=  $this->getMetaData();
 
+		$data += $this->getReferrer($paymentMethodType);
 		$intent = $this->getCachedPaymentIntent( $data );
 		if ( $intent && $intent instanceof PaymentIntent ) {
 			$liveIntent = $this->getPaymentIntent( $intent->getId() );
@@ -359,13 +361,24 @@ abstract class AbstractClient {
 			}
 		}
 
+		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
+		if ($paymentIntentId) {
+			$paymentIntent = $this->getPaymentIntent($paymentIntentId);
+			if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+				OrderService::getInstance()->setPaymentSuccess( $order, $paymentIntent );
+				return $paymentIntent;
+			}
+			try {
+				(new CancelPaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
+			} catch (Exception $e) {
+				LogService::getInstance()->error("Cancel intent ($paymentIntentId) failed: " . $e->getMessage());
+			}
+		}
+
 		$response = $client->call(
 			'POST',
 			$this->getPciUrl( 'pa/payment_intents/create' ),
-			wp_json_encode(
-				$data
-				+ $this->getReferrer($paymentMethodType)
-			),
+			wp_json_encode( $data ),
 			array(
 				'Authorization' => 'Bearer ' . $this->getToken(),
 			),
@@ -532,7 +545,7 @@ abstract class AbstractClient {
 		);
 
 		if ( empty( $response->data['id'] ) ) {
-			throw new Exception( 'refund creation failed: ' . wp_json_encode( $response ), '1' );
+			throw new Exception( 'refund creation failed: ' . ($response->data['message'] ?? wp_json_encode( $response )) , 1 );
 		}
 
 		return new Refund( $response->data );

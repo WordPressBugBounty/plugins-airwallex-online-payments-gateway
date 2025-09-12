@@ -157,6 +157,10 @@ jQuery(function ($) {
 			googlepay.on('authorized', async (event) => {
 				if (awxCommonData.getExpressCheckoutData.isProductPage) await addToCart();
 				const order = await createOrder(event.detail.paymentData, 'googlepay');
+				if (order.redirect_url) {
+					location.href = order.redirect_url;
+					return;
+				}
 				airwallexExpressCheckout.processPayment(googlepay, order);
 			});
 
@@ -312,7 +316,10 @@ jQuery(function ($) {
 				let payment = event?.detail?.paymentData || {};
 				payment['shippingMethods'] = shippingMethods;
 				const order = await createOrder(payment, 'applepay');
-
+				if (order.redirect_url) {
+					location.href = order.redirect_url;
+					return;
+				}
 				airwallexExpressCheckout.processPayment(applePay, order);
 			});
 

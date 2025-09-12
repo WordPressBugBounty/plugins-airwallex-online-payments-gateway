@@ -3,6 +3,7 @@
 namespace Airwallex\PayappsPlugin\CommonLibrary\tests\Gateway\AWXClientAPI\PaymentIntent;
 
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Create as CreatePaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent;
 use Exception;
 use PHPUnit\Framework\TestCase;
@@ -16,7 +17,7 @@ final class PaymentIntentTest extends TestCase
     {
         $orderId = (string)time();
         $email = time() . '@gmail.com';
-        $amount = (float)100;
+        $amount = 100.0;
         /** @var PaymentIntent $paymentIntent */
         $paymentIntent = (new CreatePaymentIntent())
             ->setCustomer(['email' => $email])
@@ -26,5 +27,12 @@ final class PaymentIntentTest extends TestCase
             ->send();
         $this->assertEquals($orderId, $paymentIntent->getMerchantOrderId());
         $this->assertEquals($amount, $paymentIntent->getAmount());
+        /** @var PaymentIntent $paymentIntent */
+        $paymentIntent = (new RetrievePaymentIntent())
+            ->setPaymentIntentId($paymentIntent->getId())
+            ->send();
+        $this->assertEquals($orderId, $paymentIntent->getMerchantOrderId());
+        $this->assertEquals($amount, $paymentIntent->getAmount());
+        $this->assertEquals($email, $paymentIntent->getCustomer()['email']);
     }
 }

@@ -32,6 +32,22 @@ class GetList
     private $transactionCurrency;
 
     /**
+     * @var int
+     */
+    private $cacheTime = 3600;
+
+    /**
+     * @param int $cacheTime
+     *
+     * @return GetList
+     */
+    public function setCacheTime(int $cacheTime): GetList
+    {
+        $this->cacheTime = $cacheTime;
+        return $this;
+    }
+
+    /**
      * @param bool|null $active
      *
      * @return GetList
@@ -117,15 +133,16 @@ class GetList
     public function get(): array
     {
         $cacheName = 'airwallex_payment_method_type_list'
-            . $this->getCountryCode()
-            . $this->getTransactionMode()
-            . $this->getTransactionCurrency()
-            . ($this->getActive() === null ? '' : ($this->getActive() ? 'active' : 'inactive'));
+            . '_' . $this->getCountryCode()
+            . '_' . $this->getTransactionMode()
+            . '_' . $this->getTransactionCurrency()
+            . '_' . ($this->getActive() === null ? '' : ($this->getActive() ? 'active' : 'inactive'));
         return $this->cacheRemember(
             $cacheName,
             function () {
                 return $this->getPaymentMethodTypes();
-            }
+            },
+            $this->cacheTime
         );
     }
 

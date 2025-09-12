@@ -4,6 +4,7 @@ namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService;
 
 use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\AbstractApi;
+use Error;
 use Exception;
 
 class Log extends AbstractApi
@@ -239,5 +240,18 @@ class Log extends AbstractApi
     protected function parseResponse($response)
     {
         return $response;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function send()
+    {
+        try {
+            return parent::send();
+        } catch (Error $e) {
+        } catch (Exception $e) {
+        }
+        return "";
     }
 }

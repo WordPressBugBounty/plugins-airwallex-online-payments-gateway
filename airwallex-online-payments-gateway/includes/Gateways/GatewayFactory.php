@@ -9,7 +9,6 @@ class GatewayFactory {
     private static $expressCheckoutGateway;
     private static $afterpayGateway;
     private static $cardGateway;
-    private static $cardSubscriptionsGateway;
     private static $mainGateway;
     private static $weChatGateway;
 

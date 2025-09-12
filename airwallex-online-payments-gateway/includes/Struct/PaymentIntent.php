@@ -11,7 +11,7 @@ class PaymentIntent extends AbstractBase {
 	const PENDING_STATUSES = array(
 		self::STATUS_REQUIRES_CUSTOMER_ACTION,
 	);
-	const SUCCESS_STATUSES = ['SUCCEEDED', 'REQUIRES_CAPTURE', 'AUTHORIZED', 'DONE'];
+	const SUCCESS_STATUSES = ['SUCCEEDED', 'REQUIRES_CAPTURE', 'CAPTURE_REQUIRED', 'AUTHORIZED', 'DONE'];
 	const PAYMENT_METHOD_TYPE_CARD = 'CARD';
 	const THREE_DS_FRICTIONLESS_MAP = [
 		'Y' => 'Y - Frictionless transaction',
@@ -25,6 +25,7 @@ class PaymentIntent extends AbstractBase {
 		'C' => 'C - Challenge required',
 		'R' => 'R - Authentication/ Account Verification Rejected',
 	];
+	const CARD_REFERRER_DATA_TYPE = 'woocommerce_credit_card';
 
 	protected $id;
 	protected $requestId;

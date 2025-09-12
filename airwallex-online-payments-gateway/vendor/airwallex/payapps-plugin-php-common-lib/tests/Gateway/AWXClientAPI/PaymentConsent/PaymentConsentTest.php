@@ -18,7 +18,7 @@ final class PaymentConsentTest extends TestCase
     public function testPaymentConsent()
     {
         /** @var Customer $customer */
-        $customer = (new Create())->setCustomerId()->send();
+        $customer = (new Create())->setCustomerId(1)->send();
         $this->assertNotEmpty($customer->getId());
         $response = (new GetList())->setCustomerId($customer->getId())->send();
         $this->assertCount(0, $response->getItems());

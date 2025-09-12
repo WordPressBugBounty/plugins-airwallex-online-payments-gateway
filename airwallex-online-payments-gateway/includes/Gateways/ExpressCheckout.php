@@ -3,21 +3,14 @@
 namespace Airwallex\Gateways;
 
 use Airwallex\Client\CardClient;
-use Airwallex\Controllers\OrderController;
 use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
 use Airwallex\Services\OrderService;
-use Airwallex\Controllers\GatewaySettingsController;
-use Airwallex\Controllers\PaymentConsentController;
-use Airwallex\Controllers\PaymentSessionController;
-use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
 use Airwallex\Services\Util;
-use Airwallex\Struct\Refund;
 use Airwallex\Struct\PaymentIntent;
 use Exception;
 use WC_Payment_Gateway;
 use WC_AJAX;
-use WP_Error;
 use WC_Subscriptions_Product;
 use Airwallex\Controllers\ControllerFactory;
 use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
@@ -576,14 +569,12 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			return false;
 		}
 
-		// Don't show on cart if disabled.
-		if (is_cart() && !$this->shouldShowButtonOnPage('cart')) {
-			return false;
+		if (is_checkout()) {
+			return $this->shouldShowButtonOnPage('checkout');
 		}
 
-		// Don't show on checkout if disabled.
-		if (is_checkout() && !$this->shouldShowButtonOnPage('checkout')) {
-			return false;
+		if (is_cart()) {
+			return $this->shouldShowButtonOnPage('cart');
 		}
 
 		// Don't show if product page is disabled.
@@ -876,10 +867,6 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				$subTotal         = $product->get_price();
 			}
 		} elseif ($this->isCartOrCheckout()) {
-			if ( ! defined( 'WOOCOMMERCE_CART' ) ) {
-				define( 'WOOCOMMERCE_CART', true );
-			}
-	
 			WC()->cart->calculate_totals();
 			$requiresShipping = WC()->cart->needs_shipping();
 			$subTotal         = WC()->cart->get_total( false );
@@ -1010,9 +997,15 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			$referrerPaymentMethodType = $paymentMethodType ? 'woo_commerce_' . $paymentMethodType : 'woo_commerce';
 			LogService::getInstance()->debug(__METHOD__ . ' before create intent', array( 'orderId' => $order_id ) );
 			$paymentIntent = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, $referrerPaymentMethodType );
+			if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+				return [
+					'result' => 'success',
+					'redirect_url' => $order->get_checkout_order_received_url(),
+				];
+			}
 			WC()->session->set( 'airwallex_payment_intent_id', $paymentIntent->getId() );
 
-			$order->update_meta_data( '_tmp_airwallex_payment_intent', $paymentIntent->getId() );
+			$order->update_meta_data( OrderService::META_KEY_INTENT_ID, $paymentIntent->getId() );
 			$order->save();
 			WC()->session->set( 'airwallex_order', $order_id );
 

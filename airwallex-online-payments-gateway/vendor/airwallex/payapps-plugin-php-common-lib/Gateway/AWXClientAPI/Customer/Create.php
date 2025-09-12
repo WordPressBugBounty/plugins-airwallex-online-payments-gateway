@@ -17,14 +17,16 @@ class Create extends AbstractApi
     }
 
     /**
+     * @param int|string $platformUserId
      * @return Create
      *
      * @throws Exception
      */
-    public function setCustomerId(): Create
+    public function setCustomerId($platformUserId): Create
     {
+        $platform = $_ENV['PLUGIN_TYPE'] ?? '';
         $merchantCustomerId = substr(bin2hex(random_bytes(10)), 0, 20);
-        return $this->setParam('merchant_customer_id', $merchantCustomerId);
+        return $this->setParam('merchant_customer_id', $platform . '-' . $platformUserId . '-' . $merchantCustomerId);
     }
 
     /**

@@ -49,7 +49,7 @@ class PaymentConsentController {
 
 			foreach ($subscriptions as $subscription) {
 				$wpUserId = $subscription->get_user_id();
-				$airwallexCustomerId = $subscription->get_meta( 'airwallex_customer_id', true );
+				$airwallexCustomerId = $subscription->get_meta( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, true );
 				if (empty($airwallexCustomerId)) continue;
 				$doneKey = "$wpUserId-$airwallexCustomerId";
 				if (isset($done[$doneKey])) continue;
@@ -114,7 +114,7 @@ class PaymentConsentController {
 			LogService::getInstance()->debug(__METHOD__ . ' - Payment consent created.', $paymentConsent->getId());
 
 			WC()->session->set( 'airwallex_payment_intent_id', $paymentConsent->getInitialPaymentIntentId() );
-			$order->update_meta_data( '_tmp_airwallex_payment_intent', $paymentConsent->getInitialPaymentIntentId() );
+			$order->update_meta_data( OrderService::META_KEY_INTENT_ID, $paymentConsent->getInitialPaymentIntentId() );
 			$order->save();
 			WC()->session->set( 'airwallex_order', $orderId );
 

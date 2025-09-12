@@ -344,7 +344,12 @@ jQuery(function ($) {
                 return;
             }
         }
-        location.href = getConfirmationUrl(confirmationUrl, result.orderId, result.paymentIntent);
+
+        let targetConfirmationUrl = getConfirmationUrl(confirmationUrl, result.orderId, result.paymentIntent);
+        if (result.tokenId) {
+            targetConfirmationUrl += "&token_id=" + parseInt(result.tokenId);
+        }
+        location.href = targetConfirmationUrl;
     }
 
     if (awxCommonData) {

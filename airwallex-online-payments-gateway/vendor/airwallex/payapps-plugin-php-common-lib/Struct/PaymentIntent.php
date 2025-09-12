@@ -4,6 +4,17 @@ namespace Airwallex\PayappsPlugin\CommonLibrary\Struct;
 
 class PaymentIntent extends AbstractBase
 {
+    const STATUS_CREATED = 'CREATED';
+    const STATUS_REQUIRES_PAYMENT_METHOD = 'REQUIRES_PAYMENT_METHOD';
+    const STATUS_REQUIRES_CUSTOMER_ACTION = 'REQUIRES_CUSTOMER_ACTION';
+    const STATUS_PENDING = 'PENDING';
+    const STATUS_CANCELLED = 'CANCELLED';
+    const STATUS_CAPTURE_REQUIRED = 'CAPTURE_REQUIRED';
+    const STATUS_REQUIRES_CAPTURE = 'REQUIRES_CAPTURE';
+    const STATUS_SUCCEEDED = 'SUCCEEDED';
+    const STATUS_CAPTURE_REQUESTED = 'CAPTURE_REQUESTED';
+    const STATUS_REQUESTED_CAPTURE = 'REQUESTED_CAPTURE';
+
     /**
      * @var array
      */
@@ -13,6 +24,11 @@ class PaymentIntent extends AbstractBase
      * @var float
      */
     private $amount;
+
+    /**
+     * @var float
+     */
+    private $baseAmount;
 
     /**
      * @var string
@@ -48,6 +64,11 @@ class PaymentIntent extends AbstractBase
      * @var string
      */
     private $currency;
+
+    /**
+     * @var string
+     */
+    private $baseCurrency;
 
     /**
      * @var array
@@ -144,6 +165,28 @@ class PaymentIntent extends AbstractBase
      */
     private $updatedAt;
 
+    /**
+     * @return bool
+     */
+    public function isAuthorized(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_REQUIRES_CAPTURE,
+            self::STATUS_CAPTURE_REQUIRED,
+        ], true);
+    }
+
+    /**
+     * @return bool
+     */
+    public function isCaptured(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_SUCCEEDED,
+            self::STATUS_CAPTURE_REQUESTED,
+            self::STATUS_REQUESTED_CAPTURE,
+        ], true);
+    }
 
     /**
      * @return array
@@ -180,6 +223,25 @@ class PaymentIntent extends AbstractBase
     public function setAmount(float $amount): PaymentIntent
     {
         $this->amount = $amount;
+        return $this;
+    }
+
+    /**
+     * @return float
+     */
+    public function getBaseAmount(): float
+    {
+        return $this->baseAmount ?? 0.0;
+    }
+
+    /**
+     * @param float $baseAmount
+     *
+     * @return PaymentIntent
+     */
+    public function setBaseAmount(float $baseAmount): PaymentIntent
+    {
+        $this->baseAmount = $baseAmount;
         return $this;
     }
 
@@ -313,6 +375,25 @@ class PaymentIntent extends AbstractBase
     public function setCurrency(string $currency): PaymentIntent
     {
         $this->currency = $currency;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getBaseCurrency(): string
+    {
+        return $this->baseCurrency ?? '';
+    }
+
+    /**
+     * @param string $baseCurrency
+     *
+     * @return PaymentIntent
+     */
+    public function setBaseCurrency(string $baseCurrency): PaymentIntent
+    {
+        $this->baseCurrency = $baseCurrency;
         return $this;
     }
 

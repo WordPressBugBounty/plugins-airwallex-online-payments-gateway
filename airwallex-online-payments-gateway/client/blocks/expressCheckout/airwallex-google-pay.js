@@ -150,7 +150,10 @@ const AWXGooglePayButton = (props) => {
 
 	const onAuthorized = async (event) => {
 		const orderResponse = await createOrder(event.detail.paymentData, 'googlepay');
-
+		if (orderResponse.redirect_url) {
+			location.href = orderResponse.redirect_url;
+			return;
+		}
 		maskPageWhileLoading(50000);
 		if (orderResponse.result === 'success') {
 			const {

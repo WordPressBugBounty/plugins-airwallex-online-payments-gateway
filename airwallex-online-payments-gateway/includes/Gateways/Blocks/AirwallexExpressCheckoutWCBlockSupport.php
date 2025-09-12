@@ -7,18 +7,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Airwallex\Client\ApplePayClient;
-use Airwallex\Gateways\Card;
-use Airwallex\Controllers\OrderController;
 use Airwallex\Services\OrderService;
 use Airwallex\Client\CardClient;
 use Airwallex\Client\GatewayClient;
-use Airwallex\Controllers\GatewaySettingsController;
-use Airwallex\Controllers\PaymentConsentController;
-use Airwallex\Controllers\PaymentSessionController;
 use Airwallex\Services\Util;
 use Airwallex\Gateways\ExpressCheckout;
 use Airwallex\Services\LogService;
-use Airwallex\Services\CacheService;
 use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
 
 class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
@@ -135,14 +129,14 @@ class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
 			return false;
 		}
 
-		// Don't show on cart if disabled.
-		if (is_cart() && !$this->gateway->shouldShowButtonOnPage('cart')) {
-			return false;
+		// Don't show on checkout if disabled.
+		if (is_checkout()) {
+			return $this->gateway->shouldShowButtonOnPage('checkout');
 		}
 
-		// Don't show on checkout if disabled.
-		if (is_checkout() && !$this->gateway->shouldShowButtonOnPage('checkout')) {
-			return false;
+		// Don't show on cart if disabled.
+		if (is_cart()) {
+			return $this->gateway->shouldShowButtonOnPage('cart');
 		}
 
 		return true;

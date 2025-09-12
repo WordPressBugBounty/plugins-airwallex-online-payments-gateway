@@ -10,6 +10,7 @@ use Airwallex\Struct\Refund;
 use Exception;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
+use Airwallex\Services\OrderService;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Services\Util;
 use WC_Subscriptions_Manager;
@@ -141,8 +142,8 @@ trait AirwallexGatewayTrait {
 			$subscription              = wcs_get_subscription( $subscriptionId );
 			$originalOrderId           = $subscription->get_parent();
 			$originalOrder             = wc_get_order( $originalOrderId );
-			$airwallexCustomerId       = $subscription->get_meta( 'airwallex_customer_id' ) ?: $originalOrder->get_meta( 'airwallex_customer_id' );
-			$airwallexPaymentConsentId = $subscription->get_meta( 'airwallex_consent_id' ) ?: $originalOrder->get_meta( 'airwallex_consent_id' );
+			$airwallexCustomerId       = $subscription->get_meta( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID ) ?: $originalOrder->get_meta( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID );
+			$airwallexPaymentConsentId = $subscription->get_meta( OrderService::META_KEY_AIRWALLEX_CONSENT_ID ) ?: $originalOrder->get_meta( OrderService::META_KEY_AIRWALLEX_CONSENT_ID );
 			$cardClient                = CardClient::getInstance();
 			$paymentIntent             = $cardClient->createPaymentIntent( $amount, $order->get_id(), false, $airwallexCustomerId );
 			if (in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true )) {
@@ -173,7 +174,7 @@ trait AirwallexGatewayTrait {
 		$order           = wc_get_order( $order_id );
 		$paymentIntentId = $order->get_transaction_id();
 		if (empty($paymentIntentId)) {
-			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+			$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
 		}
 		$client = GatewayClient::getInstance();
 		try {
@@ -234,12 +235,12 @@ trait AirwallexGatewayTrait {
 		$subscription->read_meta_data( true );
 		$paymentMeta[ $this->id ] = [
 			'post_meta' => [
-				'airwallex_customer_id' => [
-					'value' => $subscription->get_meta( 'airwallex_customer_id', true ),
+				OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID => [
+					'value' => $subscription->get_meta( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, true ),
 					'label' => 'Airwallex Customer ID',
 				],
-				'airwallex_consent_id'   => [
-					'value' => $subscription->get_meta( 'airwallex_consent_id', true ),
+				OrderService::META_KEY_AIRWALLEX_CONSENT_ID   => [
+					'value' => $subscription->get_meta( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, true ),
 					'label' => 'Airwallex Payment Consent ID',
 				],
 			],
@@ -250,19 +251,19 @@ trait AirwallexGatewayTrait {
 
 	public function validate_subscription_payment_meta( $paymentMethodId, $paymentMethodData ) {
 		if ( $paymentMethodId === $this->id ) {
-			if ( empty( $paymentMethodData['post_meta']['airwallex_customer_id']['value'] ) ) {
+			if ( empty( $paymentMethodData['post_meta'][OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID]['value'] ) ) {
 				throw new Exception( __('"Airwallex Customer ID" is required.', 'airwallex-online-payments-gateway') );
 			}
-			if ( empty( $paymentMethodData['post_meta']['airwallex_consent_id']['value'] ) ) {
+			if ( empty( $paymentMethodData['post_meta'][OrderService::META_KEY_AIRWALLEX_CONSENT_ID]['value'] ) ) {
 				throw new Exception( __('"Airwallex Payment Consent ID" is required.', 'airwallex-online-payments-gateway') );
 			}
 			$paymentConsent  = (new CardClient())->getPaymentConsent(
-				$paymentMethodData['post_meta']['airwallex_consent_id']['value']
+				$paymentMethodData['post_meta'][OrderService::META_KEY_AIRWALLEX_CONSENT_ID]['value']
 			);
 			if ( empty($paymentConsent->getStatus()) || $paymentConsent->getStatus() !== 'VERIFIED' ) {
 				throw new Exception( __("Invalid Airwallex Payment Consent.", 'airwallex-online-payments-gateway') );
 			}
-			if ( $paymentConsent->getCustomerId() !== $paymentMethodData['post_meta']['airwallex_customer_id']['value'] ) {
+			if ( $paymentConsent->getCustomerId() !== $paymentMethodData['post_meta'][OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID]['value'] ) {
 				throw new Exception( __('The provided "Airwallex Customer ID" does not match the associated "Airwallex Payment Consent ID".', 'airwallex-online-payments-gateway') );
 			}
 		}
@@ -273,8 +274,8 @@ trait AirwallexGatewayTrait {
 	 * @param \WC_Order        $order
 	 */
 	public function update_failing_payment_method( $subscription, $order ) {
-		$subscription->update_meta_data( 'airwallex_consent_id', $order->get_meta( 'airwallex_consent_id', true ) );
-		$subscription->update_meta_data( 'airwallex_customer_id', $order->get_meta( 'airwallex_customer_id', true ) );
+		$subscription->update_meta_data( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, $order->get_meta( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, true ) );
+		$subscription->update_meta_data( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, $order->get_meta( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, true ) );
 		$subscription->save();
 	}
 }

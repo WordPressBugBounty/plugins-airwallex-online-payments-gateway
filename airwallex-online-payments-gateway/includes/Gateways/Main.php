@@ -11,6 +11,7 @@ use Exception;
 use WC_Payment_Gateway;
 use Airwallex\Services\OrderService;
 use Airwallex\Services\Util;
+use Airwallex\Struct\PaymentIntent;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -93,7 +94,7 @@ class Main extends WC_Payment_Gateway {
 		$client = MainClient::getInstance();
 		$order = $this->getOrderFromRequest('Main::getApmRedirectData');
 		$orderId = $order->get_id();
-		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
 		$paymentIntent			 = $client->getPaymentIntent( $paymentIntentId );
 		$paymentIntentClientSecret = $paymentIntent->getClientSecret();
 		$airwallexCustomerId = $paymentIntent->getCustomerId();
@@ -350,6 +351,12 @@ class Main extends WC_Payment_Gateway {
 
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
 			$paymentIntent             = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, 'woo_commerce_apm' );
+			if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+				return [
+					'result' => 'success',
+					'redirect' => $order->get_checkout_order_received_url(),
+				];
+			}
 			$this->logService->debug(
 				__METHOD__ . ' - payment intent created ',
 				array(
@@ -364,7 +371,7 @@ class Main extends WC_Payment_Gateway {
 
 			WC()->session->set( 'airwallex_order', $order_id );
 			WC()->session->set( 'airwallex_payment_intent_id', $paymentIntent->getId() );
-			$order->update_meta_data( '_tmp_airwallex_payment_intent', $paymentIntent->getId() );
+			$order->update_meta_data( OrderService::META_KEY_INTENT_ID, $paymentIntent->getId() );
 			$order->save();
 
 			$redirectUrl = $this->get_payment_url( 'airwallex_payment_method_all' );
@@ -600,7 +607,7 @@ class Main extends WC_Payment_Gateway {
 			$order = $this->getOrderFromRequest('Main::output');
 			$orderId = $order->get_id();
 
-			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+			$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
 			$apiClient           = MainClient::getInstance();
 			$paymentIntent             = $apiClient->getPaymentIntent( $paymentIntentId );
 			$paymentIntentClientSecret = $paymentIntent->getClientSecret();

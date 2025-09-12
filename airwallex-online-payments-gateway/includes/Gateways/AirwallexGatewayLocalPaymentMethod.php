@@ -3,7 +3,9 @@
 namespace Airwallex\Gateways;
 
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
+use Airwallex\Services\OrderService;
 use Airwallex\Services\Util;
+use Airwallex\Struct\PaymentIntent;
 use Airwallex\Struct\Quote;
 use WC_AJAX;
 use Exception;
@@ -136,6 +138,12 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
             $paymentMethodType = empty(static::GATEWAY_ID) ? 'woo_commerce' : 'woo_commerce_' . static::GATEWAY_ID;
 
             $paymentIntent   = $this->gatewayClient->createPaymentIntent( $order->get_total(), $order->get_id(), true, $airwallexCustomerId, $paymentMethodType );
+            if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+                return [
+                    'result' => 'success',
+                    'redirect' => $order->get_checkout_order_received_url(),
+                ];
+            }
             $this->logService->debug(__METHOD__ . ' payment intent created', [ 'payment intent' => $paymentIntent->toArray() ] );
 
             $this->logService->debug(__METHOD__ . ' confirm payment intent', [ 'payment intent id' => $paymentIntent->getId() ] );
@@ -170,7 +178,7 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 
             WC()->session->set( 'airwallex_order', $order_id );
             WC()->session->set( 'airwallex_payment_intent_id', $paymentIntent->getId() );
-			$order->update_meta_data( '_tmp_airwallex_payment_intent', $paymentIntent->getId() );
+			$order->update_meta_data( OrderService::META_KEY_INTENT_ID, $paymentIntent->getId() );
 			$order->save();
         } catch (Exception $e) {
             $this->logService->error(__METHOD__ . ' Some went wrong during checkout.', $e->getMessage());

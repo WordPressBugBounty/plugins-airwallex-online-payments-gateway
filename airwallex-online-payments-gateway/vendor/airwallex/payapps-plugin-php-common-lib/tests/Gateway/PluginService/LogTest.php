@@ -7,7 +7,7 @@ use PHPUnit\Framework\TestCase;
 
 final class LogTest extends TestCase
 {
-    public function testCustomerCreate()
+    public function testLogRequest()
     {
         $resp1 = Log::error(Log::ON_PROCESS_WEBHOOK_ERROR, 'something wrong');
         $resp2 = Log::info(Log::ON_PAYMENT_CREATION_ERROR, 'log for test');

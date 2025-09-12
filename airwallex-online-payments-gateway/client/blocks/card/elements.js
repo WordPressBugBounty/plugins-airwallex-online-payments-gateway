@@ -365,7 +365,7 @@ export const AirwallexSaveCard = (props) => {
 			});
 			if (response.type === emitResponse.responseTypes.SUCCESS || 
 				(response.type === emitResponse.responseTypes.ERROR && response.code === 'invalid_status_for_operation')) {
-				location.href = response.confirmUrl;
+				location.href = response.confirmUrl + "&token_id=" + parseInt(token);
 			} else {
 				return response;
 			}

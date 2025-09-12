@@ -34,7 +34,7 @@ class AirwallexController {
 	private function getPaymentDetailForRedirect(AbstractClient $apiClient, $gateway) {
 		$order = $this->getOrderFromRequest('getPaymentDetailForRedirect');
 
-		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
 		$paymentIntent   = $apiClient->getPaymentIntent( $paymentIntentId );
 		$clientSecret = $paymentIntent->getClientSecret();
 		$customerId = $paymentIntent->getCustomerId();
@@ -168,7 +168,7 @@ class AirwallexController {
 
 	private function getOrderAndPaymentIntentForConfirmation() {
 		$order = $this->getOrderFromRequest('getOrderAndPaymentIntentForConfirmation');
-		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
 
 		if (empty($paymentIntentId)) {
 			$errorMessage = 'Order confirmation error: Unable to retrieve a valid intent ID.';
@@ -270,6 +270,14 @@ class AirwallexController {
 					}
 				} catch ( Exception | Error $e ) {
 					$this->logService->error('Error syncing save cards: ', $e->getMessage());
+				}
+			}
+
+			if ( class_exists('\WFOCU_Public') && method_exists('\WFOCU_Public', 'get_instance') ) {
+				$wfocu_public = \WFOCU_Public::get_instance();
+
+				if ( method_exists($wfocu_public, 'maybe_setup_upsell') ) {
+					$wfocu_public->maybe_setup_upsell($order->get_id());
 				}
 			}
 

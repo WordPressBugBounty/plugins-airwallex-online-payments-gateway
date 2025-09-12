@@ -17,7 +17,7 @@ final class AllTest extends TestCase
      */
     public function testCustomerCreate()
     {
-        $customer = (new Create())->setCustomerId()->send();
+        $customer = (new Create())->setCustomerId(1)->send();
         $all = (new All())
             ->setNextTriggeredBy(PaymentConsent::TRIGGERED_BY_CUSTOMER)
             ->setCustomerId($customer->getId())

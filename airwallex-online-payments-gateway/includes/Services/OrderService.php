@@ -24,6 +24,8 @@ class OrderService {
     const META_KEY_INTENT_ID = '_tmp_airwallex_payment_intent';
     const META_KEY_ORDER_ORIGINAL_CURRENCY = '_tmp_airwallex_order_original_currency';
     const META_KEY_ORDER_ORIGINAL_AMOUNT = '_tmp_airwallex_order_original_amount';
+    const META_KEY_AIRWALLEX_CUSTOMER_ID = 'airwallex_customer_id';
+    const META_KEY_AIRWALLEX_CONSENT_ID = 'airwallex_consent_id';
 
     public static function getInstance() {
         if ( ! isset( self::$instance ) ) {
@@ -381,16 +383,16 @@ class OrderService {
 	{
 		$orderId = $order->get_id();
 		if ( $paymentIntent->getPaymentConsentId() ) {
-			$order->update_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
-			$order->update_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
+			$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, $paymentIntent->getPaymentConsentId() );
+			$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, $paymentIntent->getCustomerId() );
 			$order->save_meta_data();
 
 			if ( function_exists( 'wcs_get_subscriptions_for_order' ) ) {
 				$subscriptions = wcs_get_subscriptions_for_order( $orderId );
 				if ( !empty( $subscriptions ) ) {
 					foreach ( $subscriptions as $subscription ) {
-						$subscription->update_meta_data( 'airwallex_consent_id', $paymentIntent->getPaymentConsentId() );
-						$subscription->update_meta_data( 'airwallex_customer_id', $paymentIntent->getCustomerId() );
+						$subscription->update_meta_data( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, $paymentIntent->getPaymentConsentId() );
+						$subscription->update_meta_data( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, $paymentIntent->getCustomerId() );
 						$subscription->save_meta_data();
 					}
 				}

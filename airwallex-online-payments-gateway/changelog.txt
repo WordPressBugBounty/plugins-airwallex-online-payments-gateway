@@ -1,8 +1,12 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-09-09 - version 1.24.0
+
+* Add - Support for FunnelKit Upsell
+
 2025-08-27 - version 1.23.4
 
-* Fix -  Prevent incorrect order status updates due to shared webhooks across multiple stores
+* Fix - Prevent incorrect order status updates due to shared webhooks across multiple stores
 
 2025-08-11 - version 1.23.3
 

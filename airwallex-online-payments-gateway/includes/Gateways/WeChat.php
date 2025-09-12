@@ -6,10 +6,12 @@ use Airwallex\Services\LogService;
 use Airwallex\Struct\Refund;
 use Airwallex\Client\WeChatClient;
 use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
+use Airwallex\Services\OrderService;
 use Exception;
 use WC_Payment_Gateway;
 use WP_Error;
 use Airwallex\Services\Util;
+use Airwallex\Struct\PaymentIntent;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -100,7 +102,7 @@ class WeChat extends WC_Payment_Gateway {
 		$client = WeChatClient::getInstance();
 		$order = $this->getOrderFromRequest('Main::getApmRedirectData');
 		$orderId = $order->get_id();
-		$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
 		$paymentIntent             = $client->getPaymentIntent( $paymentIntentId );
 		$paymentIntentClientSecret = $paymentIntent->getClientSecret();
 
@@ -135,6 +137,12 @@ class WeChat extends WC_Payment_Gateway {
 			$apiClient           = WeChatClient::getInstance();
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
 			$paymentIntent             = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), null, 'woo_commerce_wechat' );
+			if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+				return [
+					'result' => 'success',
+					'redirect' => $order->get_checkout_order_received_url(),
+				];
+			}
 			$this->logService->debug(
 				__METHOD__ . ' - payment intent created ',
 				array(
@@ -149,7 +157,7 @@ class WeChat extends WC_Payment_Gateway {
 
 			WC()->session->set( 'airwallex_order', $order_id );
 			WC()->session->set( 'airwallex_payment_intent_id', $paymentIntent->getId() );
-			$order->update_meta_data( '_tmp_airwallex_payment_intent', $paymentIntent->getId() );
+			$order->update_meta_data( OrderService::META_KEY_INTENT_ID, $paymentIntent->getId() );
 			$order->save();
 
 			$redirectUrl = $this->get_payment_url( 'airwallex_payment_method_wechat' );
@@ -188,7 +196,7 @@ class WeChat extends WC_Payment_Gateway {
 			$order = $this->getOrderFromRequest('WeChat::output');
 			$orderId = $order->get_id();
 
-			$paymentIntentId = $order->get_meta('_tmp_airwallex_payment_intent');
+			$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
 			$apiClient                 = WeChatClient::getInstance();
 			$paymentIntent             = $apiClient->getPaymentIntent( $paymentIntentId );
 			$paymentIntentClientSecret = $paymentIntent->getClientSecret();

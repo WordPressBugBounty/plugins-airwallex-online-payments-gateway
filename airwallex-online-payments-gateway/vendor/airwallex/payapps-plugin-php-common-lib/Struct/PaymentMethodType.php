@@ -79,6 +79,14 @@ class PaymentMethodType extends AbstractBase
     }
 
     /**
+     * @return bool
+     */
+    public function getActive(): bool
+    {
+        return $this->active ?? false;
+    }
+
+    /**
      * @param string $name
      *
      * @return PaymentMethodType

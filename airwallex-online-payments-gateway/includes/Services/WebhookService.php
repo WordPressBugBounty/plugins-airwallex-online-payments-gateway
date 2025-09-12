@@ -2,7 +2,6 @@
 
 namespace Airwallex\Services;
 
-use Airwallex\Main;
 use Airwallex\Struct\PaymentIntent;
 use Airwallex\Struct\Refund;
 use Exception;
@@ -146,8 +145,12 @@ class WebhookService {
 			throw new Exception('No order found for the order id in webhook. Payment intent id: ' . $paymentIntentId);
 		}
 
-		$paymentIntentIdFromOrder = $order->get_meta( '_tmp_airwallex_payment_intent' );
-		if ( $paymentIntentId !== $paymentIntentIdFromOrder ) {
+		$paymentIntentIdFromOrder = $order->get_meta( OrderService::META_KEY_INTENT_ID );
+		$upsellPaymentIntentIds = [];
+		if (class_exists('\WFOCU_Gateway')) {
+			$upsellPaymentIntentIds = \Airwallex\Gateways\FunnelKitUpsell::getInstance()->getUpsellPaymentIntentIds($order);
+		}
+		if ( $paymentIntentId !== $paymentIntentIdFromOrder && !in_array( $paymentIntentId, $upsellPaymentIntentIds, true ) ) {
 			throw new Exception('Mismatch in payment intent ID from webhook and order. Debug info: ' . wp_json_encode([
 				'payment_intent_id_from_order' => $paymentIntentIdFromOrder,
 				'payment_intent_id_from_webhook' => $paymentIntentId,

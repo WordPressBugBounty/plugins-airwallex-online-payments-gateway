@@ -36,7 +36,17 @@ abstract class AbstractApi
     /**
      * @var array
      */
-    protected $params = [];
+    private $params = [];
+
+    /**
+     * @var string
+     */
+    private $referrerDataType = '';
+
+    /**
+     * @var array
+     */
+    private $metaData = [];
 
     /**
      * @return mixed
@@ -173,12 +183,21 @@ abstract class AbstractApi
      */
     protected function getMetadata(): array
     {
-        return [
+        return $this->metaData + [
             'php_version' => phpversion(),
             'platform_version' => Init::getInstance()->get('platform_version'),
-            'common_library_version' => InstalledVersions::getPrettyVersion(InstalledVersions::getRootPackage()['name']),
             'host' => $_SERVER['HTTP_HOST'] ?? '',
         ];
+    }
+
+    /**
+     * @param array $data
+     * @return self
+     */
+    public function setMetaData(array $data): self
+    {
+        $this->metaData = $data;
+        return $this;
     }
 
     /**
@@ -203,9 +222,19 @@ abstract class AbstractApi
     private function getReferrerData(): array
     {
         return [
-            'type' => Init::getInstance()->get('plugin_type'),
+            'type' => $this->referrerDataType ?: Init::getInstance()->get('plugin_type'),
             'version' => Init::getInstance()->get('plugin_version'),
         ];
+    }
+
+    /**
+     * @param string $type
+     * @return self
+     */
+    public function setReferrerDataType(string $type): self
+    {
+        $this->referrerDataType = $type;
+        return $this;
     }
 
     /**

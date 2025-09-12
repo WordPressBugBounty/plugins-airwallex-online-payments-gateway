@@ -4,7 +4,6 @@ namespace Airwallex;
 
 use Airwallex\Gateways\Blocks\AirwallexAfterpayWCBlockSupport;
 use Airwallex\Gateways\Card;
-use Airwallex\Gateways\CardSubscriptions;
 use Airwallex\Gateways\GatewayFactory;
 use Airwallex\Gateways\Main as MainGateway;
 use Airwallex\Gateways\WeChat;
@@ -376,11 +375,7 @@ class Main {
 		}
 		$gateways[] = APISettings::class;
 		$gateways[] = MainGateway::class;
-		if ( class_exists( 'WC_Subscriptions_Order' ) && function_exists( 'wcs_create_renewal_order' ) ) {
-			$gateways[] = CardSubscriptions::class;
-		} else {
-			$gateways[] = Card::class;
-		}
+		$gateways[] = Card::class;
 		$gateways[] = WeChat::class;
 		$gateways[] = ExpressCheckout::class;
 		if (!is_wc_endpoint_url('order-pay')) {
