@@ -1,0 +1,29 @@
+{
+    "name": "airwallex/payapps-plugin-php-common-lib",
+    "version": "1.5.0",
+    "type": "library",
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {
+            "Airwallex\\PayappsPlugin\\CommonLibrary\\": ""
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": ">=7.0"
+    },
+    "require-dev": {
+        "guzzlehttp/guzzle": "^6.5",
+        "phpunit/phpunit": "^6.5",
+        "vlucas/phpdotenv": "^4.3"
+    },
+    "config": {
+        "platform": {
+            "php": "7.0.0"
+        }
+    }
+}

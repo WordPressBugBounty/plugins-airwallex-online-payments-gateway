@@ -1,0 +1,245 @@
+/*------Express Checkout Settings------*/
+.awx-ec-settings-button-preview {
+	display: flex;
+	border: 1px dashed #ddd;
+	box-sizing: border-box;
+	border-radius: 3px;
+	background-color: #f0f0f0;
+	padding: 1em 1em 1em 0;
+	width: 624px;
+}
+
+apple-pay-button {
+	--apple-pay-button-width: 100%;
+	--apple-pay-button-height: 40px;
+	--apple-pay-button-border-radius: 5px;
+}
+
+.awx-ec-button-preview {
+	width: 100%;
+	line-height: normal;
+	margin-left: 1em;
+	display: none;
+}
+
+.awx-ec-button-preview button {
+	width: 100% !important;
+}
+
+.awx-settings-alert-box {
+	display: flex;
+	width: 620px;
+	background-color: #F0F9FF;
+	padding: 10px;
+	border: 1px solid #38BDF8;
+	border-radius: 5px;
+}
+
+@media(max-width: 800px) {
+	.awx-ec-settings-button-preview {
+		width: 100%;
+		flex-flow: column;
+		padding: 1em;
+	}
+
+	.awx-ec-button-preview {
+		margin: 0;
+	}
+
+	.awx-apple-pay-btn {
+		margin-bottom: 1em;
+	}
+}
+
+/*------Common------*/
+.wc-airwallex-settings-logo {
+	margin: 1.5em 0.5em;
+}
+
+.wc-airwallex-settings-container {
+	padding-left: 0.5em;
+	margin-top: 10px;
+}
+
+.wc-airwallex-settings-field-container {
+	display: flex;
+	align-items: center;
+	margin: 1em 0;
+}
+
+.wc-airwallex-settings-field-container label {
+	font-weight: 600;
+	width: 200px;
+	padding-right: 24px;
+	color: #1d2327;
+}
+
+.wc-airwallex-settings-field-container fieldset {
+	padding: 15px 10px;
+}
+
+.wc-airwallex-settings-field-container input[type=text] {
+	width: 400px;
+}
+
+.wc-airwallex-connect-wrapper {
+	padding: 0px 20px 32px 0px;
+}
+
+.wc-airwallex-connect-banner {
+	display: flex;
+	background-color: #fff;
+	border: 1px solid #E8EAED;
+	border-radius: 6px;
+	padding: 16px 24px;
+	align-items: center;
+}
+
+.wc-airwallex-connect-banner-text {
+	margin-left: 16px;
+	flex-grow: 1;
+}
+
+.wc-airwallex-connect-banner-text div {
+	line-height: 20px;
+}
+
+.wc-airwallex-connect-banner-button {
+	display: flex;
+    color: #fff;
+    align-items: center;
+    padding: 0px 20px;
+    border-radius: 6px;
+	height: 40px;
+	font-weight: 700;
+	line-height: 1.2em;
+	background-color: #612FFF;
+	cursor: pointer;
+}
+
+.airwallex-settings-nav-local-payment-methods {
+	margin: 1em 0 0 0.5em;
+}
+
+.airwallex-settings-nav-local-payment-methods .awx-nav-link-active {
+	color: #555;
+    font-weight: 500;
+}
+
+.wc-awx-checkbox-spinner {
+	display: none;
+    width: 20px;
+    height: 20px;
+	margin-left: 6px;
+    border: 3px solid #B0B6BF;
+    border-top-color: transparent;
+	border-left-color: transparent;
+	border-right-color: transparent;
+    border-radius: 50%;
+    box-sizing: border-box;
+    animation: awx-checkbox-loading 1s linear infinite;
+}
+
+@keyframes awx-checkbox-loading {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.wc-awx-checkbox-error-icon {
+	display: none;
+	width: 20px;
+	height: 20px;
+	margin-left: 8px;
+}
+
+.wc-awx-checkbox-error-message {
+	display: none;
+	color: #E00700;
+}
+
+.wc-awx-checkbox-error-message a {
+	font-weight: 700;
+	color: #E00700;
+}
+
+.wc-airwallex-alert-box {
+	display: flex;
+	min-height: 48px;
+	padding: 16px;
+	align-items: center;
+	gap: 16px;
+	align-self: stretch;
+	border-radius: 6px;
+}
+
+.wc-airwallex-alert-box-with-title {
+	display: flex;
+	min-height: 48px;
+	padding: 16px;
+	align-items: flex-start;
+	gap: 16px;
+	align-self: stretch;
+	border-radius: 6px;
+	
+}
+
+.wc-airwallex-alert-box.wc-airwallex-error, .wc-airwallex-alert-box-with-title.wc-airwallex-error {
+	border: 1px solid var(--Component-Alert-Border-error, #FF776D);
+	background: var(--Component-Alert-Background-error, #FFEFEF);
+}
+
+.wc-airwallex-alert-box.wc-airwallex-warning, .wc-airwallex-alert-box-with-title.wc-airwallex-warning {
+	border: 1px solid var(--Component-Alert-Border-warning, #FFD014);
+	background: var(--Component-Alert-Background-warning, #FFFBEF);
+}
+
+.wc-airwallex-alert-box.wc-airwallex-info, .wc-airwallex-alert-box-with-title.wc-airwallex-info {
+	border: 1px solid var(--Component-Alert-Border-info, #38BDF8);
+	background: var(--Component-Alert-Background-info, #F0F9FF);
+}
+
+.wc-airwallex-alert-box.wc-airwallex-success, .wc-airwallex-alert-box-with-title.wc-airwallex-success {
+	border: 1px solid var(--Component-Alert-Border-info, #83DD83);
+	background: var(--Component-Alert-Background-info, #EFFBF3);
+}
+
+.wc-airwallex-alert-box img {
+	width: 20px;
+	height: 20px;
+}
+
+.wc-airwallex-connection-alert {
+	max-width: 720px;
+}
+
+.wc-airwallex-connection-alert p {
+	margin: 0;
+	font-size: 14px;
+}
+
+.wc-airwallex-connection-alert.wc-airwallex-connection-failed {
+	width: 720px;
+}
+
+@media only screen and (max-width: 782px) {
+	.wc-airwallex-settings-field-container {
+		flex-direction: column;
+		align-items: normal;
+	}
+
+	.wc-airwallex-settings-field-container fieldset {
+		padding: 6px 0 4px;
+	}
+
+	.wc-airwallex-settings-field-container input[type=text] {
+		width: 100%;
+	}
+
+	.awx-settings-alert-box {
+		width: 100%;
+	}
+}

@@ -1,0 +1,623 @@
+#airwallex-card{
+	max-width:100%;
+	border: 1px solid rgb(217, 217, 217);
+	width: 100%;
+	margin-left: 0;
+	box-shadow: none;
+	background: white;
+	padding: 9px 16px;
+	border-radius: 5px;
+	box-sizing: border-box;
+}
+
+#airwallex-card iframe{
+	width: 100% !important;
+}
+
+label[for="payment_method_airwallex_card"] > img, .airwallex-card-icon{
+	max-height: 1.5em;
+}
+
+.airwallex-card-icon{
+	margin:0 2px;
+}
+
+.airwallex-checkout-loading-mask {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	background-color: #fff;
+	opacity: 0.25;
+	z-index: 1000;
+}
+
+/*----------Express Checkout-----------*/
+#awx-express-checkout-wrapper {
+	display: none;
+}
+
+.awx-express-checkout-error {
+	display: none;
+}
+
+.awx-express-checkout-button-set {
+	display: flex;
+	border: 1px solid #ddd;
+	box-sizing: border-box;
+	border-radius: 3px;
+	padding: 1em 1em 1em 0;
+}
+
+.awx-express-checkout-button-set legend {
+	margin: 0 auto;
+	padding: 0 10px;
+	text-align: center;
+	width: fit-content;
+}
+
+.awx-express-checkout-button-set .awx-ec-button {
+	margin-left: 1em;
+}
+
+apple-pay-button {
+	--apple-pay-button-width: 100%;
+	--apple-pay-button-height: 40px;
+	--apple-pay-button-border-radius: 5px;
+}
+
+#awx-ec-apple-pay-btn {
+	margin-bottom: 8px;
+}
+
+.awx-ec-button {
+	width: 100%;
+	line-height: normal;
+	display: none;
+}
+
+.awx-ec-button button {
+	width: 100% !important;
+}
+
+@media(max-width: 800px) {
+	#awx-express-checkout-button {
+		flex-flow: column;
+		padding: 1em;
+	}
+
+	.awx-express-checkout-button-set .awx-ec-button {
+		margin: 0 auto;
+	}
+
+	.awx-apple-pay-btn {
+		margin-bottom: 1em;
+	}
+}
+
+/*----------Embedded LPM Element-----------*/
+.wc-airwallex-alert-box {
+	display: flex;
+	min-height: 48px;
+	padding: 12px 16px;
+	align-items: center;
+	gap: 16px;
+	align-self: stretch;
+	border-radius: 6px;
+	
+}
+
+.wc-airwallex-alert-box.wc-airwallex-error {
+	border: 1px solid var(--Component-Alert-Border-error, #FF776D);
+	background: var(--Component-Alert-Background-error, #FFEFEF);
+}
+
+.wc-airwallex-alert-box.wc-airwallex-warning {
+	border: 1px solid var(--Component-Alert-Border-warning, #FFD014);
+	background: var(--Component-Alert-Background-warning, #FFFBEF);
+}
+
+.wc-airwallex-alert-box.wc-airwallex-info {
+	border: 1px solid var(--Component-Alert-Border-info, #38BDF8);
+	background: var(--Component-Alert-Background-info, #F0F9FF);
+}
+
+.wc-airwallex-alert-box img {
+	max-width: 20px;
+	width: 20px;
+	height: 20px;
+}
+
+.wc-airwallex-currency-switching-container {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+	margin-right: 16px;
+}
+
+.wc-airwallex-currency-switching-conversion-rate {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: var(--Primitives-space-xs, 8px);
+}
+
+.wc-airwallex-currency-switching-convert-icon {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: flex-end;
+}
+
+.wc-airwallex-currency-switching-convert-icon-line {
+	display: flex;
+	width: var(--Component-radius-switch, 12px);
+	justify-content: center;
+	align-items: center;
+	gap: var(--Primitives-space-xs, 8px);
+}
+
+.wc-airwallex-currency-switching-convert-icon-line div {
+	width: 1px;
+	height: 6px;
+	background: var(--Semantic-Border-normal, #E8EAED);
+}
+
+.wc-airwallex-currency-switching-convert-text {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 4px;
+	font-size: 75%;
+}
+
+.wc-airwallex-currency-switching-converted-amount {
+	font-size: 150%;
+}
+
+.wc-airwallex-loader {
+	display: none;
+	margin-left: 5px;
+	width: 20px;
+	aspect-ratio: 1;
+	border-radius: 50%;
+	background:
+		radial-gradient(farthest-side, #a9a9a9 94%, #0000) top/3px 3px no-repeat,
+		conic-gradient(#0000 30%, #a9a9a9);
+	-webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 3px), #000 0);
+	animation: awx-loader 1s infinite linear;
+}
+
+@keyframes awx-loader {
+	100% {
+		transform: rotate(1turn)
+	}
+}
+
+.wc-airwallex-currency-switching-quote-expire-mask {
+	display: none;
+	z-index: 9999;
+	border: none;
+	margin: 0px;
+	padding: 0px;
+	width: 100%;
+	height: 100%;
+	top: 0px;
+	left: 0px;
+	background: rgb(255, 255, 255);
+	opacity: 0.6;
+	cursor: default;
+	position: fixed;
+}
+
+.wc-airwallex-currency-switching-quote-expire {
+	display: none;
+	width: 560px;
+	height: 375px;
+	border-radius: 6px;
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 99999;
+}
+
+.wc-airwallex-currency-switching-quote-expire .wc-airwallex-currency-switching-container {
+	margin: 0;
+}
+
+.wc-airwallex-currency-switching-quote-expire-close {
+	position: absolute;
+	right: 16px;
+	top: 16px;
+	flex: none;
+	order: 2;
+	flex-grow: 0;
+	cursor: pointer;
+}
+
+.wc-airwallex-currency-switching-quote-expire-inner {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	padding: 32px 40px;
+	width: 560px;
+	height: 375px;
+	background: #FFFFFF;
+	border: 1px solid #E8EAED;
+	box-shadow: 0px 0px 16px rgba(0, 0, 0, 0.08);
+	border-radius: 6px;
+	flex: none;
+	order: 1;
+	align-self: stretch;
+	flex-grow: 0;
+}
+
+.wc-airwallex-currency-switching-quote-expire-header {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: 0px 0px 16px;
+	gap: 10px;
+	width: 480px;
+	height: 46px;
+	flex: none;
+	order: 0;
+	align-self: stretch;
+	flex-grow: 0;
+	font-style: normal;
+	font-weight: 700;
+	font-size: 24px;
+	line-height: 125%;
+	color: #1A1D21;
+}
+.wc-airwallex-currency-switching-quote-expire-convert-text,
+.wc-airwallex-currency-switching-quote-expire-text {
+	width: 480px;
+	font-size: 14px;
+	line-height: 21px;
+	color: #1A1D21;
+}
+
+.wc-airwallex-currency-switching-quote-expire-text-medium {
+	font-weight: 700;
+	font-size: 16px;
+	line-height: 20px;
+	color: #1A1D21;
+}
+
+.wc-airwallex-currency-switching-quote-expire-text-large {
+	font-weight: 700;
+	font-size: 24px;
+	line-height: 30px;
+	color: #1A1D21;
+}
+
+.wc-airwallex-currency-switching-quote-expire-footer {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: 40px 0px 0px;
+	gap: 10px;
+	width: 480px;
+	height: 80px;
+	flex: none;
+	order: 2;
+	align-self: stretch;
+	flex-grow: 0;
+}
+
+.wc-airwallex-currency-switching-quote-expire-button-group {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	padding: 0px;
+	gap: 24px;
+	width: 480px;
+	height: 40px;
+	flex: none;
+	order: 0;
+	align-self: stretch;
+	flex-grow: 0;
+	justify-content: flex-end;
+}
+
+.wc-airwallex-currency-switching-quote-expire-place-back {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	padding: 11px 16px;
+	gap: 8px;
+	width: 153px;
+	height: 40px;
+	background: #FFFFFF;
+	border-radius: 6px;
+	flex: none;
+	order: 2;
+	flex-grow: 0;
+	font-style: normal;
+	font-weight: 700;
+	font-size: 14px;
+	line-height: 125%;
+	text-align: center;
+	color: #612FFF;
+	cursor: pointer;
+}
+
+.wc-airwallex-currency-switching-quote-expire-place-order {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	padding: 11px 16px;
+	gap: 8px;
+	width: 115px;
+	height: 40px;
+	background: #612FFF;
+	border-radius: 6px;
+	flex: none;
+	order: 3;
+	flex-grow: 0;
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 17.5px;
+	text-align: center;
+	color: #FFFFFF;
+	cursor: pointer;
+}
+
+.wc-airwallex-currency-switching-quote-expire-place-order-mask {
+	height: 40px;
+	width: 115px;
+	position: absolute;
+	display: none;
+	background: #fff;
+	opacity: 0.6;
+}
+
+.wc-awx-checkbox-spinner {
+	display: none;
+	width: 20px;
+	height: 20px;
+	margin-left: 6px;
+	border: 3px solid #B0B6BF;
+	border-top-color: transparent;
+	border-left-color: transparent;
+	border-right-color: transparent;
+	border-radius: 50%;
+	box-sizing: border-box;
+	animation: awx-checkbox-loading 1s linear infinite;
+}
+
+@keyframes awx-checkbox-loading {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.payment_method_airwallex_card .wc-awx-checkbox-spinner {
+	margin-bottom: 12px;
+	margin-left: 20px;
+}
+
+.airwallex-container .save-cards img {
+	width: 30px;
+	height: 20px;
+}
+
+.airwallex-container .save-cards div {
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 21px;
+}
+.airwallex-container .line {
+	display: flex;
+	align-items: center;
+	margin-bottom: 10px;
+}
+
+.airwallex-container label {
+	margin-bottom: 0;
+	display: flex;
+	width: 100%;
+	justify-content: space-between;
+}
+
+.airwallex-container .save {
+	margin-top: 10px;
+}
+
+.airwallex-container .new-card-title {
+	margin-bottom: 5px;
+	font-size: 14px;
+}
+
+#add_payment_method .airwallex-container .new-card-title {
+	font-size: 16px;
+}
+
+label[for="airwallex-save"] {
+	font-size: 14px;
+}
+
+.airwallex-container .cvc-container {
+	border: 1px solid var(--Border-decorative, rgba(232, 234, 237, 1));
+	background: rgb(250, 250, 251);
+	padding: 0 16px;
+	margin-top: 8px;
+	margin-bottom: 18px;
+	min-height: 40px;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	width: 254px;
+}
+
+#airwallex-save {
+	margin-right: 6px;
+}
+
+#airwallex-card {
+	margin-bottom: 14px;
+}
+
+.airwallex-container .charge-tip {
+	color: rgba(104, 112, 122, 1);
+}
+
+.awx-alert {
+	border: 1px solid rgba(255, 119, 109, 1);
+	border-radius: 5px;
+	background: rgba(255, 239, 239, 1);
+	display: flex;
+	padding: 12px 16px;
+}
+
+.awx-alert .icon {
+	padding: 10px 10px 10px 0;
+	display: flex;
+	align-items: center;
+}
+
+.awx-alert .body {
+	text-align: justify;
+	color: rgba(66, 71, 77, 1);
+	font-weight: 400;
+	font-size: 14px;
+	line-height: 21px;
+	display: flex;
+	align-items: center;
+}
+
+.awx-logo-container {
+	display: inline-block;
+	width: 38px;
+	text-align: right;
+}
+
+li.payment_method_airwallex_card img {
+	height: 24px;
+	width: 35px;
+}
+
+label[for="airwallex-new-card"] {
+	font-size: 14px;
+}
+
+.manage-payment-method .new-card-title {
+	color: #30313d;
+}
+
+#add_payment_method .airwallex-save-tip {
+	color: #6d6e78;
+}
+
+.airwallex-logo-list {
+	margin-bottom: 10px;
+	display: block;
+	display: flex;
+	flex-wrap: wrap;
+}
+
+.airwallex-content-drop-in .product-info .wc-item-meta p {
+	display: inline;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries {
+	width: 328px;
+	position: relative;
+}
+
+.awx-afterpay-countries .input-icon {
+	display: flex;
+	justify-content: center;
+	position: absolute;
+	right: 0;
+	width: 50px;
+	padding-top: 17px;
+	padding-bottom: 17px;
+	cursor: pointer;
+}
+
+.awx-afterpay-countries .input-icon svg {
+	margin-right: 20px;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries {
+	border-color: rgba(232, 234, 237, 1);
+	z-index: 99;
+	background-color: white;
+	margin-bottom: 15px;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries input {
+	height: 40px;
+	width: 100%;
+	padding: 8px 16px 8px 16px;
+	border-radius: 5px;
+	box-sizing: border-box;
+	background: rgba(250, 250, 251, 1);
+	border: 1px solid rgba(232, 234, 237, 1);
+	cursor: pointer;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries input::placeholder {
+	color: rgba(135, 142, 153, 1);
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries input:focus {
+	outline: none;
+	border: 1px solid #612fff;
+	box-shadow: #612fff 0 0 0 1px;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries ul {
+	padding-inline-start: 0;
+	padding-right: 13px;
+	margin-left: 16px;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries li {
+	list-style: none;
+	padding: 10px 8px;
+	margin: 12px 8px;
+	border-radius: 5px;
+	cursor: pointer;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries li:hover {
+	color: #622ef7;
+	background: #f0effe;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries .countries {
+	border: 1px solid rgba(232, 234, 237, 1);
+	box-shadow: 0 2px 16px 0 rgba(0, 0, 0, 0.12);
+	border-radius: 5px;
+	margin-top: 10px;
+	position: absolute;
+	z-index: 5;
+	width: 100%;
+	background: white;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-afterpay-countries li.selected {
+	background-image: url(data:image/svg+xml;utf8,%3Csvg%20width%3D%2212%22%20height%3D%2210%22%20viewBox%3D%220%200%2012%2010%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%20d%3D%22M2.99529%208.98128L0.520413%206.50641C0.032258%206.01825%200.032258%205.2268%200.520413%204.73864C1.00857%204.25048%201.80002%204.25048%202.28818%204.73864L3.87917%206.32963L9.7128%200.495999C10.201%200.00784397%2010.9924%200.00784397%2011.4806%200.495999C11.9687%200.984155%2011.9687%201.77561%2011.4806%202.26377L4.76305%208.98128C4.2749%209.46944%203.48344%209.46944%202.99529%208.98128Z%22%20fill%3D%22%2368707A%22%2F%3E%3C%2Fsvg%3E);
+	background-size: 12px;
+	background-repeat: no-repeat;
+	background-position: right;
+}
+
+.wc-airwallex-afterpay-supported-countries-form .awx-choose-afterpay-region-title {
+	font-weight: 700;
+	margin-top: 12px;
+}
+
+.wc-airwallex-afterpay-supported-countries-form input:focus::placeholder {
+	opacity: 1;
+}
