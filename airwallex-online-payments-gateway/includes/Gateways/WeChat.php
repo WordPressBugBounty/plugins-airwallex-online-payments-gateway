@@ -146,7 +146,7 @@ class WeChat extends WC_Payment_Gateway {
 			$this->logService->debug(
 				__METHOD__ . ' - payment intent created ',
 				array(
-					'paymentIntent' => $paymentIntent,
+					'paymentIntent' => $paymentIntent->getId(),
 					'session'  => array(
 						'cookie' => WC()->session->get_session_cookie(),
 						'data'   => WC()->session->get_session_data(),

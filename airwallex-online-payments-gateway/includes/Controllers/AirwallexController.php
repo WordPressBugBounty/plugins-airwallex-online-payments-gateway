@@ -229,7 +229,6 @@ class AirwallexController {
 				$intentAmount = $paymentIntent->getBaseAmount();
 			}
 			if ( empty($intentAmount) || number_format( $intentAmount, 2 ) !== number_format( (float)$orderOriginalAmount, 2 ) ) {
-				//amount mismatch
 				$this->logService->error( 'paymentConfirmation() payment amounts did not match', array( empty($intentAmount) ? 0 : number_format( $intentAmount, 2 ), number_format( (float)$orderOriginalAmount, 2 ), $paymentIntent->toArray() ) );
 				$this->setTemporaryOrderStateAfterDecline( $order );
 				wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );

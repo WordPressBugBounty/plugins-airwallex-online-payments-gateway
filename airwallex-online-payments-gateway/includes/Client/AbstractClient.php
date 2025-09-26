@@ -28,8 +28,8 @@ abstract class AbstractClient {
 	const PCI_URL_SANDBOX     = 'https://pci-api-demo.airwallex.com/api/v1/';
 	const GENERAL_URL_LIVE    = 'https://api.airwallex.com/api/v1/';
 	const GENERAL_URL_SANDBOX = 'https://api-demo.airwallex.com/api/v1/';
-	const LOG_URL_LIVE        = 'https://api.airwallex.com/';
-	const LOG_URL_SANDBOX     = 'https://api-demo.airwallex.com/';
+	const LOG_URL_LIVE        = 'https://o11y.airwallex.com/';
+	const LOG_URL_SANDBOX     = 'https://o11y-demo.airwallex.com/';
 
 	protected $clientId;
 	protected $apiKey;
@@ -176,7 +176,7 @@ abstract class AbstractClient {
 				)
 			);
 			$token = empty( $response->data['token'] ) ? '' : $response->data['token'];
-			$this->getCacheService()->set( $cacheName, $token, $token ? 60 * MINUTE_IN_SECONDS : MINUTE_IN_SECONDS );
+			$this->getCacheService()->set( $cacheName, $token, $token ? 25 * MINUTE_IN_SECONDS : MINUTE_IN_SECONDS );
 		}
 		return !empty($token);
 	}

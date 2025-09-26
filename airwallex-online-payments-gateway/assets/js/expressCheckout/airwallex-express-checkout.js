@@ -183,7 +183,7 @@ jQuery(function ($) {
 				buttonColor: button.theme,
 				buttonType: button.buttonType,
 				emailRequired: true,
-				billingAddressRequired: true,
+				billingAddressRequired: !(checkout.isVirtualPurchase && checkout.isSkipBillingForVirtual),
 				billingAddressParameters: {
 					format: 'FULL',
 					phoneNumberRequired: checkout.requiresPhone
@@ -347,7 +347,7 @@ jQuery(function ($) {
 				origin: window.location.origin,
 				totalPriceLabel: checkout.totalPriceLabel,
 				countryCode: countryCode ? countryCode : checkout.countryCode,
-				requiredBillingContactFields: applePayRequiredBillingContactFields,
+				requiredBillingContactFields: (checkout.isVirtualPurchase && checkout.isSkipBillingForVirtual) ? applePayRequiredBillingContactFields.filter(item => item !== 'postalAddress') : applePayRequiredBillingContactFields,
 				requiredShippingContactFields: applePayRequiredShippingContactFields(requiresShipping),
 				amount: {
 					value: orderInfo ? orderInfo.total.amount : checkout.subTotal,

@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2025-09-25 - version 1.25.0
+
+* Add - Support for skipping the billing address during express checkout
+
 2025-09-19 - version 1.24.1
 
 * Perf - Added caching for API requests to reduce unnecessary calls

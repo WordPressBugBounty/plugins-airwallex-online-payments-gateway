@@ -160,7 +160,7 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
                     'target_currency' => $targetCurrency,
                     'quote_id' => $quote->getId(),
                 ];
-                $order->update_meta_data( '_tmp_airwallex_payment_client_rate', $quote->getClientRate() );
+                $order->update_meta_data( OrderService::META_KEY_AIRWALLEX_PAYMENT_CLIENT_RATE, $quote->getClientRate() );
             }
 
             $confirmedIntent = $this->gatewayClient->confirmPaymentIntent($paymentIntent->getId(), $confirmPayload);

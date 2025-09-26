@@ -126,6 +126,13 @@ class ExpressCheckout extends WC_Payment_Gateway {
 					'default'     => 'no',
 					'disabled'    => !$isCardGatewayEnabled,
 				],
+				'is_skip_billing_for_virtual'     => [
+					'title'       => __( 'Skip Billing Address for Virtual Items', 'airwallex-online-payments-gateway' ),
+					'label'       => __( 'Billing address will not be collected if every product in the order is virtual', 'airwallex-online-payments-gateway' ),
+					'type'        => 'checkbox',
+					'description' => '',
+					'default'     => 'yes',
+				],
 				'payment_methods' => [
 					'title'       => __( 'Express Checkout', 'airwallex-online-payments-gateway' ),
 					'type' => 'payment_methods',
@@ -852,6 +859,22 @@ class ExpressCheckout extends WC_Payment_Gateway {
 		return $schemes;
 	}
 
+	public function isVirtualPurchase() {
+		if ($this->isProduct()) {
+			/** @var \WC_Product $product */
+			$product = $this->getProduct();
+			return $product->is_virtual();
+		} elseif ($this->isCartOrCheckout()) {
+			foreach ( WC()->cart->get_cart_contents() as $item ) {
+				if ( isset( $item['data'] ) && method_exists( $item['data'], 'is_virtual' ) && !$item['data']->is_virtual() ) {
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+
 	public function getCheckoutDetail() {
 		if (is_admin()) {
 			return [];
@@ -883,8 +906,9 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			'totalPriceLabel' => get_bloginfo('name'),
 			'totalPriceStatus' => 'ESTIMATED',
 			'subTotal' => $subTotal,
+			'isVirtualPurchase' => $this->isVirtualPurchase(),
+			'isSkipBillingForVirtual' => $this->isOptionChecked('is_skip_billing_for_virtual'),
 		];
-
 	}
 
 

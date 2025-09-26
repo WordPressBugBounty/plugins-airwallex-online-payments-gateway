@@ -44,7 +44,7 @@ class WebhookService {
 			$order = wc_get_order( $orderId );
 
 			if ( $order ) {
-				$this->verifyIntentFromOrder($order, $paymentIntent->getId());
+				$this->verifyIntentFromOrder($order, $paymentIntent->getId(), $eventType);
 				switch ( $eventType ) {
 					case 'payment_intent.cancelled':
 						$order->update_status( 'failed', 'Airwallex Webhook' );
@@ -140,7 +140,7 @@ class WebhookService {
 		}
 	}
 
-	public function verifyIntentFromOrder($order, $paymentIntentId) {
+	public function verifyIntentFromOrder($order, $paymentIntentId, $eventType) {
 		if ( empty( $order ) ) {
 			throw new Exception('No order found for the order id in webhook. Payment intent id: ' . $paymentIntentId);
 		}
@@ -154,6 +154,7 @@ class WebhookService {
 			throw new Exception('Mismatch in payment intent ID from webhook and order. Debug info: ' . wp_json_encode([
 				'payment_intent_id_from_order' => $paymentIntentIdFromOrder,
 				'payment_intent_id_from_webhook' => $paymentIntentId,
+				'event_name' => $eventType,
 			]));
 		}
 	}

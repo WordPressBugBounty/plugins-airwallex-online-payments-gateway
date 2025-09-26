@@ -34,7 +34,7 @@ abstract class AirwallexWCBlockSupport extends AbstractPaymentMethodType {
 		wp_register_script(
 			'airwallex-wc-blocks-integration',
 			AIRWALLEX_PLUGIN_URL . '/build/airwallex-wc-blocks.min.js',
-			array(),
+			array('airwallex-common-js', 'wp-plugins'),
 			AIRWALLEX_VERSION,
 			true
 		);

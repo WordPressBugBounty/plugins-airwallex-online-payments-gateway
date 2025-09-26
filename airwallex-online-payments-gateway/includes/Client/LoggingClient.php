@@ -76,7 +76,7 @@ class LoggingClient extends AbstractClient {
 			$client = $this->getHttpClient();
 			$client->call(
 				'POST',
-				$this->getLogUrl( 'papluginlogs/logs' ),
+				$this->getLogUrl( 'airtracker/logs' ),
 				wp_json_encode( $data ),
 				array(
 					'Authorization' => 'Bearer ' . $this->getToken(),

@@ -621,3 +621,7 @@ label[for="airwallex-new-card"] {
 .wc-airwallex-afterpay-supported-countries-form input:focus::placeholder {
 	opacity: 1;
 }
+
+#payment li.payment_method_awx_onboarding_gateway {
+    display: none;
+}

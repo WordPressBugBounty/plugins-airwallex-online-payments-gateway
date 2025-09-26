@@ -25,7 +25,7 @@ class PaymentIntent extends AbstractBase {
 		'C' => 'C - Challenge required',
 		'R' => 'R - Authentication/ Account Verification Rejected',
 	];
-	const CARD_REFERRER_DATA_TYPE = 'woocommerce_credit_card';
+	const CARD_REFERRER_DATA_TYPE = 'woo_commerce_credit_card';
 
 	protected $id;
 	protected $requestId;

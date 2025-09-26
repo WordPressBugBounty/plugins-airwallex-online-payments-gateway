@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from '@wordpress/element';
+import { loadAirwallex } from 'airwallex-payment-elements';
 import {
 	createOrder,
 	startPaymentSession,
@@ -58,7 +59,7 @@ const getApplePayRequestOptions = (billing, shippingData) => {
 		origin: window.location.origin,
 		totalPriceLabel: checkout.totalPriceLabel,
 		countryCode: checkout.countryCode,
-		requiredBillingContactFields: applePayRequiredBillingContactFields,
+		requiredBillingContactFields: (checkout.isVirtualPurchase && checkout.isSkipBillingForVirtual) ? applePayRequiredBillingContactFields.filter(item => item !== 'postalAddress') : applePayRequiredBillingContactFields,
 		requiredShippingContactFields: applePayRequiredShippingContactFields(needsShipping),
 		amount: {
 			value: cartTotal.value ? getFormattedValueFromBlockAmount(cartTotal.value, currency.minorUnit) : 0,
@@ -235,9 +236,15 @@ const AWXApplePayButton = (props) => {
 	};
 
 	useEffect(() => {
-		if ('Airwallex' in window) {
+		let options = {
+			env: awxCommonData.env,
+			locale: awxCommonData.locale,
+			origin: window.location.origin,
+		};
+		loadAirwallex(options).then(() => {
+			Airwallex.init(options);
 			createApplePayButton();
-		}
+		});
 	}, []);
 
 	useEffect(() => {

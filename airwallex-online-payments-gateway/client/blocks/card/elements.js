@@ -119,11 +119,13 @@ export const InlineCard                             = ({
 	} = props.eventRegistration;
 
 	useEffect(() => {
-		loadAirwallex({
+		let options = {
 			env: settings.environment,
 			origin: window.location.origin,
 			locale: settings.locale,
-		}).then(() => {
+		};
+		loadAirwallex(options).then(() => {
+			Airwallex.init(options);
 			const card = createAirwallexElement('card', {
 				autoCapture: settings.capture_immediately,
 				allowedCardNetworks: ['discover', 'visa', 'mastercard', 'maestro', 'unionpay', 'amex', 'jcb', 'diners'],
@@ -312,11 +314,13 @@ export const AirwallexSaveCard = (props) => {
 
 	useEffect(() => {
 		let cvcElement;
-		loadAirwallex({
+		let options = {
 			env: settings.environment,
 			locale: settings.locale,
 			origin: window.location.origin,
-		}).then(() => {
+		};
+		loadAirwallex(options).then(() => {
+			Airwallex.init(options);
 			cvcElement = Airwallex.createElement('cvc', {
 				style: {
 					base: {

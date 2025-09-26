@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from '@wordpress/element';
+import { loadAirwallex } from 'airwallex-payment-elements';
 import { getSetting } from '@woocommerce/settings';
 import { __ } from '@wordpress/i18n';
 import GooglePayButton from '@google-pay/button-react';
@@ -60,7 +61,7 @@ const getGooglePayRequestOptions = (billing, shippingData) => {
 		buttonColor: button.theme,
 		buttonType: button.buttonType,
 		emailRequired: true,
-		billingAddressRequired: true,
+		billingAddressRequired: !(checkout.isVirtualPurchase && checkout.isSkipBillingForVirtual),
 		billingAddressParameters: {
 			format: 'FULL',
 			phoneNumberRequired: checkout.requiresPhone
@@ -228,9 +229,15 @@ const AWXGooglePayButton = (props) => {
 	};
 
 	useEffect(() => {
-		if ('Airwallex' in window) {
+		let options = {
+			env: awxCommonData.env,
+			locale: awxCommonData.locale,
+			origin: window.location.origin,
+		};
+		loadAirwallex(options).then(() => {
+			Airwallex.init(options);
 			createGooglePayButton();
-		}
+		});
 	}, []);
 
 	useEffect(() => {

@@ -16,6 +16,7 @@ use Airwallex\Gateways\Blocks\AirwallexMainWCBlockSupport;
 use Airwallex\Gateways\Blocks\AirwallexWeChatWCBlockSupport;
 use Airwallex\Controllers\AirwallexController;
 use Airwallex\Client\AdminClient;
+use Airwallex\Client\CardClient;
 use Airwallex\Controllers\ConnectionFlowController;
 use Airwallex\Gateways\AirwallexOnboardingPaymentGateway;
 use Airwallex\Gateways\Blocks\AirwallexExpressCheckoutWCBlockSupport;
@@ -411,8 +412,21 @@ class Main {
 	 */
 	private function handleStatusChangeForCard( $statusTo, $order ) {
 		$cardGateway = Card::getInstance();
+		$apiClient = CardClient::getInstance();
+		$paymentIntentId = $order->get_transaction_id();
+		if ( empty( $paymentIntentId ) ) {
+			return;
+		}
+		try {
+			$paymentIntent = $apiClient->getPaymentIntent( $paymentIntentId );
+		} catch (Exception $e) {
+			LogService::getInstance()->error(__METHOD__ . ' fetch intent failed: ' . $e->getMessage());
+			return;
+		}
 
-		if ( $order->get_payment_method() !== $cardGateway->id && $order->get_payment_method() !== ExpressCheckout::GATEWAY_ID ) {
+		if ( $order->get_payment_method() !== $cardGateway->id 
+			&& $order->get_payment_method() !== ExpressCheckout::GATEWAY_ID 
+			&& !in_array($paymentIntent->getPaymentMethodType(), ['card', 'googlepay', 'applepay'], true)) {
 			return;
 		}
 

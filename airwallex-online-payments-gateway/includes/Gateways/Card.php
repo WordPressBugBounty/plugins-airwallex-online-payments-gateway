@@ -83,16 +83,6 @@ class Card extends WC_Payment_Gateway {
 			$this->supports[] = 'tokenization';
 			$this->supports[] = 'add_payment_method';
 		}
-
-		if ( class_exists( 'WC_Subscriptions_Order' ) ) {
-			add_action( 'woocommerce_scheduled_subscription_payment_' . $this->id, array( $this, 'do_subscription_payment' ), 10, 2 );
-			add_filter( 'woocommerce_my_subscriptions_payment_method', array( $this, 'subscription_payment_information' ), 10, 2 );
-			add_filter( 'woocommerce_subscription_payment_meta', [ $this, 'add_subscription_payment_meta' ], 10, 2 );
-			add_action( 'woocommerce_subscription_validate_payment_meta', [ $this, 'validate_subscription_payment_meta' ], 10, 2 );
-			add_action( 'woocommerce_subscription_failing_payment_method_updated_' . $this->id, array( $this, 'update_failing_payment_method' ), 10, 2 );
-			add_filter( 'wfocu_wc_get_supported_gateways', [ $this, 'add_supported_gateways' ], 10, 1 );
-			add_filter( 'wfocu_subscriptions_get_supported_gateways', [ $this, 'enable_subscription_upsell_support' ] );
-		}		
 	}
 
 	public function add_supported_gateways( $gateways ) {
@@ -257,6 +247,9 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function registerHooks() {
+		static $isCardHooksRegistered = false;
+		if ($isCardHooksRegistered) return;
+		$isCardHooksRegistered = true;
 		add_filter( 'woocommerce_get_customer_payment_tokens', [ Card::class, 'filterTokens' ], 8, 3 );
 		add_filter( 'wc_airwallex_settings_nav_tabs', array( $this, 'adminNavTab' ), 11 );
 		add_action( 'woocommerce_airwallex_settings_checkout_' . $this->id, array( $this, 'enqueueAdminScripts' ) );
@@ -264,6 +257,16 @@ class Card extends WC_Payment_Gateway {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueueScriptsForEmbeddedCard' ) );
 		add_action( 'woocommerce_payment_token_deleted', array( $this, 'deletePaymentMethod' ), 10, 2 );
 		add_action( 'wp', array( $this, 'deletePaymentMethodAction' ), 1 );
+
+		if ( class_exists( 'WC_Subscriptions_Order' ) ) {
+			add_action( 'woocommerce_scheduled_subscription_payment_' . $this->id, array( $this, 'do_subscription_payment' ), 10, 2 );
+			add_filter( 'woocommerce_my_subscriptions_payment_method', array( $this, 'subscription_payment_information' ), 10, 2 );
+			add_filter( 'woocommerce_subscription_payment_meta', [ $this, 'add_subscription_payment_meta' ], 10, 2 );
+			add_action( 'woocommerce_subscription_validate_payment_meta', [ $this, 'validate_subscription_payment_meta' ], 10, 2 );
+			add_action( 'woocommerce_subscription_failing_payment_method_updated_' . $this->id, array( $this, 'update_failing_payment_method' ), 10, 2 );
+			add_filter( 'wfocu_wc_get_supported_gateways', [ $this, 'add_supported_gateways' ], 10, 1 );
+			add_filter( 'wfocu_subscriptions_get_supported_gateways', [ $this, 'enable_subscription_upsell_support' ] );
+		}
 	}
 
 	public static function filterTokens($tokens, $user_id, $gateway_id) {
@@ -664,7 +667,7 @@ class Card extends WC_Payment_Gateway {
 			$this->logService->debug(
 				__METHOD__ . ' - payment intent created ',
 				array(
-					'paymentIntent' => $paymentIntent,
+					'paymentIntent' => $paymentIntent->getId(),
 					'session'  => array(
 						'cookie' => WC()->session->get_session_cookie(),
 						'data'   => WC()->session->get_session_data(),

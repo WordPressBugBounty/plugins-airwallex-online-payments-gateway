@@ -73,6 +73,10 @@ trait AirwallexSettingsTrait {
 		}
 	}
 
+	public function isOptionChecked($optionName) {
+		return in_array( $this->get_option( $optionName ), array( true, 'yes', 'true', 1 ,'1' ), true );
+	}
+
 	public function getPrefix() {
 		return $this->plugin_id . $this->id . '_';
 	}

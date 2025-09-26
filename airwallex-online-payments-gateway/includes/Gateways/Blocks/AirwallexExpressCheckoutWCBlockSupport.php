@@ -54,7 +54,7 @@ class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
 	public function get_payment_method_script_handles() {
 		$this->enqueue_style();
 
-		$dependencies = ( function_exists('is_login') && is_login() ) || is_admin() ? ['jquery'] : ['jquery', 'jquery-blockui'];
+		$dependencies = (( function_exists('is_login') && is_login() ) || is_admin()) ? ['jquery'] : ['jquery', 'jquery-blockui', 'airwallex-common-js'];
 		wp_register_script(
 			'airwallex-wc-ec-blocks-integration',
 			AIRWALLEX_PLUGIN_URL . '/build/airwallex-wc-ec-blocks.min.js',
