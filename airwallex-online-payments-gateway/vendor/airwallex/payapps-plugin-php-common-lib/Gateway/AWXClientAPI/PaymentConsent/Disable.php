@@ -39,6 +39,6 @@ class Disable extends AbstractApi
      */
     protected function parseResponse($response): PaymentConsent
     {
-        return new PaymentConsent(json_decode($response->getBody(), true));
+        return new PaymentConsent(json_decode((string)$response->getBody(), true));
     }
 }

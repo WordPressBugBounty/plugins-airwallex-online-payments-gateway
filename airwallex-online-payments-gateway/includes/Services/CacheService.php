@@ -8,6 +8,8 @@ class CacheService implements CacheInterface {
 
 	const PREFIX = 'awx_';
 
+	private static $instance;
+
 	/**
 	 * Prefix of the cache key
 	 *
@@ -22,6 +24,13 @@ class CacheService implements CacheInterface {
 	 */
 	public function __construct( $salt = '' ) {
 		$this->prefix = self::PREFIX . ( $salt ? md5( $salt ) : '' ) . '_';
+	}
+
+	public static function getInstance() {
+		if ( ! isset( self::$instance ) ) {
+			self::$instance = new self(Util::getClientId() . '-' . Util::getApiKey());
+		}
+		return self::$instance;
 	}
 
 	/**

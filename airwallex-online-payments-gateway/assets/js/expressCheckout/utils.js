@@ -116,3 +116,32 @@ export const displayLoginConfirmation = (loginConfirmation = null) => {
 		window.location.href = loginConfirmation.redirect_url;
 	}
 };
+
+export const getSupportedNetworksForApplePay = (supportBrands) => {
+	let brands = supportBrands.map(function (brand) {
+			if (brand === 'unionpay') {
+				return 'chinaUnionPay';
+			}
+			if (brand === 'mastercard') {
+				return 'masterCard';
+			}
+			return brand;
+		}).filter(function (brand) {
+			return brand !== 'diners';
+		});
+
+	if (brands.indexOf('masterCard') !== -1 && brands.indexOf('maestro') === -1) {
+		brands.push('maestro');
+	}
+
+	return brands;
+}
+
+export const getSupportedNetworksForGooglePay = (supportBrands) => {
+	let brands = supportBrands.map(function (brand) {
+		return brand.toUpperCase();
+	}).filter(function (brand) {
+		return brand !== 'UNIONPAY' && brand !== 'MAESTRO' && brand !== 'DINERS';
+	});
+	return brands;
+}

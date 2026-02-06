@@ -6,29 +6,24 @@ if (!defined('ABSPATH')) {
 	exit;
 }
 
-use Airwallex\Client\ApplePayClient;
 use Airwallex\Services\LogService;
-use Airwallex\Client\CardClient;
-use Airwallex\Client\GatewayClient;
-use Airwallex\Gateways\AbstractAirwallexGateway;
+use Airwallex\Gateways\AirwallexGatewayTrait;
 use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
 use Exception;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Config\ApplePay\Domain\GetList as GetApplePayRegisteredDomains;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Config\ApplePay\Domain\AddItems as RegisterNewDomainForApplePay;
 
 class GatewaySettingsController {
+	use AirwallexGatewayTrait;
+
 	const CONFIGURATION_ERROR = 'configuration_error';
 	const PAYMENT_METHOD_NOT_ACTIVATED = 'payment_method_not_activated';
 	const DOMAIN_FILE_UPLOAD_ERROR = 'domain_file_upload_error';
 	const DOMAIN_REGISTRATION_ERROR = 'domain_registration_error';
 
-	protected $cardClient;
-	protected $applePayClient;
-	protected $gatewayClient;
 	protected $cacheService;
 
 	public function __construct() {
-		$this->cardClient = CardClient::getInstance();
-		$this->applePayClient = ApplePayClient::getInstance();
-		$this->gatewayClient = GatewayClient::getInstance();
 		$this->cacheService = CacheManager::getInstance();
 	}
 
@@ -42,8 +37,8 @@ class GatewaySettingsController {
 		LogService::getInstance()->debug(__METHOD__ . " - Activate payment method {$paymentMethodType} for {$domain}.");
 		$result = ['success' => true];
 		try {
-			$activePaymentMethodTypes = $this->getActivePaymentMethodTypes();
-			if (!array_key_exists($paymentMethodType, $activePaymentMethodTypes)) {
+			$activePaymentMethodTypeNames = $this->getActivePaymentMethodTypeNames();
+			if (!in_array($paymentMethodType, $activePaymentMethodTypeNames, true)) {
 				throw new Exception("Payment method type {$paymentMethodType} is not activated.");
 			}
 		} catch (Exception $e) {
@@ -62,38 +57,12 @@ class GatewaySettingsController {
 		wp_send_json($result);
 	}
 
-	private function getActivePaymentMethodTypes() {
-		$paymentMethodTypes = $this->cacheService->get( AbstractAirwallexGateway::PAYMENT_METHOD_TYPE_CACHE_KEY );
-
-		if ( is_null( $paymentMethodTypes ) ) {
-			try {
-				$pageNum = 0;
-				$paymentMethodTypes = [];
-				do {
-					$data = $this->gatewayClient->getActivePaymentMethodTypes($pageNum);
-					if ( isset( $data['items'] ) ) {
-						foreach ( $data['items'] as $methodType ) {
-							$paymentMethodTypes[$methodType['name']][$methodType['transaction_mode']] = $methodType;
-						}
-					}
-					$pageNum++;
-				} while ( isset( $data['has_more'] ) && $data['has_more'] );
-
-				$this->cacheService->set( AbstractAirwallexGateway::PAYMENT_METHOD_TYPE_CACHE_KEY, $paymentMethodTypes, 5 * MINUTE_IN_SECONDS );
-			} catch ( Exception $e ) {
-				LogService::getInstance()->error(__METHOD__ . ' Failed to get payment method types.', $e->getMessage());
-			}
-		}
-
-		return $paymentMethodTypes;
-	}
-
 	private function registerDomain($domain) {
 		try {
 			LogService::getInstance()->debug(__METHOD__ . " - Register domain for {$domain}.");
 
-			$registeredDomains = $this->applePayClient->getApplePayRegisteredDomains();
-			if (in_array($domain, $registeredDomains)) {
+			$registeredDomains = (new GetApplePayRegisteredDomains())->send();
+			if (in_array($domain, $registeredDomains->getItems())) {
 				LogService::getInstance()->debug(__METHOD__ . " - Domain {$domain} already registered.");
 				return ['success' => true];
 			}
@@ -101,8 +70,8 @@ class GatewaySettingsController {
 			$result = $this->addDomainFileToServerRoot($domain);
 			if ($result['success']) {
 				LogService::getInstance()->debug(__METHOD__ . " - Register domain with Airwallex for {$domain}.");
-				$domains = $this->applePayClient->registerNewDomainForApplePay($domain);
-				if (empty($domains) || !in_array($domain, $domains)) {
+				$domains = (new RegisterNewDomainForApplePay())->setItems([$domain])->send();
+				if (empty($domains) || !in_array($domain, $domains->getItems())) {
 					throw new Exception(__('Failed to register the domain with Airwallex.', 'airwallex-online-payments-gateway'));
 				}
 			}

@@ -12,7 +12,7 @@ if (!getenv('IS_FROM_GITLAB')) {
 }
 
 Init::getInstance([
-    'env' => 'demo',
+    'env' => $_ENV['ENV'] ?? 'demo',
     'client_id' => $_ENV['CLIENT_ID'] ?? getenv('CLIENT_ID'),
     'api_key' => $_ENV['API_KEY'] ?? getenv('API_KEY'),
     'plugin_type' => $_ENV['PLUGIN_TYPE'] ?? 'woo_commerce',

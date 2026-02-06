@@ -46,6 +46,6 @@ class Get extends AbstractApi
      */
     protected function parseResponse($response): PaymentMethod
     {
-        return new PaymentMethod(json_decode($response->getBody(), true));
+        return new PaymentMethod(json_decode((string)$response->getBody(), true));
     }
 }

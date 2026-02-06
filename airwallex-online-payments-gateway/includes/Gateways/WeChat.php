@@ -2,16 +2,15 @@
 
 namespace Airwallex\Gateways;
 
+use Airwallex\Client\CardClient;
 use Airwallex\Services\LogService;
-use Airwallex\Struct\Refund;
-use Airwallex\Client\WeChatClient;
 use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
 use Airwallex\Services\OrderService;
 use Exception;
 use WC_Payment_Gateway;
-use WP_Error;
 use Airwallex\Services\Util;
-use Airwallex\Struct\PaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -24,6 +23,7 @@ class WeChat extends WC_Payment_Gateway {
 
 	const ROUTE_SLUG = 'airwallex_wechat';
 	const GATEWAY_ID = 'airwallex_wechat';
+	const PAYMENT_METHOD_TYPE_NAME = 'wechatpay';
 
 	public $method_title       = 'Airwallex - WeChat Pay';
 	public $method_description = '';
@@ -32,6 +32,7 @@ class WeChat extends WC_Payment_Gateway {
 	public $icon               = '';
 	public $id                 = self::GATEWAY_ID;
 	public $plugin_id;
+	public $paymentMethodType;
 	public $supports = array(
 		'products',
 		'refunds',
@@ -40,6 +41,7 @@ class WeChat extends WC_Payment_Gateway {
 	public static $instance;
 
 	public function __construct() {
+		$this->paymentMethodType = 'wechatpay';
 		$this->plugin_id = AIRWALLEX_PLUGIN_NAME;
 		$this->init_settings();
 		$this->description = $this->get_option( 'description' );
@@ -70,11 +72,10 @@ class WeChat extends WC_Payment_Gateway {
 		return apply_filters( // phpcs:ignore
 			'wc_airwallex_settings', // phpcs:ignore
 			array(
-
 				'enabled'     => array(
 					'title'       => __( 'Enable/Disable', 'airwallex-online-payments-gateway' ),
 					'label'       => __( 'Enable Airwallex WeChat Pay', 'airwallex-online-payments-gateway' ),
-					'type'        => 'checkbox',
+					'type'        => 'check_is_enabled',
 					'description' => '',
 					'default'     => 'no',
 				),
@@ -99,11 +100,11 @@ class WeChat extends WC_Payment_Gateway {
 	public function getWechatRedirectData() {
 		check_ajax_referer('wc-airwallex-get-wechat-redirect-data', 'security');
 
-		$client = WeChatClient::getInstance();
 		$order = $this->getOrderFromRequest('Main::getApmRedirectData');
 		$orderId = $order->get_id();
 		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
-		$paymentIntent             = $client->getPaymentIntent( $paymentIntentId );
+		/** @var StructPaymentIntent $paymentIntent */
+		$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
 		$paymentIntentClientSecret = $paymentIntent->getClientSecret();
 
 		$airwallexElementConfiguration = [
@@ -134,10 +135,10 @@ class WeChat extends WC_Payment_Gateway {
 				throw new Exception( 'Order not found: ' . $order_id );
 			}
 
-			$apiClient           = WeChatClient::getInstance();
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
-			$paymentIntent             = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), null, 'woo_commerce_wechat' );
-			if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+			$paymentIntent             = CardClient::getInstance()->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), null, static::PAYMENT_METHOD_TYPE_NAME );
+			/** @var StructPaymentIntent $paymentIntent */
+			if ( $paymentIntent->isAuthorized() || $paymentIntent->isCaptured() ) {
 				return [
 					'result' => 'success',
 					'redirect' => $order->get_checkout_order_received_url(),
@@ -147,10 +148,6 @@ class WeChat extends WC_Payment_Gateway {
 				__METHOD__ . ' - payment intent created ',
 				array(
 					'paymentIntent' => $paymentIntent->getId(),
-					'session'  => array(
-						'cookie' => WC()->session->get_session_cookie(),
-						'data'   => WC()->session->get_session_data(),
-					),
 				),
 				LogService::WECHAT_ELEMENT_TYPE
 			);
@@ -178,7 +175,7 @@ class WeChat extends WC_Payment_Gateway {
 	}
 
 	public function output( $attrs ) {
-		if ( is_admin() || empty( WC()->session ) ) {
+		if ( is_admin() || empty( WC()->session ) || empty($_GET['order_id']) ) {
 			$this->logService->debug( 'Update wechat payment shortcode.', array(), LogService::WECHAT_ELEMENT_TYPE );
 			return;
 		}
@@ -197,8 +194,8 @@ class WeChat extends WC_Payment_Gateway {
 			$orderId = $order->get_id();
 
 			$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
-			$apiClient                 = WeChatClient::getInstance();
-			$paymentIntent             = $apiClient->getPaymentIntent( $paymentIntentId );
+			/** @var StructPaymentIntent $paymentIntent */
+			$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
 			$paymentIntentClientSecret = $paymentIntent->getClientSecret();
 			$confirmationUrl           = $this->get_payment_confirmation_url($orderId, $paymentIntentId);
 			$isSandbox                 = $this->is_sandbox();
@@ -218,7 +215,7 @@ class WeChat extends WC_Payment_Gateway {
 			include AIRWALLEX_PLUGIN_PATH . '/html/wechat-shortcode.php';
 			return ob_get_clean();
 		} catch ( Exception $e ) {
-			$this->logService->error(__METHOD__ . ' - Wechat payment page redirect failed', $e->getMessage(), LogService::WECHAT_ELEMENT_TYPE );
+			$this->logService->error(__METHOD__ . ' - WeChat payment page redirect failed', $e->getMessage(), LogService::WECHAT_ELEMENT_TYPE );
 			wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );
 			wp_safe_redirect( wc_get_checkout_url() );
 			die;

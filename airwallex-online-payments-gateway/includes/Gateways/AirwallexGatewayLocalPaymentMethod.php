@@ -2,14 +2,18 @@
 
 namespace Airwallex\Gateways;
 
+use Airwallex\Client\CardClient;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
+use Airwallex\Services\CacheService;
 use Airwallex\Services\OrderService;
 use Airwallex\Services\Util;
-use Airwallex\Struct\PaymentIntent;
-use Airwallex\Struct\Quote;
 use WC_AJAX;
 use Exception;
-use WC_Order;
+use Airwallex\PayappsPlugin\CommonLibrary\UseCase\CurrencySwitcher;
+use Airwallex\PayappsPlugin\CommonLibrary\UseCase\Config\CurrencySwitcherAvailableCurrencies;
+use Error;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Confirm as ConfirmPaymentIntentRequest;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -78,14 +82,24 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 
 	abstract public function getLPMMethodScriptData( $data );
 
-    public function getAvailableCurrencies() {
-        $settings = $this->getCurrencySettings();
-        if ( ! empty( $settings['currency_switcher']['currencies'] ) ) {
-            return $settings['currency_switcher']['currencies'];
-        }
+	public function getAvailableCurrencies() {
+		$cacheName = 'airwallex_available_currencies';
+		$cacheService = CacheService::getInstance();
+		$currencies = $cacheService->get( $cacheName );
+		if (is_null($currencies)) {
+			$currencies = [];
+			try {
+				$currencies = (new CurrencySwitcherAvailableCurrencies())->get();
+			} catch (Exception $e) {
+				RemoteLog::error("getAvailableCurrencies failed: " . $e->getMessage());
+			} catch (Error $e) {
+				RemoteLog::error("getAvailableCurrencies failed: " . $e->getMessage());
+			}
+			$cacheService->set( $cacheName, $currencies, empty($currencies) ? MINUTE_IN_SECONDS : MINUTE_IN_SECONDS * 20 );
+		}
 
-        return []; 
-    }
+		return $currencies;
+	}
 
 	/**
 	 * Render the alter box for ineligible currency with currency switching turned on
@@ -119,7 +133,7 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
         }
         $result = [];
         try {
-            $deviceData = isset($_POST['airwallex_device_data']) ? json_decode(wc_clean(wp_unslash($_POST['airwallex_device_data']))) : [];
+            $deviceData = isset($_POST['airwallex_device_data']) ? json_decode(wc_clean(wp_unslash($_POST['airwallex_device_data'])), true) : [];
             $targetCurrency = isset($_POST['airwallex_target_currency']) ? wc_clean(wp_unslash($_POST['airwallex_target_currency'])) : get_woocommerce_currency();
             $availableCurrency = $this->getAvailableCurrencies();
 
@@ -131,40 +145,44 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 
             $airwallexCustomerId = null;
 			if ( $order->get_customer_id( '' ) ) {
-				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( get_current_user_id(), $this->gatewayClient );
+				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( get_current_user_id() );
 			}
 
             $this->logService->debug(__METHOD__ . ' create payment intent', [ 'orderId' => $order_id ] );
-            $paymentMethodType = empty(static::GATEWAY_ID) ? 'woo_commerce' : 'woo_commerce_' . static::GATEWAY_ID;
 
-            $paymentIntent   = $this->gatewayClient->createPaymentIntent( $order->get_total(), $order->get_id(), true, $airwallexCustomerId, $paymentMethodType );
-            if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+            $paymentIntent   = CardClient::getInstance()->createPaymentIntent( $order->get_total(), $order->get_id(), true, $airwallexCustomerId, static::PAYMENT_METHOD_TYPE_NAME );
+            /** @var StructPaymentIntent $paymentIntent */
+            if ( $paymentIntent->isAuthorized() || $paymentIntent->isCaptured() ) {
                 return [
                     'result' => 'success',
                     'redirect' => $order->get_checkout_order_received_url(),
                 ];
             }
-            $this->logService->debug(__METHOD__ . ' payment intent created', [ 'payment intent' => $paymentIntent->toArray() ] );
+            $this->logService->debug(__METHOD__ . ' payment intent created: ' . $paymentIntent->getId() );
 
-            $this->logService->debug(__METHOD__ . ' confirm payment intent', [ 'payment intent id' => $paymentIntent->getId() ] );
-            $confirmPayload = [
-                'device_data' => $deviceData,
-                'payment_method' => $this->getPaymentMethod($order, $paymentIntent->getId()),
-                'payment_method_options' => $this->getPaymentMethodOptions(),
-            ];
-
-            if ($targetCurrency !== $paymentIntent->getBaseCurrency() && false !== array_search($targetCurrency, $availableCurrency)) {
-                $this->logService->debug(__METHOD__ . ' - Create quote for ' . $targetCurrency );
-                $quote = $this->gatewayClient->createQuoteForCurrencySwitching($paymentIntent->getBaseCurrency(), $targetCurrency, $paymentIntent->getBaseAmount());
-                $confirmPayload['currency_switcher'] = [
-                    'target_currency' => $targetCurrency,
-                    'quote_id' => $quote->getId(),
-                ];
-                $order->update_meta_data( OrderService::META_KEY_AIRWALLEX_PAYMENT_CLIENT_RATE, $quote->getClientRate() );
+            try {
+                $confirmIntentRequest = (new ConfirmPaymentIntentRequest())
+                    ->setPaymentIntentId($paymentIntent->getId())
+                    ->setDeviceData($deviceData)
+                    ->setPaymentMethod($this->getPaymentMethod($order, $paymentIntent->getId()))
+                    ->setPaymentMethodOptions($this->getPaymentMethodOptions());
+                if ($targetCurrency !== $paymentIntent->getBaseCurrency() && false !== array_search($targetCurrency, $availableCurrency)) {
+                    $this->logService->debug(__METHOD__ . ' - Create quote for ' . $targetCurrency );
+                    $quote = (new CurrencySwitcher())
+                        ->setPaymentCurrency($paymentIntent->getBaseCurrency())
+                        ->setPaymentAmount($paymentIntent->getBaseAmount())
+                        ->setTargetCurrency($targetCurrency)
+                        ->get();
+                    $order->update_meta_data( OrderService::META_KEY_AIRWALLEX_PAYMENT_CLIENT_RATE, $quote->getClientRate() );
+                    $confirmIntentRequest = $confirmIntentRequest->setCurrencySwitcher($targetCurrency, $quote->getId());
+                }
+                /** @var StructPaymentIntent $confirmedIntent */
+                $confirmedIntent = $confirmIntentRequest->send();
+            } catch (Exception $e) {
+                OrderService::getInstance()->setTemporaryOrderStateAfterDecline($order);
+                throw $e;
             }
-
-            $confirmedIntent = $this->gatewayClient->confirmPaymentIntent($paymentIntent->getId(), $confirmPayload);
-            $this->logService->debug(__METHOD__ . ' payment intent confirmed', [ 'payment intent' => $confirmedIntent ] );
+            $this->logService->debug(__METHOD__ . ' payment intent confirmed', [ 'payment intent' => $paymentIntent->getId() ] );
 
             $nextAction = $confirmedIntent->getNextAction();
             if (isset($nextAction['type']) && 'redirect' === $nextAction['type']) {

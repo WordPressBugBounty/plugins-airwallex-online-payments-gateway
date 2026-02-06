@@ -34,3 +34,11 @@ export const createQuote = (originalCurrency, requiredCurrency) => {
         url: getAjaxURL('currency_switcher_create_quote'),
     });
 };
+
+export const getCardData = () => {
+    return $.ajax({
+        url: awxCommonData.getCardData.url + '&security=' + awxCommonData.getCardData.nonce,
+        method: 'GET',
+        dataType: 'json'
+    });
+}

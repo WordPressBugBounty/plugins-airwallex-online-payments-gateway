@@ -2,13 +2,11 @@
 
 namespace Airwallex\Gateways\Settings;
 
-use Airwallex\Controllers\AirwallexController;
 use Airwallex\Gateways\Settings\AbstractAirwallexSettings;
 use Airwallex\Main;
 use Airwallex\Services\Util;
 use WC_AJAX;
 use Airwallex\Gateways\Card;
-use Airwallex\Controllers\ConnectionFlowController;
 
 if (!defined('ABSPATH')) {
 	exit;
@@ -174,14 +172,6 @@ class APISettings extends AbstractAirwallexSettings {
 				),
 				'value'   => get_option( 'airwallex_cronjob_interval' ),
 			),
-			'do_js_logging'                        => array(
-				'title'   => __( 'Activate JS logging', 'airwallex-online-payments-gateway' ),
-				'description'    => __( 'Yes (only for special cases after contacting Airwallex)', 'airwallex-online-payments-gateway' ),
-				'type'    => 'checkbox',
-				'default' => '',
-				'id'      => 'airwallex_do_js_logging',
-				'value'   => get_option( 'airwallex_do_js_logging' ),
-			),
 			'do_remote_logging'                    => array(
 				'title'   => __( 'Activate remote logging', 'airwallex-online-payments-gateway' ),
 				'description'    => __( 'Send diagnostic data to Airwallex', 'airwallex-online-payments-gateway' ) . '<br/><small>' . __( 'Help Airwallex easily resolve your issues and improve your experience by automatically sending diagnostic data. Diagnostic data may include order details.', 'airwallex-online-payments-gateway' ) . '</small>',
@@ -331,6 +321,11 @@ class APISettings extends AbstractAirwallexSettings {
 			update_option( 'airwallex_payment_page_template', 'wordpress_page' );
 		}
 		return [
+			'pluginUrl' => esc_attr(AIRWALLEX_PLUGIN_URL),
+			'paymentMethodStatus' => [
+				'nonce' => wp_create_nonce('wc-airwallex-admin-settings-is-payment-method-enabled'),
+				'url' => WC_AJAX::get_endpoint('airwallex_is_payment_method_enabled'),
+			],
 			'apiSettings' => [
 				'env' => Util::getEnvironment(),
 				'connected' => $this->isConnected(),
@@ -338,11 +333,13 @@ class APISettings extends AbstractAirwallexSettings {
 					'connectionTest' => wp_create_nonce('wc-airwallex-admin-settings-connection-test'),
 					'connectionClick' => wp_create_nonce('wc-airwallex-admin-settings-connection-click'),
 					'startConnectionFlow' => wp_create_nonce('wc-airwallex-admin-settings-start-connection-flow'),
+					'isPaymentMethodEnabled' => wp_create_nonce('wc-airwallex-admin-settings-is-payment-method-enabled'),
 				],
 				'ajaxUrl' => [
 					'connectionTest' => WC_AJAX::get_endpoint('airwallex_connection_test'),
 					'connectionClick' => WC_AJAX::get_endpoint('airwallex_connection_click'),
 					'startConnectionFlow' => WC_AJAX::get_endpoint('airwallex_start_connection_flow'),
+					'isPaymentMethodEnabled' => WC_AJAX::get_endpoint('airwallex_is_payment_method_enabled'),
 				],
 				'accountName' => [
 					'demo' => Util::getAccountName('demo'),

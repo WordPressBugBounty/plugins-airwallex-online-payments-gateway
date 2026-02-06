@@ -28,7 +28,7 @@ class AirwallexMainWCBlockSupport extends AirwallexWCBlockSupport {
 		$data = array(
 			'enabled'     => $this->is_active(),
 			'name'        => $this->name,
-			'title'       => $this->settings['title'],
+			'title'       => $this->settings['title'] ?? '',
 			'description' => $this->settings['description'],
 			'methods'     => $this->settings['methods'],
 			'icons'       => $this->getActivePaymentLogos(),

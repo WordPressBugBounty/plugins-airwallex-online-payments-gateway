@@ -3,13 +3,13 @@ import {
     getLocaleFromBrowserLanguage
 } from "./utils";
 
-/** global awxCommonData, awxRedirectElData */
+/** global awxCommonData */
 jQuery(function ($) {
     [].forEach.call(document.querySelectorAll('.elementor-menu-cart__container'), function (el) {
         el.style.visibility = 'hidden';
     });
     
-    const createElement = () => {
+    const createElement = async () => {
         let getRedirectDataUrl = '';
         let security = '';
         if (location.href.includes('airwallex_payment_method_all') || location.href.includes('airwallex_main')) {
@@ -24,17 +24,11 @@ jQuery(function ($) {
         }
 
         const urlParams = new URLSearchParams(window.location.search);
-        $.ajax({
+
+        const redirectData = await $.ajax({
             url: getRedirectDataUrl + '&security=' + security + '&order_id=' + urlParams.get('order_id'),
             method: 'GET',
             dataType: 'json',
-            async: false,
-            success: function(response) {
-                window.awxRedirectElData = response.data;
-            },
-            error: function(xhr, status, error) {
-                console.error(status, error);
-            }
         });
 
         const {
@@ -43,7 +37,7 @@ jQuery(function ($) {
             containerId,
             orderId,
             paymentIntentId,
-        } = awxRedirectElData;
+        } = redirectData?.data;
 
         let { confirmationUrl } = awxCommonData;
         const element = Airwallex.createElement(elementType, elementOptions);
@@ -78,8 +72,12 @@ jQuery(function ($) {
         });
 
         window.addEventListener('onError', (event) => {
+            $.ajax({
+                url: awxCommonData.updateOrderStatusAfterPaymentDecline.url + '&security=' + awxCommonData.updateOrderStatusAfterPaymentDecline.nonce + "&order_id=" + orderId,
+                method: 'GET',
+                dataType: 'json',
+            });
             document.getElementById('airwallex-error-message').style.display = 'block';
-            console.warn(event.detail);
         });
     };
     

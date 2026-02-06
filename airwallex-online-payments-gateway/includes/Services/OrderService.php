@@ -2,17 +2,19 @@
 
 namespace Airwallex\Services;
 
-use Airwallex\Client\AbstractClient;
-use Airwallex\Client\CardClient;
-use Airwallex\Client\HttpClient;
 use Airwallex\Gateways\Card;
 use Airwallex\Gateways\ExpressCheckout;
-use Airwallex\Struct\PaymentIntent;
-use Airwallex\Struct\Refund;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\AbstractApi;
 use Automattic\WooCommerce\Internal\DataStores\Orders\OrdersTableDataStore;
 use Automattic\WooCommerce\Utilities\OrderUtil;
 use Exception;
 use WC_Order;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
+use Automattic\WooCommerce\Enums\OrderStatus;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Capture as CapturePaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Customer\Create as CreateAirwallexCustomer;
+use Airwallex\Services\LogService;
 
 class OrderService {
     protected static $instance = null;
@@ -26,7 +28,9 @@ class OrderService {
     const META_KEY_ORDER_ORIGINAL_AMOUNT = '_tmp_airwallex_order_original_amount';
     const META_KEY_AIRWALLEX_CUSTOMER_ID = 'airwallex_customer_id';
     const META_KEY_AIRWALLEX_CONSENT_ID = 'airwallex_consent_id';
+    const META_KEY_AIRWALLEX_PAYMENT_METHOD_TYPE = 'airwallex_payment_method_type';
     const META_KEY_AIRWALLEX_PAYMENT_CLIENT_RATE = '_tmp_airwallex_payment_client_rate';
+    const META_REFUND_ID = '_airwallex_refund_id_';
 
     public static function getInstance() {
         if ( ! isset( self::$instance ) ) {
@@ -49,6 +53,10 @@ class OrderService {
         }
         return 'post_id';
     }
+
+	public static function getRefundOrderMetaKey($refundId) {
+		return self::META_REFUND_ID . $refundId;
+	}
 
 	/**
 	 * Get order by payment intent ID
@@ -257,7 +265,7 @@ class OrderService {
 						FROM ' . OrdersTableDataStore::get_orders_table_name() . ' wc_order
 						INNER JOIN ' . OrdersTableDataStore::get_meta_table_name() . " order_meta ON wc_order.id = order_meta.order_id
 						WHERE wc_order.type = 'shop_order' AND order_meta.meta_key = %s",
-					Refund::META_REFUND_ID . $refundId
+					self::getRefundOrderMetaKey($refundId)
 				)
 			);
 		} else {
@@ -269,7 +277,7 @@ class OrderService {
 						FROM {$wpdb->posts} wc_order
 						INNER JOIN {$wpdb->postmeta} order_meta ON wc_order.ID = order_meta.post_id
 						WHERE wc_order.post_type = 'shop_order' AND order_meta.meta_key = %s",
-					Refund::META_REFUND_ID . $refundId
+					self::getRefundOrderMetaKey($refundId)
 				)
 			);
 		}
@@ -282,22 +290,20 @@ class OrderService {
 	 * Get airwallex customer ID
 	 *
 	 * @param int $wordpressCustomerId
-	 * @param AbstractClient $client
 	 * @return int|mixed
 	 * @throws Exception
 	 */
-	public function getAirwallexCustomerId( $wordpressCustomerId, AbstractClient $client ) {
-		$merchantInfo = Util::getMerchantInfoFromJwtToken($client->getToken());
-		if (empty($merchantInfo['accountId'])) {
-			throw new Exception( __( 'Unauthorized. Please try again.', 'airwallex-online-payments-gateway' ) );
+	public function getAirwallexCustomerId( $wordpressCustomerId ) {
+		$metaKey = 'airwallex_customer_id';
+		$merchantInfo = Util::getMerchantInfoFromJwtToken();
+		if ($merchantInfo && !empty($merchantInfo['accountId'])) {
+			$metaKey = 'airwallex_customer_id_' . $merchantInfo['accountId'];
 		}
-		$metaKey = 'airwallex_customer_id_' . $merchantInfo['accountId'];
 		$airwallexCustomerId = get_user_meta( $wordpressCustomerId, $metaKey, true );
 		if ( $airwallexCustomerId ) {
 			return $airwallexCustomerId;
 		}
-		$randomId = uniqid( 'woo_cus_' . (string)$wordpressCustomerId );
-		$customer = $client->createCustomer( $randomId );
+		$customer = (new CreateAirwallexCustomer())->setCustomerId((string)$wordpressCustomerId)->send();
 		$airwallexCustomerId = $customer->getId();
 		update_user_meta( $wordpressCustomerId, $metaKey, $airwallexCustomerId );
 		return $airwallexCustomerId;
@@ -366,14 +372,25 @@ class OrderService {
 				}
 				if ( Card::GATEWAY_ID === $paymentMethod ) {
 					try {
-						$paymentIntent = CardClient::getInstance()->getPaymentIntent( $paymentIntentId );
-						( new OrderService() )->setPaymentSuccess( $order, $paymentIntent, 'cron' );
+						/** @var StructPaymentIntent $paymentIntent */
+						$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
 					} catch ( Exception $e ) {
-						if (HttpClient::HTTP_STATUS_NOT_FOUND === $e->getCode()) {
-							$order->update_meta_data( '_airwallex_payment_intent_not_found', true );
-							$order->save();
+						$error = json_decode($e->getMessage(), true);
+						if (is_array($error) && isset($error['code'])) {
+							if ($error['code'] === AbstractApi::ERROR_RESOURCE_NOT_FOUND) {
+								$order->update_meta_data( '_airwallex_payment_intent_not_found', true );
+								$order->save();
+							}
 						}
-						$logService->warning( 'checkPendingTransactions failed for order #' . $order->get_id() . ' with paymentIntent ' . $paymentIntentId );
+						$logService->error( 'checkPendingTransactions failed for order #' . $order->get_id() . ' with paymentIntent ' . $paymentIntentId );
+						$logService->error( $e->getMessage(), __METHOD__ );
+						return;
+					}
+					try {
+						( new OrderService() )->setPaymentSuccess( $order, $paymentIntent, __METHOD__ );
+					} catch ( Exception $e ) {
+						$logService->error( 'checkPendingTransactions setPaymentSuccess failed for order #' . $order->get_id() . ' with paymentIntent ' . $paymentIntentId );
+						$logService->error( $e->getMessage(), __METHOD__ );
 					}
 				}
 			}
@@ -382,6 +399,7 @@ class OrderService {
 
 	public function update_consent($paymentIntent, $order)
 	{
+		/** @var StructPaymentIntent $paymentIntent */
 		$orderId = $order->get_id();
 		if ( $paymentIntent->getPaymentConsentId() ) {
 			$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, $paymentIntent->getPaymentConsentId() );
@@ -401,7 +419,8 @@ class OrderService {
 		}
 	}
 
-	public function updateOrderDetails(WC_Order $order, PaymentIntent $paymentIntent) {
+	public function updateOrderDetails(WC_Order $order, StructPaymentIntent $paymentIntent) {
+		/** @var StructPaymentIntent $paymentIntent */
 		if (empty($paymentIntent->getBaseCurrency()) || empty($paymentIntent->getCurrency())) {
 			return;
 		}
@@ -460,9 +479,10 @@ class OrderService {
 		$order->set_total( $paymentIntent->getAmount() );
 		$order->set_currency($paymentIntent->getCurrency());
 		$order->add_meta_data('airwallex_payment_currency', $paymentIntent->getCurrency());
+		$order->save();
 	}
 
-	public function paymentCompleteByCapture($order, $logService, $referrer, $paymentIntent) {
+	public function paymentCompleteByCapture($order, $referrer, $paymentIntent) {
 		global $wpdb;
 
 		$tableName = $this->getOrderMetaTableName();
@@ -494,14 +514,15 @@ class OrderService {
 			}
 		} catch ( Exception $e ) {
 			$wpdb->query( "ROLLBACK" );
-			$logService->error( "$referrer " . __METHOD__ . $e->getMessage() );
+			LogService::getInstance()->error( "$referrer " . __METHOD__ . $e->getMessage() );
 			throw $e;
 		}
 	}
 
-	public function paymentCompleteByAuthorize($order, $logService, $referrer, $paymentIntent) {
+	public function paymentCompleteByAuthorize($order, $referrer, $paymentIntent) {
 		global $wpdb;
 
+		$logService = LogService::getInstance();
 		$tableName = $this->getOrderMetaTableName();
 		$orderIdColumnName = $this->getOrderIdColumnNameFromMetaTable();
 		$orderId = $order->get_id();
@@ -521,22 +542,22 @@ class OrderService {
 				$this->update_consent( $paymentIntent, $order );
 				$this->setAuthorizedStatus( $order );
 				$paymentGateway = wc_get_payment_gateway_by_order( $order );
+				/** @var StructPaymentIntent $paymentIntent */
 				if ( ($paymentGateway instanceof Card || $paymentGateway instanceof ExpressCheckout 
 					|| in_array($paymentIntent->getPaymentMethodType(), ['card', 'googlepay', 'applepay'], true)) && Card::getInstance()->is_capture_immediately() ) {
-					$logService->debug( $referrer . ' start capture', array( $paymentIntent->toArray() ) );
-					$apiClient   = CardClient::getInstance();
-					$paymentIntentAfterCapture = $apiClient->capture( $paymentIntent->getId(), $paymentIntent->getAmount() );
-					if ( $paymentIntentAfterCapture->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
+					$logService->debug( $referrer . ' start capture: ' . $paymentIntent->getId());
+					/** @var StructPaymentIntent $paymentIntentAfterCapture */
+					$paymentIntentAfterCapture = (new CapturePaymentIntent())->setPaymentIntentId($paymentIntent->getId())->setAmount($paymentIntent->getAmount())->send();
+					if ( $paymentIntentAfterCapture->isCaptured() ) {
 						$order->payment_complete( $paymentIntent->getId() );
 						$order->add_meta_data(  $metaKey, 'processed' );
 						$order->save_meta_data();
 						$order->add_order_note( __( self::PAYMENT_CAPTURED_MESSAGE, 'airwallex-online-payments-gateway' ) );
-						$logService->debug( $referrer . ' payment success', $paymentIntent->toArray() );
+						$logService->debug( $referrer . ' payment success: ' . $paymentIntent->getId());
 					} else {
-						$logService->error( $referrer . ' payment capture failed', $paymentIntentAfterCapture->toArray() );
-						$this->setTemporaryOrderStateAfterDecline( $order );
+						$logService->error( $referrer . ' payment capture failed: ' . $paymentIntent->getId() );
 						if ($referrer === 'checkout') {
-							wc_add_notice( __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ), 'error' );
+							wc_add_notice( __( 'Airwallex payment error: capture failed. ', 'airwallex-online-payments-gateway' ), 'error' );
 							wp_safe_redirect( wc_get_checkout_url() );
 							$wpdb->query( "COMMIT" );
 							die;
@@ -562,11 +583,26 @@ class OrderService {
     }
 
 	public function setPaymentSuccess( $order, $paymentIntent, $referrer = 'webhook' ) {
-		$logService = LogService::getInstance();
-		if ( PaymentIntent::STATUS_SUCCEEDED === $paymentIntent->getStatus() ) {
-			$this->paymentCompleteByCapture($order, $logService, $referrer, $paymentIntent);
-		} elseif ( PaymentIntent::STATUS_REQUIRES_CAPTURE === $paymentIntent->getStatus() ) {
-			$this->paymentCompleteByAuthorize($order, $logService, $referrer, $paymentIntent);
+		if ( empty( $order ) ) {
+			throw new Exception( __("Order not found.") );
+		}
+
+		/** @var StructPaymentIntent $paymentIntent */
+		$metadata = $paymentIntent->getMetadata();
+		if (!empty($metadata) && !empty($metadata['wp_order_id']) && intval($metadata['wp_order_id']) !== $order->get_id()) {
+			throw new Exception(
+				sprintf(
+					__('Order ID mismatched: expected %d, got %s', 'airwallex-online-payments-gateway'),
+					$order->get_id(),
+					$metadata['wp_order_id'] ?? 'null'
+				)
+			);
+		}
+
+		if ( $paymentIntent->isCaptured() ) {
+			$this->paymentCompleteByCapture($order, $referrer, $paymentIntent);
+		} elseif ( $paymentIntent->isAuthorized() ) {
+			$this->paymentCompleteByAuthorize($order, $referrer, $paymentIntent);
 		}
 	}
 
@@ -577,6 +613,29 @@ class OrderService {
 	 * @return void
 	 */
 	public function setTemporaryOrderStateAfterDecline( $order ) {
+		$paymentIntentId = $order->get_transaction_id() ?: $order->get_meta(OrderService::META_KEY_INTENT_ID);
+		if ($paymentIntentId) {
+			try {
+				/** @var StructPaymentIntent $paymentIntent */
+				$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
+				if ($paymentIntent->isAuthorized() || $paymentIntent->isCaptured()) {
+					return;		
+				}
+			} catch (Exception $e) {
+				LogService::getInstance()->error($e->getMessage(), __METHOD__);
+				return;
+			}
+
+		}
+
+		$completedStatuses = ['processing', 'completed'];
+		if (class_exists(OrderStatus::class)) {
+			$completedStatuses = [OrderStatus::PROCESSING, OrderStatus::COMPLETED];
+		}
+		if (in_array($order->get_status(), $completedStatuses, true)) {
+			return;		
+		}
+
 		$orderStatus = get_option( 'airwallex_temporary_order_status_after_decline' );
 		if ( $orderStatus ) {
 			$order->update_status( $orderStatus, 'Airwallex status update (decline)' );

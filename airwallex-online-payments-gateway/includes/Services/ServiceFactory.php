@@ -15,11 +15,7 @@ class ServiceFactory {
      * @return CacheService
      */
     public static function createCacheService($salt = '') {
-        if (self::$cacheService) {
-            return self::$cacheService;
-        }
-        self::$cacheService = new CacheService(Util::getClientId($salt));
-        return self::$cacheService;
+        return CacheService::getInstance();
     }
 
     /**

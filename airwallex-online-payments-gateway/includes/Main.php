@@ -15,8 +15,6 @@ use Airwallex\Gateways\Blocks\AirwallexCardWCBlockSupport;
 use Airwallex\Gateways\Blocks\AirwallexMainWCBlockSupport;
 use Airwallex\Gateways\Blocks\AirwallexWeChatWCBlockSupport;
 use Airwallex\Controllers\AirwallexController;
-use Airwallex\Client\AdminClient;
-use Airwallex\Client\CardClient;
 use Airwallex\Controllers\ConnectionFlowController;
 use Airwallex\Gateways\AirwallexOnboardingPaymentGateway;
 use Airwallex\Gateways\Blocks\AirwallexExpressCheckoutWCBlockSupport;
@@ -31,12 +29,15 @@ use Exception;
 use WC_Order;
 use Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry;
 use Airwallex\Controllers\ControllerFactory;
+use Airwallex\Gateways\Blocks\AirwallexPOSWCBlockSupport;
+use Airwallex\Gateways\POS;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
 
 class Main {
 
 	const ROUTE_SLUG_CONFIRMATION = 'airwallex_payment_confirmation';
 	const ROUTE_SLUG_WEBHOOK      = 'airwallex_webhook';
-	const ROUTE_SLUG_JS_LOGGER    = 'airwallex_js_log';
 
 	const OPTION_KEY_MERCHANT_COUNTRY = 'airwallex_merchant_country';
 
@@ -68,8 +69,11 @@ class Main {
 		add_action('wc_ajax_airwallex_currency_switcher_create_quote', [ControllerFactory::createQuoteController(), 'createQuoteForCurrencySwitching']);
 		add_action('wc_ajax_airwallex_get_store_currency', [ControllerFactory::createOrderController(), 'getStoreCurrency']);
 		add_action('wc_ajax_airwallex_get_tokens', function(){ Card::getInstance()->getTokens(); });
+		add_action('wc_ajax_airwallex_get_pos_terminals', function(){ POS::getInstance()->getPOSTerminals(); });
 		add_action('wc_ajax_airwallex_get_apm_redirect_data', function(){ MainGateway::getInstance()->getApmRedirectData(); });
+		add_action('wc_ajax_airwallex_get_apm_data', function(){ MainGateway::getInstance()->getApmData(); });
 		add_action('wc_ajax_airwallex_get_card_redirect_data', function(){ Card::getInstance()->getCardRedirectData(); });
+		add_action('wc_ajax_airwallex_get_card_data', function(){ Card::getInstance()->getCardData(); });
 		add_action('wc_ajax_airwallex_get_wechat_redirect_data', function(){ WeChat::getInstance()->getWechatRedirectData(); });
 		add_action('wc_ajax_airwallex_get_express_checkout_data', function(){ ExpressCheckout::getInstance()->getExpressCheckoutData(); });
 		add_action('wc_ajax_airwallex_sync_all_consents', [ControllerFactory::createPaymentConsentController(), 'syncAllConsents']);
@@ -77,6 +81,7 @@ class Main {
 		add_action('wc_ajax_airwallex_connection_test', [ControllerFactory::createAirwallexController(), 'connectionTest']);
 		add_action('wc_ajax_airwallex_connection_click', [ControllerFactory::createAirwallexController(), 'connectionClick']);
 		add_action('wc_ajax_airwallex_start_connection_flow', [ControllerFactory::createConnectionFlowController(), 'startConnection']);
+		add_action('wc_ajax_airwallex_is_payment_method_enabled', [ControllerFactory::createAirwallexController(), 'isPaymentMethodEnabled']);
 		add_action('wc_ajax_airwallex_get_cart_details', [ControllerFactory::createOrderController(), 'getCartDetails']);
 		add_action('wc_ajax_airwallex_get_shipping_options', [ControllerFactory::createOrderController(), 'getShippingOptions']);
 		add_action('wc_ajax_airwallex_update_shipping_method', [ControllerFactory::createOrderController(), 'updateShippingMethod']);
@@ -85,6 +90,7 @@ class Main {
 		add_action('wc_ajax_airwallex_start_payment_session', [ControllerFactory::createPaymentSessionController(), 'startPaymentSession']);
 		add_action('wc_ajax_airwallex_activate_payment_method', [ControllerFactory::createGatewaySettingsController(), 'activatePaymentMethod']);
 		add_action('wc_ajax_airwallex_get_estimated_cart_details', [ControllerFactory::createOrderController(), 'getEstimatedCartDetail']);
+		add_action('wc_ajax_airwallex_update_order_status_after_payment_decline', [ControllerFactory::createOrderController(), 'updateOrderStatusAfterPaymentDecline']);
 	}
 
 	public function registerEvents() {
@@ -98,12 +104,8 @@ class Main {
 		add_action( 'woocommerce_api_airwallex_process_order_pay', [new AirwallexController(), 'processOrderPay'] );
 		add_action( 'woocommerce_api_airwallex_connection_callback', [new ConnectionFlowController(), 'connectionCallback'] );
 		add_action( 'woocommerce_api_airwallex_account_settings', [new ConnectionFlowController(), 'saveAccountSetting'] );
-		if ( $this->isJsLoggingActive() ) {
-			add_action( 'woocommerce_api_' . self::ROUTE_SLUG_JS_LOGGER, array( new AirwallexController(), 'jsLog' ) );
-		}
 		add_filter( 'plugin_action_links_' . plugin_basename( AIRWALLEX_PLUGIN_PATH . AIRWALLEX_PLUGIN_NAME . '.php' ), array( $this, 'addPluginSettingsLink' ) );
 		add_action( 'airwallex_check_pending_transactions', array( $this, 'checkPendingTransactions' ) );
-		add_action( 'woocommerce_settings_saved', array( $this, 'updateMerchantCountryAfterSave' ) );
 		add_action( 'requests-requests.before_request', array( $this, 'modifyRequestsForLogging' ), 10, 5 );
 		add_action( 'wp_loaded', array( $this, 'createPages' ) );
 		add_action(
@@ -121,6 +123,7 @@ class Main {
 		}
 		add_action( 'woocommerce_blocks_loaded', array( $this, 'woocommerceBlockSupport' ) );
 		add_action( 'woocommerce_init', [AdminSettings::class, 'init'] );
+		add_action( 'woocommerce_init', [$this, 'initAPISettings'] );
 		add_filter( 'woocommerce_available_payment_gateways', [$this, 'disableGatewayOrderPay'] );
 		add_action( 'wp_enqueue_scripts', [$this, 'registerScripts'], 1 );
 		add_action( 'wp_enqueue_scripts', [$this, 'enqueueScripts'] );
@@ -170,38 +173,6 @@ class Main {
 			}
 		}
 	}
-
-	public function updateMerchantCountryAfterSave() {
-		$this->updateMerchantCountry();
-	}
-
-	protected function updateMerchantCountry() {
-		if ( empty( Util::getClientId() ) || empty( Util::getApiKey() ) ) {
-			return;
-		}
-
-		try {
-			$client  =  AdminClient::getInstance();
-			$country = $client->getMerchantCountry();
-			update_option( self::OPTION_KEY_MERCHANT_COUNTRY, $country );
-		} catch ( Exception $e ) {
-			LogService::getInstance()->error( __METHOD__ . ' failed to get merchant country.', $e->getMessage() );
-		}
-	}
-
-	public function getMerchantCountry() {
-		$country = get_option( self::OPTION_KEY_MERCHANT_COUNTRY );
-
-		if ( empty( $country ) ) {
-			$this->updateMerchantCountry();
-			$country = get_option( self::OPTION_KEY_MERCHANT_COUNTRY );
-		}
-		if ( empty( $country ) ) {
-			$country = get_option( 'woocommerce_default_country' );
-		}
-		return $country;
-	}
-
 
 	protected function registerOrderStatus() {
 
@@ -285,7 +256,7 @@ class Main {
 	 * @return array Page list exclude airwallex payment pages
 	 */
 	public function excludePagesFromList( $excludeArray ) {
-		$cacheService   = new CacheService();
+		$cacheService   = CacheService::getInstance();
 		$excludePageIds = explode( ',', (string) $cacheService->get( self::AWX_PAGE_ID_CACHE_KEY ) );
 		if ( is_array( $excludePageIds ) ) {
 			$excludeArray += $excludePageIds;
@@ -336,7 +307,7 @@ class Main {
 		}
 
 		$pageIdStr    = implode( ',', $pageIds );
-		$cacheService = new CacheService();
+		$cacheService = CacheService::getInstance();
 		if ( $cacheService->get( self::AWX_PAGE_ID_CACHE_KEY ) !== $pageIdStr ) {
 			$cacheService->set( self::AWX_PAGE_ID_CACHE_KEY, $pageIdStr, 0 );
 		}
@@ -374,11 +345,11 @@ class Main {
 			$gateways[] = AirwallexOnboardingPaymentGateway::class;
 			return $gateways;
 		}
-		$gateways[] = APISettings::class;
 		$gateways[] = MainGateway::class;
 		$gateways[] = Card::class;
 		$gateways[] = WeChat::class;
 		$gateways[] = ExpressCheckout::class;
+		$gateways[] = POS::class;
 		if (!is_wc_endpoint_url('order-pay')) {
 			$gateways[] = Klarna::class;
 			$gateways[] = Afterpay::class;
@@ -412,19 +383,19 @@ class Main {
 	 */
 	private function handleStatusChangeForCard( $statusTo, $order ) {
 		$cardGateway = Card::getInstance();
-		$apiClient = CardClient::getInstance();
-		$paymentIntentId = $order->get_transaction_id();
+		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
 		if ( empty( $paymentIntentId ) ) {
 			return;
 		}
 		try {
-			$paymentIntent = $apiClient->getPaymentIntent( $paymentIntentId );
+			/** @var StructPaymentIntent $paymentIntent */
+			$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
 		} catch (Exception $e) {
 			LogService::getInstance()->error(__METHOD__ . ' fetch intent failed: ' . $e->getMessage());
 			return;
 		}
 
-		if ( $order->get_payment_method() !== $cardGateway->id 
+		if ( $order->get_payment_method() !== $cardGateway->id
 			&& $order->get_payment_method() !== ExpressCheckout::GATEWAY_ID 
 			&& !in_array($paymentIntent->getPaymentMethodType(), ['card', 'googlepay', 'applepay'], true)) {
 			return;
@@ -439,17 +410,16 @@ class Main {
 				if ( ! $cardGateway->is_captured( $order ) ) {
 					$cardGateway->capture( $order );
 				} else {
-					LogService::getInstance()->debug( 'skip capture by status change because order is already captured', $order );
+					LogService::getInstance()->debug( 'skip capture by status change because order is already captured', [
+						'order_id' => $order->get_id(),
+						'transaction_id' => $order->get_transaction_id(),
+					] );
 				}
 			} catch ( Exception $e ) {
 				LogService::getInstance()->error( 'capture by status error', $e->getMessage() );
 				$order->add_order_note( 'ERROR: ' . $e->getMessage() );
 			}
 		}
-	}
-
-	public function isJsLoggingActive() {
-		return in_array( get_option( 'airwallex_do_js_logging' ), array( 'yes', 1, true, '1' ), true );
 	}
 
 	public function registerScripts() {
@@ -479,6 +449,13 @@ class Main {
 		wp_register_script(
 			'airwallex-card-js',
 			AIRWALLEX_PLUGIN_URL . '/build/airwallex-card.min.js',
+			['airwallex-common-js', 'airwallex-lib-js'],
+			AIRWALLEX_VERSION,
+			true
+		);
+		wp_register_script(
+			'airwallex-apm-js',
+			AIRWALLEX_PLUGIN_URL . '/build/airwallex-apm.min.js',
 			['airwallex-common-js', 'airwallex-lib-js'],
 			AIRWALLEX_VERSION,
 			true
@@ -526,11 +503,6 @@ class Main {
 	}
 
 	public function enqueueScripts() {
-		if ( $this->isJsLoggingActive() ) {
-			wp_enqueue_script( 'airwallex-js-logging-js' );
-			wp_add_inline_script( 'airwallex-js-logging-js', "var airwallexJsLogUrl = '" . WC()->api_request_url( self::ROUTE_SLUG_JS_LOGGER ) . "';", 'before' );
-		}
-
 		$confirmationUrl  = WC()->api_request_url( self::ROUTE_SLUG_CONFIRMATION );
 		$commonScriptData = [
 			'env' => Util::getEnvironment(),
@@ -565,8 +537,14 @@ class Main {
 		$commonScriptData['confirmationUrl'] = $confirmationUrl;
 		$commonScriptData['getApmRedirectData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_apm_redirect_data');
 		$commonScriptData['getApmRedirectData']['nonce'] = wp_create_nonce('wc-airwallex-get-apm-redirect-data');
+		$commonScriptData['getApmData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_apm_data');
+		$commonScriptData['getApmData']['nonce'] = wp_create_nonce('wc-airwallex-get-apm-data');
+		$commonScriptData['updateOrderStatusAfterPaymentDecline']['url'] = \WC_AJAX::get_endpoint('airwallex_update_order_status_after_payment_decline');
+		$commonScriptData['updateOrderStatusAfterPaymentDecline']['nonce'] = wp_create_nonce('wc-airwallex-update-order-status-after-payment-decline');
 		$commonScriptData['getCardRedirectData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_card_redirect_data');
 		$commonScriptData['getCardRedirectData']['nonce'] = wp_create_nonce('wc-airwallex-get-card-redirect-data');
+		$commonScriptData['getCardData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_card_data');
+		$commonScriptData['getCardData']['nonce'] = wp_create_nonce('wc-airwallex-get-card-data');
 		$commonScriptData['getWechatRedirectData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_wechat_redirect_data');
 		$commonScriptData['getWechatRedirectData']['nonce'] = wp_create_nonce('wc-airwallex-get-wechat-redirect-data');
 		$commonScriptData['getExpressCheckoutData']['url'] = \WC_AJAX::get_endpoint('airwallex_get_express_checkout_data');
@@ -605,6 +583,7 @@ class Main {
 					$payment_method_registry->register( new AirwallexExpressCheckoutWCBlockSupport() );
 					$payment_method_registry->register( new AirwallexKlarnaWCBlockSupport() );
 					$payment_method_registry->register( new AirwallexAfterpayWCBlockSupport() );
+					$payment_method_registry->register( new AirwallexPOSWCBlockSupport() );
 				}
 			);
 		}
@@ -632,5 +611,9 @@ class Main {
 		}
 
 		return $available_gateways;
+	}
+
+	public function initAPISettings() {
+		new APISettings();
 	}
 }

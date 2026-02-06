@@ -48,6 +48,6 @@ class Cancel extends AbstractApi
      */
     protected function parseResponse($response): PaymentIntent
     {
-        return new PaymentIntent(json_decode($response->getBody(), true));
+        return new PaymentIntent(json_decode((string)$response->getBody(), true));
     }
 }

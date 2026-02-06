@@ -2,8 +2,8 @@
 Contributors: airwallex
 Tags: credit card, airwallex, payments, wechat, alipay, apple pay
 Requires at least: 4.5
-Tested up to: 6.8.2
-Stable tag: 1.25.0
+Tested up to: 6.9
+Stable tag: 1.30.1
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -68,6 +68,42 @@ The non-compressed javascript files can be found under the ```assets/js``` folde
 We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) as our build tool.
 
 == Changelog ==
+
+= 1.30.1 =
+* Release Date - 8 January 2026*
+
+* Fix - Resolved a compatibility issue that could cause conflicts with other plugins
+
+= 1.30.0 =
+* Release Date - 7 January 2026*
+
+* Add - Support guest checkout for Autoship's subscription products
+
+= 1.29.0 =
+* Release Date - 22 December 2025*
+
+* Add - Klarna now supports NZD currency
+* Add - Support for AMEX, JCB, UnionPay, Discover, and Diners Club in Express Checkout
+* Add - Validation to ensure payment methods are activated on Airwallex before they can be enabled in the plugin
+* Perf - Enhanced Airwallex API handling to prevent rate-limit bottlenecks
+
+= 1.28.0 =
+* Release Date - 8 December 2025*
+
+* Add - Support for POS and in-person payments
+* Add - Support for free trial subscriptions
+
+= 1.27.3 =
+* Release Date - 3 November 2025*
+
+* Add – Klarna now supports AUD and CAD currencies
+* Fix - Resolved a rare issue where automatic currency conversion (ACC) for "All payment methods" could cause order failures
+* Recommendation – Merchants using ACC are strongly advised to update to the latest version to prevent potential order errors
+
+= 1.26.0 =
+* Release Date - 14 October 2025*
+
+* Add - Enhanced the stability and reliability of the Express Checkout payment method
 
 = 1.25.0 =
 * Release Date - 25 September 2025*

@@ -458,7 +458,174 @@ jQuery(function ($) {
 	$(formTypeSelector).on('change', toggleSaveCardField);
 
 	const paymentPageTemplateSelector = '#airwallex-online-payments-gatewayairwallex_general_payment_page_template';
-	if (awxAdminSettings.apiSettings.isForceSetPaymentFormAsWPPage) {
+	if (awxAdminSettings?.apiSettings?.isForceSetPaymentFormAsWPPage) {
 		$(paymentPageTemplateSelector).val('wordpress_page');
+	}
+
+	const initPaymentMethodCheck = () => {
+		const awxEnableCheckboxSelector = '.is-awx-payment-method-enabled input';
+		$(document).on("change", awxEnableCheckboxSelector, function (e) {
+			if (!$(awxEnableCheckboxSelector).prop('checked')) return;
+			$('.is-awx-payment-method-enabled .wc-awx-checkbox-spinner').css('display', 'inline-block');
+			$(".is-awx-payment-method-enabled .wc-awx-checkbox-error-message").hide(300);
+			isPaymentMethodEnabled($("[name='awx_payment_method_type']").val())
+				.then((response) => {
+					if (!response.success || !response.is_enabled) {
+						$(".is-awx-payment-method-enabled .awx-payment-method-not-enabled").show();
+						$(awxEnableCheckboxSelector).prop("checked", false);
+					}
+				})
+				.fail(() => {
+					$(".is-awx-payment-method-enabled .awx-request-failed").show();
+					$(awxEnableCheckboxSelector).prop("checked", false);
+				})
+				.always(() => {
+					$('.is-awx-payment-method-enabled .wc-awx-checkbox-spinner').hide();
+				});
+		});
+	};
+
+	const isPaymentMethodEnabled = (paymentMethodType) => {
+		return $.ajax({
+			type: "GET",
+			url: awxAdminSettings.paymentMethodStatus.url,
+			data: {
+				security: awxAdminSettings.paymentMethodStatus.nonce,
+				payment_method_type: paymentMethodType,
+			},
+		});
+	};
+
+	initPaymentMethodCheck();
+
+	const initPOSTerminalBind = () => {
+
+		const container = $(".awx-pos-device-container");
+		if (!container.length) return;
+
+		const inputEl  = container.find(".awx-pos-device-input");
+		const listEl   = container.find(".awx-pos-device-list");
+		const noDataEl = container.find(".awx-pos-device-no-data");
+		const infoEl   = container.find(".awx-pos-device-info");
+
+		const btnPrevEl  = container.find(".awx-pos-prev-btn");
+		const btnNextEl  = container.find(".awx-pos-next-btn");
+
+		const terminalListItemEl = container.find(".awx-pos-item-template .awx-pos-item");
+
+		let pages = { before: "", after: "" };
+
+		const updateBoundInfo = (terminal) => {
+			if (!terminal || !terminal.id) {
+				infoEl.hide();
+				return;
+			}
+			infoEl.show();
+			infoEl.find(".awx-pos-info-id .value").text(terminal.id || "");
+			infoEl.find(".awx-pos-info-nickname .value").text(terminal.nick_name || "");
+			infoEl.find(".awx-pos-info-serial .value").text(terminal.serial_number || "");
+		};
+
+		const renderList = (terminals) => {
+			listEl.empty();
+
+			if (!terminals.length) {
+				noDataEl.show();
+				return;
+			}
+
+			noDataEl.hide();
+
+			terminals.forEach(terminal => {
+				const row = terminalListItemEl.clone(true);
+				row.attr("data-id", terminal.id);
+				row.find(".awx-pos-template-nickname .value").text(terminal.nick_name);
+				row.find(".awx-pos-template-serial .value").text(terminal.serial_number);
+
+				row.on("click", () => {
+					inputEl.val(terminal.id);
+					listEl.find(".awx-pos-item").removeClass("active");
+					row.addClass("active");
+					$('button[name="save"]').removeAttr('disabled');
+				});
+
+				listEl.append(row);
+			});
+		};
+
+		const loadTerminals = (page) => {
+			$.ajax({
+				url: awxAdminPOSSettings.ajaxUrl.getPOSTerminals,
+				method: "GET",
+				data: {
+					security: awxAdminPOSSettings.nonce.getPOSTerminals,
+					page: page,
+				},
+				beforeSend: () => {
+					$(".awx-pos-device-list").css("opacity", "0.5");
+				},
+				success: (res) => {
+					if (!res.success) return;
+					$(".awx-pos-device-list").css("opacity", "1");
+					updateBoundInfo(awxAdminPOSSettings.boundTerminal);
+
+					renderList(res.data.data);
+
+					pages.before = res.data.page_before;
+					pages.after  = res.data.page_after;
+					$(".awx-pos-pagination").toggle(!!(pages.before || pages.after));
+
+					btnPrevEl.prop("disabled", !pages.before);
+					btnNextEl.prop("disabled", !pages.after);
+
+					const selectedId = inputEl.val();
+					if (selectedId) {
+						listEl.find(`[data-id='${selectedId}']`).addClass("active");
+					}
+				}
+			});
+		};
+
+		btnPrevEl.on("click", () => loadTerminals(pages.before));
+		btnNextEl.on("click", () => loadTerminals(pages.after));
+
+		loadTerminals("");
+	};
+
+	initPOSTerminalBind();
+
+	let apmLogoTemplateEl = $(".awx-apm-logo-template");
+	let apmNameTemplateEl = $(".awx-apm-name-template");
+	if (apmLogoTemplateEl.length) {
+		$.ajax({
+		url: `${awxAdminApmSettings.ajaxUrl.getApmData}&security=${awxAdminApmSettings.nonce.getApmData}`,
+		method: 'GET',
+		dataType: 'json',
+		success(response) {
+			const logos = response.data.all_logos;
+			Object.keys(logos).forEach(name => {
+				const row = apmLogoTemplateEl.clone(true);
+				row.find(".awx-apm-logo-item .awx-apm-logo").attr('src', logos[name]);
+				row.find(".awx-apm-logo-item .awx-apm-logo-checkbox").attr('value', name);
+				if (response.data.active_logos[name]) {
+					row.find(".awx-apm-logo-item .awx-apm-logo-checkbox").attr('checked', 'checked');
+				}
+				$(".awx-apm-logos").append(row.html());
+			});
+
+			const names = response.data.all_names;
+			Object.keys(names).forEach(name => {
+				const row = apmNameTemplateEl.clone(true);
+				row.find(".awx-apm-name-item input").attr('value', name);
+				row.find(".awx-apm-name-item .awx-display-name").replaceWith(response.data.all_names[name]);
+				if (response.data.active_names.includes(name)) {
+					row.find(".awx-apm-name-item input").attr('checked', 'checked');
+				}
+				if (['applepay', 'googlepay'].includes(name)) {
+					row.find(".awx-apm-name-item").append(`<span class="woocommerce-help-tip" aria-label="${response.data.active_tip}"></span>`);
+				}
+				$(".awx-apm-names").append(row.html());
+			});
+		}});
 	}
 });

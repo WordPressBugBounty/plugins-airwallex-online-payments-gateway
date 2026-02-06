@@ -17,6 +17,11 @@ class GetList
     private $active;
 
     /**
+     * @var bool
+     */
+    private $includeResources;
+
+    /**
      * @var string
      */
     private $countryCode;
@@ -67,6 +72,25 @@ class GetList
             return null;
         }
         return $this->active;
+    }
+
+    /**
+     * @param bool $includeResources
+     *
+     * @return GetList
+     */
+    public function setIncludeResources(bool $includeResources): GetList
+    {
+        $this->includeResources = $includeResources;
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getIncludeResources(): bool
+    {
+        return $this->includeResources ?? false;
     }
 
     /**
@@ -132,10 +156,11 @@ class GetList
      */
     public function get(): array
     {
-        $cacheName = 'airwallex_payment_method_type_list'
+        $cacheName = 'awx_payment_method_types'
             . '_' . $this->getCountryCode()
             . '_' . $this->getTransactionMode()
             . '_' . $this->getTransactionCurrency()
+            . '_' . ($this->getincludeResources() ? 'with_resources' : 'without_resources')
             . '_' . ($this->getActive() === null ? '' : ($this->getActive() ? 'active' : 'inactive'));
         return $this->cacheRemember(
             $cacheName,
@@ -159,6 +184,9 @@ class GetList
             $request = new GetPaymentMethodTypeList();
             if ($this->active !== null) {
                 $request->setActive($this->active);
+            }
+            if ($this->includeResources) {
+                $request->setIncludeResources($this->includeResources);
             }
             if ($this->countryCode) {
                 $request->setCountryCode($this->countryCode);

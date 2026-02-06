@@ -45,6 +45,6 @@ class GenerateClientSecret extends AbstractApi
      */
     protected function parseResponse($response): CustomerClientSecret
     {
-        return new CustomerClientSecret(json_decode($response->getBody(), true));
+        return new CustomerClientSecret(json_decode((string)$response->getBody(), true));
     }
 }

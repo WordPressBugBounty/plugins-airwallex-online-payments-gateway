@@ -17,7 +17,7 @@ abstract class AbstractBase {
 			if ( method_exists( $this, $methodName ) ) {
 				$this->{$methodName}( $fieldValue );
 			} else {
-				LogService::getInstance()->warning( __METHOD__ . " field {$fieldName} not found in " . get_called_class() );
+				LogService::getInstance()->debug( __METHOD__ . " field {$fieldName} not found in " . get_called_class() );
 			}
 		}
 	}

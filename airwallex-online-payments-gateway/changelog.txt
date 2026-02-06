@@ -1,5 +1,35 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2026-01-08 - version 1.30.1
+
+* Fix - Resolved a compatibility issue that could cause conflicts with other plugins
+
+2026-01-07 - version 1.30.0
+
+* Add - Support guest checkout for Autoship's subscription products
+
+2025-12-22 - version 1.29.0
+
+* Add - Klarna now supports NZD currency
+* Add - Support for AMEX, JCB, UnionPay, Discover, and Diners Club in Express Checkout
+* Add - Validation to ensure payment methods are activated on Airwallex before they can be enabled in the plugin
+* Perf - Enhanced Airwallex API handling to prevent rate-limit bottlenecks
+
+2025-12-08 - version 1.28.0
+
+* Add - Support for POS and in-person payments
+* Add - Support for free trial subscriptions
+
+2025-11-03 - version 1.27.3
+
+* Add - Klarna now supports AUD and CAD currencies
+* Fix - Resolved a rare issue where automatic currency conversion (ACC) for "All payment methods" could cause order failures
+* Recommendation - Merchants using ACC are strongly advised to update to the latest version to prevent potential order errors
+
+2025-10-14 - version 1.26.0
+
+* Add - Enhanced the stability and reliability of the Express Checkout payment method
+
 2025-09-25 - version 1.25.0
 
 * Add - Support for skipping the billing address during express checkout

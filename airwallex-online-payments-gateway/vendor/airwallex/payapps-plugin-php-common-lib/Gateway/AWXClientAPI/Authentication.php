@@ -3,6 +3,7 @@
 namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI;
 
 use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init;
+use Airwallex\PayappsPlugin\CommonLibrary\Exception\RequestException;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\AccessToken;
 
 class Authentication extends AbstractApi
@@ -27,11 +28,21 @@ class Authentication extends AbstractApi
     }
 
     /**
+     * @return mixed
+     * @throws RequestException
+     * @throws Exception
+     */
+    public function send()
+    {
+        return $this->doSend();
+    }
+
+    /**
      * @param $response
      * @return AccessToken
      */
     protected function parseResponse($response): AccessToken
     {
-        return new AccessToken(json_decode($response->getBody(), true));
+        return new AccessToken(json_decode((string)$response->getBody(), true));
     }
 }

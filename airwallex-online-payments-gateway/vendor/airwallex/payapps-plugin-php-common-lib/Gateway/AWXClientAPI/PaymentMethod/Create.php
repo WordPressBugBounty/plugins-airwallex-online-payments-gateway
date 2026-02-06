@@ -56,16 +56,6 @@ class Create extends AbstractApi
     }
 
     /**
-     * @param array $metadata
-     *
-     * @return Create
-     */
-    public function setMetadata(array $metadata): Create
-    {
-        return $this->setParam('metadata', $metadata);
-    }
-
-    /**
      * @param string $type
      *
      * @return Create
@@ -82,6 +72,6 @@ class Create extends AbstractApi
      */
     protected function parseResponse($response): PaymentMethod
     {
-        return new PaymentMethod(json_decode($response->getBody(), true));
+        return new PaymentMethod(json_decode((string)$response->getBody(), true));
     }
 }

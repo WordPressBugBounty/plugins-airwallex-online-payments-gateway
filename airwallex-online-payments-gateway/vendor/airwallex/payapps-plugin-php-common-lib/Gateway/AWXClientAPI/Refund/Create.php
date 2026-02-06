@@ -46,22 +46,12 @@ class Create extends AbstractApi
     }
 
     /**
-     * @param array $metadata
-     *
-     * @return self
-     */
-    public function setMetadata(array $metadata): self
-    {
-        return $this->setParam('metadata', $metadata);
-    }
-
-    /**
      * @param $response
      *
      * @return StructRefund
      */
     protected function parseResponse($response): StructRefund
     {
-        return new StructRefund(json_decode($response->getBody(), true));
+        return new StructRefund(json_decode((string)$response->getBody(), true));
     }
 }

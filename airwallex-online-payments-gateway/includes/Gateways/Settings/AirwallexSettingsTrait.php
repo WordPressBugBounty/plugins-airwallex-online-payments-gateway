@@ -2,10 +2,7 @@
 
 namespace Airwallex\Gateways\Settings;
 
-use Airwallex\Client\MainClient;
-use Airwallex\Services\LogService;
-use Airwallex\Services\Util;
-use Exception;
+use Airwallex\Client\CardClient;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -104,19 +101,7 @@ trait AirwallexSettingsTrait {
 	}
 
 	public function isConnected() {
-		if (null === self::$connected) {
-			if ( empty( Util::getApiKey() ) || empty( Util::getClientId() ) ) {
-				self::$connected = false;
-			} else {
-				try {
-					self::$connected = MainClient::getInstance()->testAuth();
-				} catch (Exception $e) {
-					LogService::getInstance()->error('Authentication failed: ', $e->getMessage());
-					self::$connected = false;
-				}
-			}
-		}
-		return self::$connected;
+		return CardClient::getInstance()->testAuth();
 	}
 
 	public function enqueueAdminSettingsScripts() {

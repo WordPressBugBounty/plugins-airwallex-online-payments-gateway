@@ -14,7 +14,12 @@ import {
 	getAppleFormattedShippingOptions,
 	getAppleFormattedLineItems,
 	getFormattedValueFromBlockAmount,
+	processError,
+	getAllowedCardNetworks,
 } from './utils.js';
+import {
+	getSupportedNetworksForApplePay,
+} from '../utils.js';
 import {
 	createElement as airwallexCreateElement,
 	destroyElement,
@@ -24,6 +29,7 @@ import { getSetting } from '@woocommerce/settings';
 
 const settings = getSetting('airwallex_express_checkout_data', {});
 settings.checkout = awxCommonData.getExpressCheckoutData.checkout;
+
 const paymentMode = awxCommonData.getExpressCheckoutData.hasSubscriptionProduct ? 'recurring' : 'oneoff';
 
 
@@ -36,7 +42,7 @@ const getAppleFormattedLineItemsFromCart = (cartTotalItems, currencyMinorUnit) =
 	});
 }
 
-const getApplePayRequestOptions = (billing, shippingData) => {
+const getApplePayRequestOptions = (billing, shippingData, allowedCardNetworks) => {
 	const {
 		cartTotal,
 		currency,
@@ -67,6 +73,7 @@ const getApplePayRequestOptions = (billing, shippingData) => {
 		},
 		lineItems: getAppleFormattedLineItemsFromCart(cartTotalItems, currency.minorUnit),
 		autoCapture: checkout.autoCapture,
+		supportedNetworks: getSupportedNetworksForApplePay(allowedCardNetworks.applepay[paymentMode])
 	};
 };
 
@@ -84,6 +91,7 @@ const AWXApplePayButton = (props) => {
 	let shippingMethods = {};
 	const ELEMENT_TYPE = 'applePayButton';
 	const [element, setElement] = useState();
+	const [allowedCardNetworks, setAllowedCardNetworks] = useState(null);
 	const elementRef = useRef(null);
 
 	const onValidateMerchant = async (event) => {
@@ -167,14 +175,16 @@ const AWXApplePayButton = (props) => {
 			} = order.payload;
 
 			if (createConsent) {
-				elementRef.current?.createPaymentConsent({
+				elementRef.current?.confirmIntent({
 					client_secret: clientSecret,
+					payment_consent: {
+						'next_triggered_by': 'merchant',
+						'merchant_trigger_reason': 'scheduled',
+					}
 				}).then(() => {
 					location.href = confirmationUrl;
 				}).catch((error) => {
-					removePageMask();
-					onError(error.message);
-					console.warn(error.message);
+					processError(order, error, removePageMask, onError);
 				});
 			} else {
 				elementRef.current?.confirmIntent({
@@ -182,9 +192,7 @@ const AWXApplePayButton = (props) => {
 				}).then(() => {
 					location.href = confirmationUrl;
 				}).catch((error) => {
-					removePageMask();
-					onError(error.message);
-					console.warn(error.message);
+					processError(order, error, removePageMask, onError);
 				});
 			}
 		} else {
@@ -209,7 +217,9 @@ const AWXApplePayButton = (props) => {
 	}
 
 	const createApplePayButton = () => {
-		const element = airwallexCreateElement(ELEMENT_TYPE, getApplePayRequestOptions(billing, shippingData));
+		if (!allowedCardNetworks) return;
+
+		const element = airwallexCreateElement(ELEMENT_TYPE, getApplePayRequestOptions(billing, shippingData, allowedCardNetworks));
 		const applePayElement = element.mount('awxApplePayButton');
 		setElement(applePayElement);
 		elementRef.current = element;
@@ -236,16 +246,28 @@ const AWXApplePayButton = (props) => {
 	};
 
 	useEffect(() => {
-		let options = {
-			env: awxCommonData.env,
-			locale: awxCommonData.locale,
-			origin: window.location.origin,
-		};
-		loadAirwallex(options).then(() => {
+		const initializeApplePay = async () => {
+			let options = {
+				env: awxCommonData.env,
+				locale: awxCommonData.locale,
+				origin: window.location.origin,
+			};
+
+			await loadAirwallex(options);
 			Airwallex.init(options);
-			createApplePayButton();
-		});
+
+			const networks = await getAllowedCardNetworks();
+			setAllowedCardNetworks(networks);
+		};
+
+		initializeApplePay();
 	}, []);
+
+	useEffect(() => {
+		if (allowedCardNetworks) {
+			createApplePayButton();
+		}
+	}, [allowedCardNetworks]);
 
 	useEffect(() => {
 		if (!elementRef.current) return;
@@ -287,23 +309,11 @@ const AWXApplePayButtonPreview = (props) => {
 	return (<div id='awxApplePayButtonPreview' />);
 };
 
-const canMakePayment = ({
-	cartTotals
-}) => {
-	const { button, checkout } = settings;
-
-	return (cartTotals.total_price != '0'
-		&& settings.applePayEnabled
-		&& paymentMode in checkout.allowedCardNetworks.applepay
-		&& checkout.allowedCardNetworks.applepay[paymentMode].length > 0
-		) ?? false;
-};
-
 export const airwallexApplePayOption = {
 	name: 'airwallex_express_checkout_apple_pay',
 	content: <AWXApplePayButton />,
 	edit: <AWXApplePayButtonPreview />,
-	canMakePayment: canMakePayment,
+	canMakePayment: () => !!settings?.applePayEnabled,
 	paymentMethodId: 'airwallex_express_checkout',
 	supports: {
 		features: settings?.supports ?? [],

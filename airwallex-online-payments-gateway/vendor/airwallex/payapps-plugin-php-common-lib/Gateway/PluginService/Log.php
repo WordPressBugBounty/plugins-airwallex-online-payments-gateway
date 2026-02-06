@@ -10,6 +10,11 @@ use Exception;
 class Log extends AbstractApi
 {
     /**
+     * @var int
+     */
+    const TIMEOUT = 3;
+
+    /**
      * @var string
      */
     const DEMO_BASE_URL = 'https://o11y-demo.airwallex.com/';
@@ -81,6 +86,7 @@ class Log extends AbstractApi
 
     /**
      * @return string
+     * @throws Exception
      */
     protected function getAccountId(): string
     {
@@ -111,7 +117,6 @@ class Log extends AbstractApi
             'windows' => 'Windows',
             'ios' => ['iPhone', 'iPad'],
             'macos' => ['Macintosh', 'Mac OS X'],
-            'other' => '',
         ];
 
         foreach ($platforms as $key => $values) {
@@ -127,6 +132,7 @@ class Log extends AbstractApi
 
     /**
      * @return void
+     * @throws Exception
      */
     protected function initializePostParams()
     {
@@ -160,7 +166,6 @@ class Log extends AbstractApi
      *
      * @param string $eventName
      * @return mixed
-     * @throws Exception
      */
     public static function info(string $message, string $eventName = "")
     {
@@ -201,7 +206,6 @@ class Log extends AbstractApi
      *
      * @param string $eventName
      * @return mixed
-     * @throws Exception
      */
     public static function error(string $message, string $eventName = "")
     {
@@ -214,7 +218,6 @@ class Log extends AbstractApi
      * @param string $message
      *
      * @return mixed
-     * @throws Exception
      */
     public static function log(string $severity, string $eventName, string $message)
     {

@@ -14,7 +14,12 @@ import {
 	removePageMask,
 	getFormattedValueFromBlockAmount,
 	getGoogleFormattedShippingOptions,
+	processError,
+	getAllowedCardNetworks,
 } from './utils.js';
+import {
+	getSupportedNetworksForGooglePay,
+} from '../utils.js';
 import {
 	createElement as airwallexCreateElement,
 	destroyElement,
@@ -22,6 +27,7 @@ import {
 
 const settings = getSetting('airwallex_express_checkout_data', {});
 settings.checkout = awxCommonData.getExpressCheckoutData.checkout;
+
 const paymentMode = awxCommonData.getExpressCheckoutData.hasSubscriptionProduct ? 'recurring' : 'oneoff';
 
 const getGoogleTransactionInfo = (cartDetails) => {
@@ -54,7 +60,7 @@ const getFormattedCartDetails = (billing) => {
 	};
 };
 
-const getGooglePayRequestOptions = (billing, shippingData) => {
+const getGooglePayRequestOptions = (billing, shippingData, allowedCardNetworks) => {
 	const { button, checkout, merchantInfo } = settings;
 	let paymentDataRequest = {
 		mode: paymentMode,
@@ -70,6 +76,7 @@ const getGooglePayRequestOptions = (billing, shippingData) => {
 			merchantName: merchantInfo.businessName,
 		},
 		autoCapture: checkout.autoCapture,
+		allowedCardNetworks: getSupportedNetworksForGooglePay(allowedCardNetworks.googlepay[paymentMode])
 	};
 
 	let callbackIntents = ['PAYMENT_AUTHORIZATION'];
@@ -103,6 +110,7 @@ const AWXGooglePayButton = (props) => {
 	let awxShippingOptions = {};
 	const ELEMENT_TYPE = 'googlePayButton';
 	const [element, setElement] = useState();
+	const [allowedCardNetworks, setAllowedCardNetworks] = useState(null);
 	const elementRef = useRef(null);
 
 	const onShippingAddressChanged = async (event) => {
@@ -164,14 +172,16 @@ const AWXGooglePayButton = (props) => {
 			} = orderResponse.payload;
 
 			if (createConsent) {
-				elementRef.current?.createPaymentConsent({
+				elementRef.current?.confirmIntent({
 					client_secret: clientSecret,
+					payment_consent: {
+						'next_triggered_by': 'merchant',
+						'merchant_trigger_reason': 'scheduled',
+					}
 				}).then(() => {
 					location.href = confirmationUrl;
 				}).catch((error) => {
-					removePageMask();
-					onError(error.message);
-					console.warn(error.message);
+					processError(orderResponse, error, removePageMask, onError);
 				});
 			} else {
 				elementRef.current?.confirmIntent({
@@ -179,9 +189,7 @@ const AWXGooglePayButton = (props) => {
 				}).then(() => {
 					location.href = confirmationUrl;
 				}).catch((error) => {
-					removePageMask();
-					onError(error.message);
-					console.warn(error.message);
+					processError(orderResponse, error, removePageMask, onError);
 				});
 			}
 		} else {
@@ -206,7 +214,9 @@ const AWXGooglePayButton = (props) => {
 	}
 
 	const createGooglePayButton = () => {
-		const element = airwallexCreateElement(ELEMENT_TYPE, getGooglePayRequestOptions(billing, shippingData));
+		if (!allowedCardNetworks) return;
+
+		const element = airwallexCreateElement(ELEMENT_TYPE, getGooglePayRequestOptions(billing, shippingData, allowedCardNetworks));
 		const googlePayElement = element.mount('awxGooglePayButton');
 		setElement(googlePayElement);
 		elementRef.current = element;
@@ -229,16 +239,28 @@ const AWXGooglePayButton = (props) => {
 	};
 
 	useEffect(() => {
-		let options = {
-			env: awxCommonData.env,
-			locale: awxCommonData.locale,
-			origin: window.location.origin,
-		};
-		loadAirwallex(options).then(() => {
+		const initializeGooglePay = async () => {
+			let options = {
+				env: awxCommonData.env,
+				locale: awxCommonData.locale,
+				origin: window.location.origin,
+			};
+
+			await loadAirwallex(options);
 			Airwallex.init(options);
-			createGooglePayButton();
-		});
+
+			const networks = await getAllowedCardNetworks();
+			setAllowedCardNetworks(networks);
+		};
+
+		initializeGooglePay();
 	}, []);
+
+	useEffect(() => {
+		if (allowedCardNetworks) {
+			createGooglePayButton();
+		}
+	}, [allowedCardNetworks]);
 
 	useEffect(() => {
 		if (!elementRef.current) return;
@@ -315,23 +337,11 @@ const AWXGooglePayButtonPreview = () => {
 	);
 };
 
-const canMakePayment = ({
-	cartTotals,
-}) => {
-	const { button, checkout } = settings;
-
-	return (cartTotals.total_price != '0'
-		&& settings?.googlePayEnabled
-		&& paymentMode in checkout.allowedCardNetworks.googlepay
-		&& checkout.allowedCardNetworks.googlepay[paymentMode].length > 0
-	) ?? false;
-};
-
 export const airwallexGooglePayOption = {
 	name: 'airwallex_express_checkout_google_pay',
 	content: <AWXGooglePayButton />,
 	edit: <AWXGooglePayButtonPreview />,
-	canMakePayment: canMakePayment,
+	canMakePayment: () => !!settings?.googlePayEnabled,
 	paymentMethodId: 'airwallex_express_checkout',
 	supports: {
 		features: settings?.supports ?? [],

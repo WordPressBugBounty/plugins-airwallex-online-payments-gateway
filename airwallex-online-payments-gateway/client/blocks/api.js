@@ -27,3 +27,27 @@ export const createQuote = (originalCurrency, requiredCurrency, settings) => {
         url: getAjaxURL('currency_switcher_create_quote', settings),
     });
 };
+
+export const updateOrderStatusAfterPaymentDecline = (orderId) => {
+	return $.ajax({
+		url: awxCommonData.updateOrderStatusAfterPaymentDecline.url + '&security=' + awxCommonData.updateOrderStatusAfterPaymentDecline.nonce + "&order_id=" + orderId,
+		method: 'GET',
+		dataType: 'json'
+	});
+}
+
+export const getCardData = () => {
+    return $.ajax({
+        url: awxCommonData.getCardData.url + '&security=' + awxCommonData.getCardData.nonce,
+        method: 'GET',
+        dataType: 'json'
+    });
+}
+
+export const getApmData = () => {
+    return $.ajax({
+        url: awxCommonData.getApmData.url + '&security=' + awxCommonData.getApmData.nonce,
+        method: 'GET',
+        dataType: 'json'
+    });
+}

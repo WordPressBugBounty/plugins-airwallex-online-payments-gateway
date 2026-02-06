@@ -42,7 +42,7 @@ class GetAvailableCurrencies extends AbstractApi
      */
     protected function parseResponse($response): StructGetList
     {
-        $responseData = json_decode($response->getBody(), true);
+        $responseData = json_decode((string)$response->getBody(), true);
         return new StructGetList($responseData);
     }
 }

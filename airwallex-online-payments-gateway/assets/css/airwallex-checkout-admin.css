@@ -243,3 +243,28 @@ apple-pay-button {
 		width: 100%;
 	}
 }
+
+/*------POS Settings------*/
+
+.awx-pos-device-container {
+	max-width: 400px;
+}
+
+.awx-pos-device-container .awx-pos-item {
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	padding: 10px;
+	margin-bottom: 6px;
+	cursor: pointer;
+	user-select: none;
+	background: #fff;
+}
+
+.awx-pos-device-container .awx-pos-item.active {
+	background: #e6f7ff;
+}
+
+.awx-pos-pagination button {
+	padding: 6px 14px;
+	margin: 0 10px;
+}

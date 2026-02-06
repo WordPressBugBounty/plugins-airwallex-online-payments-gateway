@@ -2,6 +2,7 @@
 
 namespace Airwallex\Services;
 
+use Airwallex\Client\CardClient;
 use Exception;
 
 class Util {
@@ -123,11 +124,11 @@ class Util {
 	/**
 	 * Get merchant info from JWT token
 	 * 
-	 * @param string $token
 	 * @return array Merchant info
 	 */
-	public static function getMerchantInfoFromJwtToken($token) {
+	public static function getMerchantInfoFromJwtToken() {
 		try {
+			$token = CardClient::getInstance()->getToken();
 			// decode JWT token
 			$merchantInfo = [];
 			$base64Codes  = explode('.', $token);
@@ -145,7 +146,7 @@ class Util {
 
 			return $merchantInfo;
 		} catch (Exception $ex) {
-			LogService::getInstance()->error(__METHOD__, $ex->getTrace());
+			LogService::getInstance()->error(__METHOD__, $ex->getMessage());
 			return null;
 		}
 	}

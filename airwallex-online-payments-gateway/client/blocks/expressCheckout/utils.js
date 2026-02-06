@@ -1,3 +1,5 @@
+import { getExpressCheckoutData } from "./api";
+
 export const APPLE_PAY_VERSION = 4;
 
 export const maskPageWhileLoading = function (timeout = 5000) {
@@ -97,4 +99,40 @@ export const displayLoginConfirmation = (loginConfirmation = null) => {
 		// Redirect to my account page.
 		window.location.href = loginConfirmation.redirect_url;
 	}
+};
+
+export const processError = (data, err, removePageMask, onError) => {
+	jQuery.ajax({
+		url: awxCommonData.updateOrderStatusAfterPaymentDecline.url + '&security=' + awxCommonData.updateOrderStatusAfterPaymentDecline.nonce + "&order_id=" + data.order_id,
+		method: 'GET',
+		dataType: 'json',
+		success: function(response) {
+			let errMessage = response.success ? (err.message || '') : response.message;
+			removePageMask();
+			onError(errMessage);
+			console.warn(errMessage);
+		},
+		error: function(xhr, status, error) {
+			let errMessage = xhr.responseText;
+			if (xhr.responseJSON && xhr.responseJSON.message) {
+				errMessage = xhr.responseJSON.message;
+			}
+			removePageMask();
+			onError(errMessage);
+			console.warn(errMessage); 
+		}
+	});
+};
+
+export const getAllowedCardNetworks = async () => {
+	if (!awxCommonData.getExpressCheckoutData.allowedCardNetworks) {
+		try {
+			const expressCheckoutData = await getExpressCheckoutData();
+			awxCommonData.getExpressCheckoutData.allowedCardNetworks = expressCheckoutData?.data?.allowedCardNetworks;
+		} catch (error) {
+			console.error('Failed to get express checkout data:', error);
+			return null;
+		}
+	}
+	return awxCommonData.getExpressCheckoutData.allowedCardNetworks;
 };

@@ -6,7 +6,9 @@ class Klarna
 {
     const SUPPORTED_COUNTRY_TO_CURRENCY = [
         'AT' => 'EUR',
+        'AU' => 'AUD',
         'BE' => 'EUR',
+        'CA' => 'CAD',
         'FI' => 'EUR',
         'FR' => 'EUR',
         'DE' => 'EUR',
@@ -24,6 +26,7 @@ class Klarna
         'GB' => 'GBP',
         'CZ' => 'CZK',
         'US' => 'USD',
+        'NZ' => 'NZD',
     ];
 
     const COUNTRY_LANGUAGE = [

@@ -6,14 +6,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-use Airwallex\Client\ApplePayClient;
-use Airwallex\Services\OrderService;
-use Airwallex\Client\CardClient;
-use Airwallex\Client\GatewayClient;
 use Airwallex\Services\Util;
 use Airwallex\Gateways\ExpressCheckout;
 use Airwallex\Services\LogService;
-use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
 
 class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
 
@@ -25,11 +20,6 @@ class AirwallexExpressCheckoutWCBlockSupport extends AirwallexWCBlockSupport {
 	public function initialize() {
 		$this->settings              = get_option( 'airwallex-online-payments-gatewayairwallex_card_settings', array() );
 		$this->enabled               = ! empty( $this->settings['enabled'] ) && in_array( $this->settings['enabled'], array( 'yes', 1, true, '1' ), true ) ? 'yes' : 'no';
-		$cardClient                  = CardClient::getInstance();
-		$applePayClient              = ApplePayClient::getInstance();
-		$gatewayClient               = GatewayClient::getInstance();
-		$cacheService                = CacheManager::getInstance();
-		$orderService                = OrderService::getInstance();
 		$this->gateway               = new ExpressCheckout();
 	}
 

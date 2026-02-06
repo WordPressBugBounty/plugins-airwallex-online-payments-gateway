@@ -1,16 +1,27 @@
 import { getSetting } from '@woocommerce/settings';
 import { __ } from '@wordpress/i18n';
 import { InlineCard, AirwallexSaveCard } from './elements.js';
+import { useEffect, useState } from 'react';
+import { getCardData } from '../api';
 
 const settings = getSetting('airwallex_card_data', {});
 const title       = settings?.title || __('Card', 'airwallex-online-payments-gateway');
 const description = settings?.description;
-const logos       = settings?.icons ?? {};
 const cardInformationMessage = __('Card information', 'airwallex-online-payments-gateway');
 const savePaymentMessage = __('Save payment information to my account for future purchases', 'airwallex-online-payments-gateway');
 
 const AirwallexLabelCard         = (props) => {
 	const { PaymentMethodLabel } = props.components;
+
+	const [logos, setLogos] = useState({});
+
+	useEffect(() => {
+		getCardData().then((response) => {
+			if (response.data?.logos) {
+				setLogos(response.data.logos);
+			}
+		});
+	}, []);
 
 	return (
 		<>

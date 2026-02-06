@@ -23,9 +23,24 @@ class PaymentMethodType extends AbstractBase
     private $name;
 
     /**
+     * @var string
+     */
+    private $displayName;
+
+    /**
      * @var array
      */
     private $transactionCurrencies;
+
+    /**
+     * @var array
+     */
+    private $cardSchemes;
+
+    /**
+     * @var array
+     */
+    private $resources;
 
     /**
      * @var string
@@ -79,6 +94,14 @@ class PaymentMethodType extends AbstractBase
     }
 
     /**
+     * @return string
+     */
+    public function getDisplayName(): string
+    {
+        return $this->displayName ?? '';
+    }
+
+    /**
      * @return bool
      */
     public function getActive(): bool
@@ -98,6 +121,17 @@ class PaymentMethodType extends AbstractBase
     }
 
     /**
+     * @param string $displayName
+     *
+     * @return PaymentMethodType
+     */
+    public function setDisplayName(string $displayName): PaymentMethodType
+    {
+        $this->displayName = $displayName;
+        return $this;
+    }
+
+    /**
      * @return array
      */
     public function getTransactionCurrencies(): array
@@ -113,6 +147,44 @@ class PaymentMethodType extends AbstractBase
     public function setTransactionCurrencies(array $transaction_currencies): PaymentMethodType
     {
         $this->transactionCurrencies = $transaction_currencies;
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getCardSchemes(): array
+    {
+        return $this->cardSchemes ?? [];
+    }
+
+    /**
+     * @param array $card_schemes
+     *
+     * @return PaymentMethodType
+     */
+    public function setCardSchemes(array $card_schemes): PaymentMethodType
+    {
+        $this->cardSchemes = $card_schemes;
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getResources(): array
+    {
+        return $this->resources ?? [];
+    }
+
+    /**
+     * @param array $resources
+     *
+     * @return PaymentMethodType
+     */
+    public function setResources(array $resources): PaymentMethodType
+    {
+        $this->resources = $resources;
         return $this;
     }
 

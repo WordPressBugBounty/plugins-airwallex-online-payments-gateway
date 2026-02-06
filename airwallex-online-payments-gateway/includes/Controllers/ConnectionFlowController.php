@@ -6,11 +6,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Airwallex\Services\LogService;
-use Airwallex\Client\AdminClient;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\Util;
 use Airwallex\Main;
 use Exception;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\ConnectionFinalize;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\ConnectionFinalizeResponse;
 
 class ConnectionFlowController {
     const CACHE_KEY_PREFIX_CONNECTION_REQUEST_ID = 'awx_connection_request_id_';
@@ -19,7 +20,7 @@ class ConnectionFlowController {
     protected $cacheService = null;
 
     public function __construct() {
-        $this->cacheService = new CacheService();
+        $this->cacheService = CacheService::getInstance();
     }
 
     public function startConnection() {
@@ -80,21 +81,22 @@ class ConnectionFlowController {
             $baseUrl = home_url();
             $validationToken = Util::generateUuidV4();
             $this->cacheService->set(self::CACHE_KEY_PREFIX_CONNECTION_FINALIZE . $requestId, $validationToken, MINUTE_IN_SECONDS * 5);
-            $payload = [
-				'platform' => 'woo',
-				'origin' => Util::getOriginFromUrl($baseUrl),
-				'baseUrl' => $baseUrl,
-				'webhookNotificationUrl' => WC()->api_request_url( Main::ROUTE_SLUG_WEBHOOK ),
-				'token' => $validationToken,
-				'requestId' => $requestId,
-			];
 
-            $adminClient = AdminClient::getInstance();
-            $res = $adminClient->finalizeConnection($cachedRequestData['env'], $accessToken, $payload);
+            
+            /** @var ConnectionFinalizeResponse $connectionFinalizeResponse */
+            $connectionFinalizeResponse = (new ConnectionFinalize())
+                ->setPlatform('woo')
+                ->setOrigin(Util::getOriginFromUrl($baseUrl))
+                ->setBaseUrl($baseUrl)
+                ->setWebhookNotificationUrl(WC()->api_request_url( Main::ROUTE_SLUG_WEBHOOK ))
+                ->setConnectionFinalizeToken($validationToken)
+                ->setAccessToken($accessToken)
+                ->setRequestId($requestId)
+                ->send();
 
-            LogService::getInstance()->debug('connectionCallback', print_r($res, true));
-            if ($res->status !== 200) {
-                throw new Exception(isset($res->data['error']) ? $res->data['error'] : 'Failed to finalize connection');
+            if (!empty($connectionFinalizeResponse->getError())) {
+                LogService::getInstance()->error('connectionCallback', $connectionFinalizeResponse->getError());
+                throw new Exception($connectionFinalizeResponse->getError());
             }
             wp_safe_redirect(admin_url('admin.php?page=wc-settings&tab=checkout&section=airwallex_general'));
         } catch (Exception $e) {
@@ -131,7 +133,7 @@ class ConnectionFlowController {
             if ('prod' === $cachedRequestData['env']) {
                 update_option('airwallex_connection_type', 'connection_flow');
             }
-
+            LogService::getInstance()->debug('Save Account Setting successfully');
             wp_send_json([
                 'success' => true,
                 'message' => __('Settings saved.', 'airwallex-online-payments-gateway'),

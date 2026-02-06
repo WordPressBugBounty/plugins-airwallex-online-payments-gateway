@@ -2,7 +2,6 @@
 
 namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService;
 
-use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\AbstractApi;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\Account as StructAccount;
 use Exception;
@@ -41,7 +40,7 @@ class Account extends AbstractApi
      */
     protected function parseResponse($response): StructAccount
     {
-        return new StructAccount(json_decode($response->getBody(), true));
+        return new StructAccount(json_decode((string)$response->getBody(), true));
     }
 
     /**
@@ -50,8 +49,9 @@ class Account extends AbstractApi
      */
     public function send()
     {
+        $cacheName = 'awx_account';
         return $this->cacheRemember(
-            'airwallex_account_' . Init::getInstance()->get('api_key'),
+            $cacheName,
             function () {
                 return parent::send();
             }

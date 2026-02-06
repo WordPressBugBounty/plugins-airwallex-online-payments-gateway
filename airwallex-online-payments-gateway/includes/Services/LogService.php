@@ -2,7 +2,7 @@
 
 namespace Airwallex\Services;
 
-use Airwallex\Client\LoggingClient;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
 
 class LogService {
 
@@ -12,11 +12,13 @@ class LogService {
 	const GOOGLE_EXPRESS_CHECKOUT_TYPE = 'googleExpressCheckout';
 	const APPLE_EXPRESS_CHECKOUT_TYPE  = 'appleExpressCheckout';
 	const ON_PROCESS_WEBHOOK_ERROR     = 'onProcessWebhookError';
-	const ON_PAYMENT_CONFIRMATION_ERROR= 'onPaymentConfirmationError';
-	const ON_PAYMENT_INTENT_CREATE_ERROR= 'onPaymentIntentCreateError';
+	const ON_PAYMENT_CONFIRMATION_ERROR = 'onPaymentConfirmationError';
+	const ON_PAYMENT_INTENT_CREATE_ERROR = 'onPaymentIntentCreateError';
+	const SEVERITY_INFO = 'info';
+	const SEVERITY_WARN = 'warn';
+	const SEVERITY_ERROR = 'error';
 
 	private $logDir;
-	private $loggingClient;
 	private static $instance;
 
 	public static function getInstance() {
@@ -48,25 +50,40 @@ class LogService {
 
 	public function debug( $message, $data = null, $type = 'unknown' ) {
 		$this->log( $message, 'debug', $data );
-		$this->getLoggingClient()->log( LoggingClient::LOG_SEVERITY_INFO, 'wp_info', $message, $data, $type );
+		$this->remoteLog(self::SEVERITY_INFO, 'wp_info', $message, $data, $type);
 	}
 
 	public function warning( $message, $data = null, $type = 'unknown' ) {
 		$this->log( '⚠ ' . $message, 'debug', $data );
 		$this->log( $message, 'warning', $data );
-		$this->getLoggingClient()->log( LoggingClient::LOG_SEVERITY_WARNING, 'wp_warning', $message, $data, $type );
+		$this->remoteLog(self::SEVERITY_WARN, 'wp_warning', $message, $data, $type);
 	}
 
 	public function error( $message, $data = null, $type = 'unknown' ) {
 		$this->log( '💣 ' . $message, 'debug', $data );
 		$this->log( $message, 'error', $data );
-		$this->getLoggingClient()->log( LoggingClient::LOG_SEVERITY_ERROR, 'wp_error', $message, $data, $type );
+		$this->remoteLog(self::SEVERITY_ERROR, 'wp_error', $message, $data, $type);
 	}
 
-	protected function getLoggingClient() {
-		if ( ! isset( $this->loggingClient ) ) {
-			$this->loggingClient = new LoggingClient( Util::getClientId(), Util::getApiKey(), in_array( get_option( 'airwallex_enable_sandbox' ), array( true, 'yes' ), true ) );
+	public static function isRemoteLogActive() {
+		return in_array( get_option( 'airwallex_do_remote_logging' ), array( 'yes', 1, true, '1' ), true );
+	}
+
+	public function remoteLog($severity, $eventName, $message, $data, $type) {
+		$dataStr = "";
+		if (is_string($data)) {
+			$dataStr = $data;
+		} else if (is_array($data)) {
+			$dataStr = json_encode($data, JSON_UNESCAPED_UNICODE);
 		}
-		return $this->loggingClient;
+		$fullMessage = $type . "\n" . $message . "\n" . $dataStr;
+
+		if (self::isRemoteLogActive()) {
+			if ($severity === self::SEVERITY_ERROR) {
+				RemoteLog::error($fullMessage, $eventName);
+			} else {
+				RemoteLog::info($fullMessage, $eventName);
+			}
+		}
 	}
 }

@@ -5,13 +5,12 @@ namespace Airwallex\Gateways;
 use Airwallex\Client\CardClient;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Customer\GenerateClientSecret;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentConsent\Disable as DisablePaymentConsent;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentMethodType as StructPaymentMethodType;
 use Airwallex\PayappsPlugin\CommonLibrary\UseCase\PaymentConsent\All as AllPaymentConsents;
 use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
-use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
 use Airwallex\Services\OrderService;
 use Airwallex\Services\Util;
-use Airwallex\Struct\PaymentIntent;
 use Error;
 use Exception;
 use WC_AJAX;
@@ -22,6 +21,11 @@ use WC_Payment_Token_CC;
 use WC_Payment_Tokens;
 use WC_Subscriptions_Cart;
 use WCS_Payment_Tokens;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Capture as CapturePaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentConsent\Retrieve as RetrievePaymentConsent;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentConsent as StructPaymentConsent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -37,6 +41,8 @@ class Card extends WC_Payment_Gateway {
 	const GATEWAY_ID              = 'airwallex_card';
 	const DESCRIPTION_PLACEHOLDER = '<!-- -->';
 	const TOKEN_META_KEY_CONSENT_DETAIL = 'awx_payment_consent_detail';
+	const CARD_REFERRER_DATA_TYPE = 'woo_commerce_credit_card';
+	const PAYMENT_METHOD_TYPE_NAME = 'card';
 
 	protected static $instance = null;
 
@@ -117,16 +123,32 @@ class Card extends WC_Payment_Gateway {
 		return parent::has_fields();
 	}
 
-
+	public function getCardData() {
+		check_ajax_referer('wc-airwallex-get-card-data', 'security');
+		$logos = $this->getPaymentLogos();
+		$cardLogos = [];
+		foreach ($logos as $key => $logo) {
+			if (substr($key, 0, 5) === "card_") {
+				$cardLogos[$key] = $logo;
+			}
+		}
+		wp_send_json([
+			'success' => true,
+			'data' => [
+				'logos' => $cardLogos ?: ['card' => $this->icon],
+			],
+		]);
+	}
+	
 	public function getCardRedirectData() {
 		check_ajax_referer('wc-airwallex-get-card-redirect-data', 'security');
 
 		$autoCapture = $this->is_capture_immediately();
-		$client = CardClient::getInstance();
 		$order = $this->getOrderFromRequest('Main::getApmRedirectData');
 		$orderId = $order->get_id();
 		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
-		$paymentIntent             = $client->getPaymentIntent( $paymentIntentId );
+		/** @var StructPaymentIntent $paymentIntent */
+		$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
 		$paymentIntentClientSecret = $paymentIntent->getClientSecret();
 		$airwallexCustomerId = $paymentIntent->getCustomerId();
 		$isSubscription = OrderService::getInstance()->containsSubscription( $order->get_id() );
@@ -142,12 +164,11 @@ class Card extends WC_Payment_Gateway {
 			],
 			'autoCapture' => $autoCapture,
         ] + ( $isSubscription ? [
-			'mode'             => 'recurring',
-			'recurringOptions' => [
-				'next_triggered_by'       => 'merchant',
+			'payment_consent' => [
 				'merchant_trigger_reason' => 'scheduled',
-				'currency'                => $order->get_currency(),
+				'next_triggered_by' => 'merchant',
 			],
+			'currency'             => $order->get_currency(),
 		] : [] ) + ( $airwallexCustomerId ? [ 'customer_id' => $airwallexCustomerId ] : [] );
 		$airwallexRedirectElScriptData = [
 			'elementType' => 'fullFeaturedCard',
@@ -212,6 +233,7 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public static function saveAwxPaymentConsentDetail($paymentConsent, $tokenId) {
+		/** @var StructPaymentConsent $paymentConsent */
 		$awxPaymentConsentDetail = [
 			'fingerprint' => $paymentConsent->getPaymentMethod()['card']['fingerprint'] ?? '',
 			'payment_method_id' => $paymentConsent->getPaymentMethod()['id'] ?? '',
@@ -229,7 +251,7 @@ class Card extends WC_Payment_Gateway {
 				throw new Exception( __( 'User must be logged in.', 'airwallex-online-payments-gateway' ) );
 			}
 
-			$airwallexCustomerId = (new OrderService())->getAirwallexCustomerId( get_current_user_id(), CardClient::getInstance() );
+			$airwallexCustomerId = (new OrderService())->getAirwallexCustomerId( get_current_user_id() );
 			$this->syncSaveCards($airwallexCustomerId, get_current_user_id());
 
 			return array(
@@ -237,6 +259,7 @@ class Card extends WC_Payment_Gateway {
 				'redirect' => wc_get_account_endpoint_url( 'payment-methods' ),
 			);
 		} catch ( Exception $e ) {
+			$this->logService->error( __METHOD__, $e->getMessage() );
 			wc_add_notice( sprintf(
 				/* translators: Placeholder 1: Exception message. */
 				__( 'Error saving payment method. Reason: %s', 'airwallex-online-payments-gateway' ),
@@ -273,35 +296,42 @@ class Card extends WC_Payment_Gateway {
 		if ( empty( $tokens ) ) {
 			return [];
 		}
-		$airwallexCustomerIdFromDB = (new OrderService)->getAirwallexCustomerId(get_current_user_id(), CardClient::getInstance());
-		foreach ( $tokens as $index => $token ) {
-			if ( $token->get_gateway_id() !== Card::GATEWAY_ID ) {
-				continue;
-			}
-			$awxPaymentConsentDetail = get_metadata( 'payment_token', $token->get_id(), self::TOKEN_META_KEY_CONSENT_DETAIL, true );
-			if (!empty($awxPaymentConsentDetail) && !empty($awxPaymentConsentDetail[OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID])) {
-				if ($airwallexCustomerIdFromDB !== $awxPaymentConsentDetail[OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID]) {
-					$token->delete();
-					unset( $tokens[ $index ] );
+		try {
+			$airwallexCustomerIdFromDB = OrderService::getInstance()->getAirwallexCustomerId(get_current_user_id());
+			foreach ( $tokens as $index => $token ) {
+				if ( $token->get_gateway_id() !== Card::GATEWAY_ID ) {
+					continue;
 				}
-			} else {
-				try {
-					$paymentConsent = CardClient::getInstance()->getPaymentConsent( $token->get_token() );
-					$airwallexCustomerId = $paymentConsent->getCustomerId();
-
-					if ($airwallexCustomerIdFromDB !== $airwallexCustomerId) {
+				$awxPaymentConsentDetail = get_metadata( 'payment_token', $token->get_id(), self::TOKEN_META_KEY_CONSENT_DETAIL, true );
+				if (!empty($awxPaymentConsentDetail) && !empty($awxPaymentConsentDetail[OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID])) {
+					if ($airwallexCustomerIdFromDB !== $awxPaymentConsentDetail[OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID]) {
 						$token->delete();
 						unset( $tokens[ $index ] );
-					} else {
-						self::saveAwxPaymentConsentDetail($paymentConsent, $token->get_id());
 					}
-				} catch ( Exception $e ) {
-					LogService::getInstance()->error( 'filter tokens error: ' . $e->getMessage() );
-				} catch ( Error $e) {
-					LogService::getInstance()->error( 'filter tokens error: ' . $e->getMessage() );
+				} else {
+					try {
+						/** @var StructPaymentConsent $paymentConsent */
+						$paymentConsent = (new RetrievePaymentConsent())->setPaymentConsentId($token->get_token())->send();
+						
+						$airwallexCustomerId = $paymentConsent->getCustomerId();
+
+						if ($airwallexCustomerIdFromDB !== $airwallexCustomerId) {
+							$token->delete();
+							unset( $tokens[ $index ] );
+						} else {
+							self::saveAwxPaymentConsentDetail($paymentConsent, $token->get_id());
+						}
+					} catch ( Exception $e ) {
+						LogService::getInstance()->error( 'filter tokens error: ' . $e->getMessage() );
+					} catch ( Error $e) {
+						LogService::getInstance()->error( 'filter tokens error: ' . $e->getMessage() );
+					}
 				}
 			}
+		} catch (Exception $e) {
+			LogService::getInstance()->error( $e->getMessage() , __METHOD__);
 		}
+
 		return $tokens;
 	}
 
@@ -337,7 +367,11 @@ class Card extends WC_Payment_Gateway {
 			return;
 		}
 
-		(new DisablePaymentConsent())->setPaymentConsentId($token->get_token())->send();
+		try {
+			(new DisablePaymentConsent())->setPaymentConsentId($token->get_token())->send();
+		} catch ( Exception $e ) {
+			LogService::getInstance()->error( $e->getMessage() , __METHOD__);
+		}
 	}
 
 	public function getCustomerClientSecret() {
@@ -352,8 +386,7 @@ class Card extends WC_Payment_Gateway {
 			return;
 		}
 		$orderService = new OrderService();
-		$apiClient = CardClient::getInstance();
-		$customerId = $orderService->getAirwallexCustomerId($id, $apiClient);
+		$customerId = $orderService->getAirwallexCustomerId($id);
 		$secretObj = (new GenerateClientSecret())
 			->setCustomerId($customerId)
 			->send();
@@ -386,7 +419,6 @@ class Card extends WC_Payment_Gateway {
 			'getTokensAjaxUrl' => WC_AJAX::get_endpoint('airwallex_get_tokens'),
 			'isLoggedIn' => is_user_logged_in(),
 			'isAccountPage' => is_account_page(),
-			'cardLogos' => $this->getCardLogos(),
 			'errorMessage' => __( 'An error has occurred. Please check your payment details (%s)', 'airwallex-online-payments-gateway' ),
 			'incompleteMessage' => __( 'Your credit card details are incomplete', 'airwallex-online-payments-gateway' ),
 			'resourceAlreadyExistsMessage' => __( 'This payment method has already been saved. Please use a different payment method.', 'airwallex-online-payments-gateway' ),
@@ -394,8 +426,9 @@ class Card extends WC_Payment_Gateway {
 			'CVCIsNotCompletedMessage' => __( 'CVC is not completed.', 'airwallex-online-payments-gateway' ),
 			'isSkipCVCEnabled' => $this->is_skip_cvc_enabled(),
 			'isSaveCardEnabled' => $this->is_save_card_enabled(),
-			'isContainSubscription' => $this->isContainSubscription(),
+			'containsSubscription' => $this->containsSubscription(),
 			'currency' => $currency,
+			'isOrderStatusFailedAfterDecline' => get_option( 'airwallex_temporary_order_status_after_decline' ) === 'failed',
 		];
 		wp_add_inline_script( 'airwallex-card-js', 'var awxEmbeddedCardData=' . wp_json_encode($cardScriptData), 'before' );
 	}
@@ -407,31 +440,7 @@ class Card extends WC_Payment_Gateway {
 	public function enqueueAdminScripts() {
 	}
 
-	public function getCardLogos() {
-		$cacheService = new CacheService( Util::getApiKey() );
-		$logos        = $cacheService->get( 'cardLogos' );
-		if ( empty( $logos ) ) {
-			$paymentMethodTypes = $this->getPaymentMethodTypes();
-			if ( $paymentMethodTypes ) {
-				$logos = array();
-				foreach ( $paymentMethodTypes as $paymentMethodType ) {
-					if ( 'card' === $paymentMethodType['name'] && empty( $logos ) ) {
-						foreach ( $paymentMethodType['card_schemes'] as $cardType ) {
-							if ( isset( $cardType['resources']['logos']['svg'] ) ) {
-								$logos[ 'card_' . $cardType['name'] ] = $cardType['resources']['logos']['svg'];
-							}
-						}
-					}
-				}
-				$logos = $this->sort_icons( $logos );
-				$cacheService->set( 'cardLogos', $logos, 86400 );
-			}
-		}
-		$logos['card_amex'] = AIRWALLEX_PLUGIN_URL . '/assets/images/amex_small.svg';
-		return empty( $logos ) ? [] : array_reverse( $logos );
-	}
-
-	public function isContainSubscription() {
+	public function containsSubscription() {
 		if (class_exists('WC_Subscriptions_Cart')) {
 			return WC_Subscriptions_Cart::cart_contains_subscription();
 		}
@@ -439,17 +448,11 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function get_icon() {
-		$return = '';
-		$logos  = $this->getCardLogos();
-		if ( $logos ) {
-			foreach ( $logos as $logo ) {
-				$return .= '<img src="' . WC_HTTPS::force_https_url( $logo ) . '" class="airwallex-card-icon" alt="' . esc_attr( $this->get_title() ) . '" />';
-			}
-			apply_filters( 'woocommerce_gateway_icon', $return, $this->id ); // phpcs:ignore
-			return $return;
-		} else {
-			return parent::get_icon();
-		}
+		return apply_filters( 'woocommerce_gateway_icon', '<div id="awx-card-logos-classic"></div>', $this->id );
+	}
+
+	public function containsAutoshipSubscription() {
+		return function_exists('autoship_cart_has_valid_autoship_items') && autoship_cart_has_valid_autoship_items();
 	}
 
 	public function payment_fields() {
@@ -475,7 +478,7 @@ class Card extends WC_Payment_Gateway {
 
 		$isLoggedIn = is_user_logged_in();
 		$isChangePaymentMethod = is_checkout_pay_page() && isset( $_REQUEST['change_payment_method'] );
-		$isContainSubscription = $this->isContainSubscription() || $isChangePaymentMethod;
+		$containsSubscription = $this->containsSubscription() || $isChangePaymentMethod;
 		$isSaveCardEnabled = $this->is_save_card_enabled();
 		$saveCardsHtml = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? '<div class="save-cards"></div>' : '';
 		$newCardRadioHtml = $isLoggedIn && $isSaveCardEnabled ? sprintf(
@@ -487,7 +490,11 @@ class Card extends WC_Payment_Gateway {
 			$useNewCardMessage
 		) : '';
 
-		$isAllowToSave = $isLoggedIn && $isSaveCardEnabled && ! $isContainSubscription;
+		$isAllowToSave = $isLoggedIn && $isSaveCardEnabled && ! $containsSubscription;
+
+		if ($this->containsAutoshipSubscription()) {
+			$isAllowToSave = true;
+		}
 
 		$saveCheckboxHtml = ($isAllowToSave && ! is_account_page()) ? sprintf(
 			/* translators: Placeholder 1: Save payment message. */
@@ -631,7 +638,6 @@ class Card extends WC_Payment_Gateway {
 				return $this->change_subscription_payment_method( $order );
 			}
 
-			$apiClient = CardClient::getInstance();
 			$orderService        = new OrderService();
 			$airwallexCustomerId = null;
 			$containsSubscription = $orderService->containsSubscription( $order->get_id() );
@@ -645,7 +651,8 @@ class Card extends WC_Payment_Gateway {
 				}
 				$paymentConsentDetail = get_metadata('payment_token', $token->get_id(), self::TOKEN_META_KEY_CONSENT_DETAIL, true);
 				if (empty($paymentConsentDetail)) {
-					$paymentConsent = $apiClient->getPaymentConsent( $token->get_token() );
+					/** @var StructPaymentConsent $paymentConsent */
+					$paymentConsent = (new RetrievePaymentConsent())->setPaymentConsentId($token->get_token() )->send();
 					self::saveAwxPaymentConsentDetail($paymentConsent, $token->get_id());
 					$paymentMethodId = $paymentConsent->getPaymentMethod()['id'];
 					$airwallexCustomerId = $paymentConsent->getCustomerId();
@@ -653,12 +660,13 @@ class Card extends WC_Payment_Gateway {
 					$paymentMethodId = $paymentConsentDetail['payment_method_id'] ?? '';
 					$airwallexCustomerId = $paymentConsentDetail[OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID] ?? '';
 				}
-			} else if ( $containsSubscription || is_user_logged_in() ) {
-				$airwallexCustomerId = $orderService->getAirwallexCustomerId( get_current_user_id(), $apiClient );
+			} else if ( $containsSubscription || is_user_logged_in() || $this->containsAutoshipSubscription() ) {
+				$airwallexCustomerId = $orderService->getAirwallexCustomerId( get_current_user_id() );
 			}
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
-			$paymentIntent = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, 'woo_commerce_credit_card' );
-			if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+			$paymentIntent = CardClient::getInstance()->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, self::PAYMENT_METHOD_TYPE_NAME );
+			/** @var StructPaymentIntent $paymentIntent */
+			if ( $paymentIntent->isAuthorized() || $paymentIntent->isCaptured() ) {
 				return [
 					'result' => 'success',
 					'redirect' => $order->get_checkout_order_received_url(),
@@ -668,10 +676,6 @@ class Card extends WC_Payment_Gateway {
 				__METHOD__ . ' - payment intent created ',
 				array(
 					'paymentIntent' => $paymentIntent->getId(),
-					'session'  => array(
-						'cookie' => WC()->session->get_session_cookie(),
-						'data'   => WC()->session->get_session_data(),
-					),
 				),
 				LogService::CARD_ELEMENT_TYPE
 			);
@@ -706,7 +710,7 @@ class Card extends WC_Payment_Gateway {
 
 			return $result;
 		} catch ( Exception $e ) {
-			$this->logService->error( __METHOD__ . ' - card payment create intent failed.', $e->getMessage() . ': ' . json_encode($e->getTrace()), LogService::CARD_ELEMENT_TYPE );
+			$this->logService->error( __METHOD__ . ' - card payment create intent failed.', $e->getMessage(), LogService::CARD_ELEMENT_TYPE );
 			$errorJson = json_decode($e->getMessage(), true);
 			if (json_last_error() === JSON_ERROR_NONE && !empty($errorJson['data']['message'])) {
 				throw new Exception(esc_html__($errorJson['data']['message'], 'airwallex-online-payments-gateway'));
@@ -723,22 +727,23 @@ class Card extends WC_Payment_Gateway {
 	 * @throws Exception
 	 */
 	public function capture( WC_Order $order, $amount = null ) {
-		$apiClient       = CardClient::getInstance();
 		$paymentIntentId = $order->get_transaction_id();
 		if ( empty( $paymentIntentId ) ) {
 			throw new Exception( 'No Airwallex payment intent found for this order: ' . esc_html( $order->get_id() ) );
 		}
 		try {
-			$paymentIntent = $apiClient->getPaymentIntent( $paymentIntentId );
+			/** @var StructPaymentIntent $paymentIntent */
+			$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
 			if ( empty( $amount ) ) {
 				$amount = $paymentIntent->getAmount();
 			}
-			$paymentIntentAfterCapture = $apiClient->capture( $paymentIntentId, $amount );
-			if ( $paymentIntentAfterCapture->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
-				$this->logService->debug( 'capture successful', $paymentIntentAfterCapture->toArray() );
+			/** @var StructPaymentIntent $paymentIntentAfterCapture */
+			$paymentIntentAfterCapture = (new CapturePaymentIntent())->setPaymentIntentId($paymentIntentId)->setAmount($amount)->send();
+			if ( $paymentIntentAfterCapture->isCaptured() ) {
+				$this->logService->debug( 'capture successful: ' . $paymentIntentId );
 				$order->add_order_note( 'Airwallex payment capture success' );
 			} else {
-				$this->logService->error( 'capture failed', $paymentIntentAfterCapture->toArray() );
+				$this->logService->error( 'capture failed: ' . $paymentIntentId );
 				$order->add_order_note( 'Airwallex payment failed capture' );
 			}
 		} catch ( Exception $e ) {
@@ -749,14 +754,10 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function is_captured( $order ) {
-		$apiClient       = CardClient::getInstance();
 		$paymentIntentId = $order->get_transaction_id();
-		$paymentIntent   = $apiClient->getPaymentIntent( $paymentIntentId );
-		if ( $paymentIntent->getStatus() === PaymentIntent::STATUS_SUCCEEDED ) {
-			return true;
-		} else {
-			return false;
-		}
+		/** @var StructPaymentIntent $paymentIntent */
+		$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
+		return $paymentIntent->isCaptured();
 	}
 
 	/**
@@ -787,7 +788,7 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function output( $attrs ) {
-		if ( is_admin() || empty( WC()->session ) ) {
+		if ( is_admin() || empty( WC()->session ) || empty($_GET['order_id']) ) {
 			$this->logService->debug( 'Update card payment shortcode.', array(), LogService::CARD_ELEMENT_TYPE );
 			return;
 		}
@@ -805,8 +806,8 @@ class Card extends WC_Payment_Gateway {
 			$order = $this->getOrderFromRequest('Card::output');
 			$orderId = $order->get_id();
 			$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
-			$apiClient                 = CardClient::getInstance();
-			$paymentIntent             = $apiClient->getPaymentIntent( $paymentIntentId );
+			/** @var StructPaymentIntent $paymentIntent */
+			$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
 			$paymentIntentClientSecret = $paymentIntent->getClientSecret();
 			$airwallexCustomerId       = $paymentIntent->getCustomerId();
 			$confirmationUrl           = $this->get_payment_confirmation_url($orderId, $paymentIntentId);
@@ -867,11 +868,22 @@ class Card extends WC_Payment_Gateway {
 			return;
 		}
 
-		wp_send_json([
-			'success' => true,
-			'tokens' => $this->savedTokens(),
-			'customer_id' => (new OrderService)->getAirwallexCustomerId($id, CardClient::getInstance()),
-		]);
+		try {
+			$customerId = OrderService::getInstance()->getAirwallexCustomerId($id);
+			wp_send_json([
+				'success' => true,
+				'tokens' => $this->savedTokens(),
+				'customer_id' => $customerId,
+			]);
+		} catch (Exception $e) {
+			LogService::getInstance()->error( 'getAirwallexCustomerId error: ' . $e->getMessage() , __METHOD__);
+			wp_send_json([
+				'success' => false,
+				'error' => [
+					'message' => __($e->getMessage(), 'airwallex-online-payments-gateway'),
+				],
+			]);
+		}
 	}
 
 	public function savedTokens()

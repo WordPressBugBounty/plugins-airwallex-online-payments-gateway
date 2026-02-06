@@ -2,16 +2,17 @@
 
 namespace Airwallex\Gateways;
 
-use Airwallex\Client\AbstractClient;
-use Airwallex\Client\MainClient;
+use Airwallex\Client\CardClient;
 use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
-use Airwallex\Services\CacheService;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentMethodType;
 use Airwallex\Services\LogService;
 use Exception;
 use WC_Payment_Gateway;
 use Airwallex\Services\OrderService;
 use Airwallex\Services\Util;
-use Airwallex\Struct\PaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
+use WC_AJAX;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -55,13 +56,7 @@ class Main extends WC_Payment_Gateway {
 		$this->max_number_of_logos = apply_filters( 'airwallex_max_number_of_logos', $this->max_number_of_logos ); // phpcs:ignore
 		$this->plugin_id           = AIRWALLEX_PLUGIN_NAME;
 		$this->init_settings();
-		$this->description = $this->get_option( 'description' );
-		$logos             = $this->getActivePaymentLogosArray();
-		if ( $logos && count( $logos ) > $this->max_number_of_logos ) {
-			$logoHtml          = '<div class="airwallex-logo-list">' . implode( '', $logos ) . '</div>';
-			$logoHtml          = apply_filters( 'airwallex_description_logo_html', $logoHtml, $logos ); // phpcs:ignore
-			$this->description = $logoHtml . $this->description;
-		}
+		$this->description = '<div id="awx-apm-logos-in-content"></div>' . $this->get_option( 'description' );
 		if ( Util::getClientId() && Util::getApiKey() ) {
 			$this->form_fields = $this->get_form_fields();
 		}
@@ -73,6 +68,7 @@ class Main extends WC_Payment_Gateway {
 
 	public function registerHooks() {
 		add_filter( 'wc_airwallex_settings_nav_tabs', array( $this, 'adminNavTab' ), 15 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueueScriptsForApm' ) );
 		add_action( 'woocommerce_airwallex_settings_checkout_' . $this->id, array( $this, 'enqueueAdminScripts' ) );
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		if ( class_exists( 'WC_Subscriptions_Order' ) ) {
@@ -85,17 +81,38 @@ class Main extends WC_Payment_Gateway {
 		wp_enqueue_script('airwallex-redirect-js');
 	}
 
-	public function enqueueAdminScripts() {
+	public function enqueueScriptsForApm() {
+		wp_enqueue_script('airwallex-apm-js');
 	}
 
-    public function getApmRedirectData() {
+	public function enqueueAdminScripts() {
+		$this->enqueueAdminSettingsScripts();
+		wp_add_inline_script(
+			'airwallex-admin-settings',
+			'var awxAdminApmSettings = ' . wp_json_encode($this->getSettingsScriptData()),
+			'before'
+		);
+	}
+
+	public function getSettingsScriptData() {
+		return [
+			'nonce' => [
+				'getApmData' => wp_create_nonce('wc-airwallex-get-apm-data'),
+			],
+			'ajaxUrl' => [
+				'getApmData' => WC_AJAX::get_endpoint('airwallex_get_apm_data'),
+			],
+		];
+	}
+
+	public function getApmRedirectData() {
 		check_ajax_referer('wc-airwallex-get-apm-redirect-data', 'security');
 
-		$client = MainClient::getInstance();
 		$order = $this->getOrderFromRequest('Main::getApmRedirectData');
 		$orderId = $order->get_id();
 		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
-		$paymentIntent			 = $client->getPaymentIntent( $paymentIntentId );
+		/** @var StructPaymentIntent $paymentIntent */
+		$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
 		$paymentIntentClientSecret = $paymentIntent->getClientSecret();
 		$airwallexCustomerId = $paymentIntent->getCustomerId();
 		$isSubscription = OrderService::getInstance()->containsSubscription( $order->get_id() );
@@ -149,14 +166,10 @@ class Main extends WC_Payment_Gateway {
 			'customer_id' => $airwallexCustomerId
 		) : array())
 		+ ($isSubscription ? array(
-			'mode' => 'recurring',
-			'recurringOptions' => array(
-				'card' => array(
-					'next_triggered_by' => 'merchant',
-					'merchant_trigger_reason' => 'scheduled',
-					'currency' => $order->get_currency(),
-				),
-			),
+			'payment_consent' => [
+				'merchant_trigger_reason' => 'scheduled',
+				'next_triggered_by' => 'merchant',
+			]
 		) : array())
 		+ (!empty($airwallexMethods) && is_array($airwallexMethods) ? array(
 			'methods' => $airwallexMethods,
@@ -178,13 +191,22 @@ class Main extends WC_Payment_Gateway {
 	}
 
 	public function get_icon() {
-		$logos = $this->getActivePaymentLogosArray();
-		if ( $logos && count( $logos ) <= $this->max_number_of_logos ) {
-			$return = implode( '', $logos );
-			return apply_filters( 'woocommerce_gateway_icon', $return, $this->id ); // phpcs:ignore
-		} else {
-			return parent::get_icon();
-		}
+		return apply_filters( 'woocommerce_gateway_icon', '<div id="awx-apm-logos-classic"></div>', $this->id );
+	}
+
+	public function getApmData() {
+		check_ajax_referer('wc-airwallex-get-apm-data', 'security');
+		wp_send_json([
+			'success' => true,
+			'data' => [
+				'active_logos' => $this->getActivePaymentLogosArray(),
+				'active_names' => $this->get_option('methods', []),
+				'max_number_of_logos' => $this->max_number_of_logos,
+				'all_logos' => $this->getPaymentLogos(),
+				'all_names' => $this->getPaymentMethods(),
+				'active_tip' => __("There are additional steps to set up this payment method. Please refer to the installation guide for more details.", "airwallex-online-payments-gateway")
+			],
+		]);
 	}
 
 	public function getActivePaymentLogosArray() {
@@ -194,72 +216,27 @@ class Main extends WC_Payment_Gateway {
 			$chosenLogos = (array) $this->get_option( 'icons' );
 			foreach ( $logos as $logoKey => $logoValue ) {
 				if ( in_array( $logoKey, $chosenLogos, true ) ) {
-					$returnArray[] = '<img src="' . esc_url( $logoValue ) . '" class="airwallex-card-icon" alt="' . esc_attr( $this->get_title() ) . '" />';
+					$returnArray[$logoKey] = $logoValue;
 				}
 			}
 		}
 		return $returnArray;
 	}
 
-	public function getPaymentLogos() {
-		try {
-			$cacheService = new CacheService( Util::getApiKey() );
-			$logos        = $cacheService->get( 'paymentLogos' );
-			if ( empty( $logos ) ) {
-				$paymentMethodTypes = $this->getPaymentMethodTypes();
-				if ( $paymentMethodTypes ) {
-					$logos = array();
-					foreach ( $paymentMethodTypes as $paymentMethodType ) {
-						if ( 'card' === $paymentMethodType['name'] ) {
-							$prefix     = $paymentMethodType['name'] . '_';
-							$subMethods = $paymentMethodType['card_schemes'];
-						} else {
-							$prefix     = '';
-							$subMethods = array( $paymentMethodType );
-						}
-						foreach ( $subMethods as $subMethod ) {
-							if ( isset( $subMethod['resources']['logos']['svg'] ) ) {
-								$logos[ $prefix . $subMethod['name'] ] = $subMethod['resources']['logos']['svg'];
-							}
-						}
-					}
-					$logos = $this->sort_icons( $logos );
-					$cacheService->set( 'paymentLogos', $logos, 86400 );
-				}
-			}
-		} catch ( \Exception $e ) {
-			$this->logService->debug( 'unable to get payment logos', array( 'exception' => $e->getMessage() ) );
-			$logos = array();
-		}
-		return $logos;
-	}
-
 	public function getPaymentMethods() {
-		try {
-			$cacheService = new CacheService( Util::getApiKey() );
-			$methods      = $cacheService->get( 'paymentMethods' );
-			if ( empty( $methods ) ) {
-				$paymentMethodTypes = $this->getPaymentMethodTypes();
-				if ( $paymentMethodTypes ) {
-					foreach ( $paymentMethodTypes as $paymentMethodType ) {
-						if ( empty( $paymentMethodType['name'] ) || empty( $paymentMethodType['display_name'] ) ) {
-							continue;
-						}
-						$methods[ $paymentMethodType['name'] ] = $paymentMethodType['display_name'];
-					}
-					$cacheService->set( 'paymentMethods', $methods, 14400 );
-				}
+		$methods = [];
+		$paymentMethodTypes = $this->getActivePaymentMethodTypeItems();
+		/** @var PaymentMethodType $paymentMethodType */
+		foreach ( $paymentMethodTypes as $paymentMethodType ) {
+			if ( empty( $paymentMethodType->getName() ) || empty( $paymentMethodType->getDisplayName() ) ) {
+				continue;
 			}
-		} catch ( \Exception $e ) {
-			$this->logService->debug( 'unable to get payment methods', array( 'exception' => $e->getMessage() ) );
-			$methods = array();
+			$methods[ $paymentMethodType->getName() ] = $paymentMethodType->getDisplayName();
 		}
 		return $methods;
 	}
 
-
 	public function get_form_fields() {
-		$logos = $this->getPaymentLogos();
 		return apply_filters( // phpcs:ignore
 			'wc_airwallex_settings', // phpcs:ignore
 			array(
@@ -289,7 +266,7 @@ class Main extends WC_Payment_Gateway {
 					'label'    => '',
 					'type'     => 'logos',
 					'desc_tip' => __( 'Choose which payment method logos to display before your payer proceeds to checkout.', 'airwallex-online-payments-gateway' ),
-					'options'  => $logos,
+					'options'  => '',
 					'default'  => '',
 				),
 				'methods'     => array(
@@ -304,7 +281,7 @@ class Main extends WC_Payment_Gateway {
 						),
 						'https://www.airwallex.com/docs/online-payments__overview'
 					),
-					'options'     => $this->getPaymentMethods(),
+					'options'     => '',
 					'default'     => '',
 				),
 				'template'    => array(
@@ -341,17 +318,17 @@ class Main extends WC_Payment_Gateway {
 				throw new Exception( 'Order not found: ' . $order_id );
 			}
 
-			$apiClient           = MainClient::getInstance();
 			$airwallexCustomerId = null;
 			$orderService        = new OrderService();
 			$isSubscription      = $orderService->containsSubscription( $order->get_id() );
 			if ( $order->get_customer_id( '' ) || $isSubscription ) {
-				$airwallexCustomerId = $orderService->getAirwallexCustomerId( get_current_user_id(), $apiClient );
+				$airwallexCustomerId = $orderService->getAirwallexCustomerId( get_current_user_id() );
 			}
 
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
-			$paymentIntent             = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, 'woo_commerce_apm' );
-			if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+			$paymentIntent             = CardClient::getInstance()->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, 'apm' );
+			/** @var StructPaymentIntent $paymentIntent */
+			if ( $paymentIntent->isAuthorized() || $paymentIntent->isCaptured() ) {
 				return [
 					'result' => 'success',
 					'redirect' => $order->get_checkout_order_received_url(),
@@ -361,10 +338,6 @@ class Main extends WC_Payment_Gateway {
 				__METHOD__ . ' - payment intent created ',
 				array(
 					'paymentIntent' => $paymentIntent->getId(),
-					'session'  => array(
-						'cookie' => WC()->session->get_session_cookie(),
-						'data'   => WC()->session->get_session_data(),
-					),
 				)
 			);
 
@@ -480,41 +453,7 @@ class Main extends WC_Payment_Gateway {
 		$data  = wp_parse_args( $data, $defaults );
 		$value = (array) $this->get_option( $key, array() );
 		ob_start();
-		?>
-		<tr valign="top">
-			<th scope="row" class="titledesc">
-				<label for="<?php echo esc_attr( $field_key ); ?>">
-					<?php echo wp_kses_post( $data['title'] ); ?>
-					<?php echo wp_kses_post( $this->get_tooltip_html( $data ) ); ?>
-				</label>
-			</th>
-			<td class="forminp">
-				<fieldset>
-					<div style="display: flex; flex-wrap: wrap; max-width:430px;">
-						<?php foreach ( (array) $data['options'] as $option_key => $option_value ) : ?>
-							<div style="width:60px; margin-right:10px; text-align:center;">
-								<label>
-									<div>
-										<img style="max-width:100%;" src="<?php echo esc_url( $option_value ); ?>"/>
-									</div>
-									<input
-											type="checkbox"
-											name="<?php echo esc_attr( $field_key ); ?>[]"
-											value="<?php echo esc_attr( $option_key ); ?>"
-										<?php checked( in_array( (string) $option_key, $value, true ), true ); ?>
-									/>
-								</label>
-							</div>
-						<?php endforeach; ?>
-					</div>
-					<?php
-					echo wp_kses_post( $this->get_description_html( $data ) );
-					?>
-				</fieldset>
-			</td>
-		</tr>
-		<?php
-
+		include AIRWALLEX_PLUGIN_PATH . 'html/admin/apm-logos.php';
 		return ob_get_clean();
 	}
 
@@ -540,55 +479,12 @@ class Main extends WC_Payment_Gateway {
 		$data  = wp_parse_args( $data, $defaults );
 		$value = (array) $this->get_option( $key, array() );
 		ob_start();
-		?>
-		<tr valign="top">
-			<th scope="row" class="titledesc">
-				<label for="<?php echo esc_attr( $field_key ); ?>">
-					<?php echo wp_kses_post( $data['title'] ); ?>
-					<?php echo wp_kses_post( $this->get_tooltip_html( $data ) ); ?>
-				</label>
-			</th>
-			<td class="forminp">
-				<?php
-				echo wp_kses_post( $this->get_description_html( $data ) );
-				?>
-				<fieldset>
-					<div>
-						<?php
-						foreach ( (array) $data['options'] as $option_key => $option_value ) {
-							$toolTip = ( in_array( $option_key, array( 'applepay', 'googlepay' ), true ) ) ? __( 'There are additional steps to set up this payment method. Please refer to the installation guide for more details.', 'airwallex-online-payments-gateway' ) : null;
-							?>
-							<div>
-								<label>
-									<input
-											type="checkbox"
-											name="<?php echo esc_attr( $field_key ); ?>[]"
-											value="<?php echo esc_attr( $option_key ); ?>"
-										<?php checked( in_array( (string) $option_key, $value, true ), true ); ?>
-									/>
-									<?php
-									echo esc_html( $option_value );
-									if ( $toolTip ) {
-										echo wp_kses_post( wc_help_tip( $toolTip ) );
-									}
-									?>
-								</label>
-							</div>
-							<?php
-						}
-						?>
-					</div>
-
-				</fieldset>
-			</td>
-		</tr>
-		<?php
-
+		include AIRWALLEX_PLUGIN_PATH . 'html/admin/apm-names.php';
 		return ob_get_clean();
 	}
 
 	public function output( $attrs ) {
-		if ( is_admin() || empty( WC()->session ) ) {
+		if ( is_admin() || empty( WC()->session ) || empty($_GET['order_id']) ) {
 			$this->logService->debug( 'Update all payment methods shortcode.', array(), LogService::DROP_IN_ELEMENT_TYPE );
 			return;
 		}
@@ -607,8 +503,8 @@ class Main extends WC_Payment_Gateway {
 			$orderId = $order->get_id();
 
 			$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
-			$apiClient           = MainClient::getInstance();
-			$paymentIntent             = $apiClient->getPaymentIntent( $paymentIntentId );
+			/** @var StructPaymentIntent $paymentIntent */
+			$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
 			$paymentIntentClientSecret = $paymentIntent->getClientSecret();
 			$airwallexCustomerId       = $paymentIntent->getCustomerId();
 			$confirmationUrl           = $this->get_payment_confirmation_url($orderId, $paymentIntentId);

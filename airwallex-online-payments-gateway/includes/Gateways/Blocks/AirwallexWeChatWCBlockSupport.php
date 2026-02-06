@@ -28,7 +28,7 @@ class AirwallexWeChatWCBlockSupport extends AirwallexWCBlockSupport {
 		$data = array(
 			'enabled'     => $this->is_active(),
 			'name'        => $this->name,
-			'title'       => $this->settings['title'],
+			'title'       => $this->settings['title'] ?? '',
 			'description' => $this->settings['description'],
 			'supports'    => $this->get_supported_features(),
 		);

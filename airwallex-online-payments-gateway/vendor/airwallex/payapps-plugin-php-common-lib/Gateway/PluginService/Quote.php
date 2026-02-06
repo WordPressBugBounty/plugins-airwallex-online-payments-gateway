@@ -63,6 +63,6 @@ class Quote extends AbstractApi
      */
     protected function parseResponse($response): StructQuote
     {
-        return new StructQuote(json_decode($response->getBody(), true));
+        return new StructQuote(json_decode((string)$response->getBody(), true));
     }
 }

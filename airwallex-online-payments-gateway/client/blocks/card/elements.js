@@ -10,6 +10,7 @@ import {
 } from 'airwallex-payment-elements';
 import { __ } from '@wordpress/i18n';
 import { getCardHolderName, getBillingInformation } from '../utils';
+import { updateOrderStatusAfterPaymentDecline } from '../api';
 
 const confirmPayment      = ({
 	settings,
@@ -51,13 +52,16 @@ const confirmPayment      = ({
 		}
 		request = cvcElementRef.current.confirm(confirmData);
 	} else if (paymentDetails.createConsent) {
-		request = createAirwallexPaymentConsent({
+		request = confirmAirwallexPaymentIntent({
 			intent_id: paymentDetails.paymentIntent,
 			customer_id: paymentDetails.customerId,
 			client_secret: paymentDetails.clientSecret,
 			currency: paymentDetails.currency,
 			element: card,
-			next_triggered_by: 'merchant',
+			payment_consent: {
+				merchant_trigger_reason: 'scheduled',
+				next_triggered_by: 'merchant',
+			},
 			billing: getBillingInformation(billingData),
 		});
 	} else if (airwallexSaveChecked) {
@@ -90,6 +94,7 @@ const confirmPayment      = ({
 		paymentResponse.code           = error.code;
 		paymentResponse.message        = error.message ?? JSON.stringify(error);
 		paymentResponse.messageContext = errorContext;
+		paymentResponse.orderId = paymentDetails.orderId;
 		return paymentResponse;
 	});
 }
@@ -253,6 +258,17 @@ export const InlineCard                             = ({
 			if (response.type === emitResponse.responseTypes.SUCCESS || (response.type === emitResponse.responseTypes.ERROR && response.code === 'invalid_status_for_operation')) {
 				location.href = response.confirmUrl;
 			} else {
+				try {
+					let updateOrderStatusResponse = await updateOrderStatusAfterPaymentDecline(response.orderId);
+					let errMessage = updateOrderStatusResponse?.success === false ? updateOrderStatusResponse?.message : response.message;
+					response.message = errMessage
+				} catch (e) {
+					let errMessage = e.responseText;
+					if (e.responseJSON && e.responseJSON.message) {
+						errMessage = e.responseJSON.message;
+					}
+					response.message = errMessage
+				}
 				setIsSubmitting(false);
 				return response;
 			}
@@ -367,10 +383,20 @@ export const AirwallexSaveCard = (props) => {
 				errorType: emitResponse.responseTypes.ERROR,
 				errorContext: emitResponse.noticeContexts.PAYMENTS,
 			});
-			if (response.type === emitResponse.responseTypes.SUCCESS || 
-				(response.type === emitResponse.responseTypes.ERROR && response.code === 'invalid_status_for_operation')) {
+			if (response.type === emitResponse.responseTypes.SUCCESS || (response.type === emitResponse.responseTypes.ERROR && response.code === 'invalid_status_for_operation')) {
 				location.href = response.confirmUrl + "&token_id=" + parseInt(token);
 			} else {
+				try {
+					let updateOrderStatusResponse = await updateOrderStatusAfterPaymentDecline(response.orderId);
+					let errMessage = updateOrderStatusResponse?.success === false ? updateOrderStatusResponse?.message : response.message;
+					response.message = errMessage
+				} catch (e) {
+					let errMessage = e.responseText;
+					if (e.responseJSON && e.responseJSON.message) {
+						errMessage = e.responseJSON.message;
+					}
+					response.message = errMessage
+				}
 				return response;
 			}
 		};

@@ -4,6 +4,7 @@ namespace Airwallex\Gateways;
 
 use Airwallex\PayappsPlugin\CommonLibrary\Configuration\PaymentMethodType\Afterpay as AfterpayConfiguration;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Account as MerchantAccount;
+use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
 use Error;
 use Exception;
@@ -15,6 +16,7 @@ class Afterpay extends AirwallexGatewayLocalPaymentMethod {
 
     const GATEWAY_ID = 'afterpay';
     const ROUTE_SLUG = 'airwallex_afterpay';
+    const PAYMENT_METHOD_TYPE_NAME = 'afterpay';
 
     public function __construct() {
         $this->id = 'airwallex_' . self::GATEWAY_ID;
@@ -36,7 +38,7 @@ class Afterpay extends AirwallexGatewayLocalPaymentMethod {
 				'enabled'     => array(
 					'title'       => __( 'Enable/Disable', 'airwallex-online-payments-gateway' ),
 					'label'       => __( 'Enable Airwallex Afterpay', 'airwallex-online-payments-gateway' ),
-					'type'        => 'checkbox',
+					'type'        => 'check_is_enabled',
 					'description' => '',
 					'default'     => 'no',
 				),
@@ -59,15 +61,22 @@ class Afterpay extends AirwallexGatewayLocalPaymentMethod {
 	}
 
     public function getOwningEntity() {
-        try {
-            $account = (new MerchantAccount())->send();
-            return $account->getOwningEntity();
-        } catch ( Error $e) {
-            $this->logService->error( 'Get owning entity failed: ', $e->getMessage() );
-        } catch ( Exception $e) {
-            $this->logService->error( 'Get owning entity failed: ', $e->getMessage() );
+        $cacheName = 'awxOwningEntity';
+        $entity = CacheService::getInstance()->get($cacheName);
+        if (is_null($entity)) {
+            try {
+                $account = (new MerchantAccount())->send();
+                $entity = $account->getOwningEntity();
+            } catch ( Error $e) {
+                $entity = "";
+                $this->logService->error( 'Get owning entity failed: ', $e->getMessage() );
+            } catch ( Exception $e) {
+                $entity = "";
+                $this->logService->error( 'Get owning entity failed: ', $e->getMessage() );
+            }
+            CacheService::getInstance()->set( $cacheName, $entity, empty($entity) ? MINUTE_IN_SECONDS : 24 * HOUR_IN_SECONDS );
         }
-	    return "";
+        return $entity;
     }
 
     public function getLPMMethodScriptData($data) {
@@ -76,8 +85,7 @@ class Afterpay extends AirwallexGatewayLocalPaymentMethod {
             'supportedEntityCurrencies' => AfterpayConfiguration::SUPPORTED_ENTITY_TO_CURRENCIES,
         ];
         $data['paymentMethods'][] = $this->id;
-        $data['paymentMethodNames']['Klarna'] = __("Klarna", 'airwallex-online-payments-gateway');
-		$data['paymentMethodNames']['Afterpay'] = __("Afterpay", 'airwallex-online-payments-gateway');
+        $data['paymentMethodNames']['Afterpay'] = __("Afterpay", 'airwallex-online-payments-gateway');
         $data['owningEntity'] = $this->getOwningEntity();
 
         return $data;

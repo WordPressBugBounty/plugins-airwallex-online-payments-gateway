@@ -42,6 +42,6 @@ class RemoveItems extends AbstractApi
      */
     protected function parseResponse($response): ApplePayDomains
     {
-        return new ApplePayDomains(json_decode($response->getBody(), true));
+        return new ApplePayDomains(json_decode((string)$response->getBody(), true));
     }
 }

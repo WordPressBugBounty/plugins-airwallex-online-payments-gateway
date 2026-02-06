@@ -201,3 +201,15 @@ const getOrderDataForApplePay = (paymentData) => {
 
 	return data;
 }
+
+export const getExpressCheckoutData = () => {
+	return $.ajax({
+		url: awxCommonData.getExpressCheckoutData.url + '&security=' + awxCommonData.getExpressCheckoutData.nonce,
+		method: 'GET',
+		dataType: 'json',
+	}).done(function (response) {
+		return response;
+	}).fail(function (error) {
+		return error;
+	});
+};

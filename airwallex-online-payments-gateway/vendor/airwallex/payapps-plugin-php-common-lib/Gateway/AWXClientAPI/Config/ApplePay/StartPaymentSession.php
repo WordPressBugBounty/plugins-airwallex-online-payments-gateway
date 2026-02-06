@@ -31,6 +31,6 @@ class StartPaymentSession extends AbstractApi
      */
     protected function parseResponse($response): string
     {
-        return $response->getBody();
+        return (string)$response->getBody();
     }
 }

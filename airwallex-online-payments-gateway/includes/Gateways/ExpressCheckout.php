@@ -7,13 +7,15 @@ use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
 use Airwallex\Services\OrderService;
 use Airwallex\Services\LogService;
 use Airwallex\Services\Util;
-use Airwallex\Struct\PaymentIntent;
 use Exception;
 use WC_Payment_Gateway;
 use WC_AJAX;
 use WC_Subscriptions_Product;
 use Airwallex\Controllers\ControllerFactory;
 use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
+use Airwallex\PayappsPlugin\CommonLibrary\UseCase\PaymentMethodType\GetList as GetPaymentMethodTypesList;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentMethodType as StructPaymentMethodType;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
 
 if (!defined('ABSPATH')) {
 	exit;
@@ -33,7 +35,6 @@ class ExpressCheckout extends WC_Payment_Gateway {
 		'large' => '56px',
 	];
 	
-	const ACTIVATE_PAYMENT_METHOD_URL = '/app/acquiring/payment-methods/other-pms';
 	const DOMAIN_REGISTRATION_FILE_URL = AIRWALLEX_PLUGIN_URL . '/apple-developer-merchantid-domain-association';
 	const REGISTER_DOMAIN_URL = '/app/acquiring/settings/apple-pay/add-domain';
 
@@ -296,17 +297,6 @@ class ExpressCheckout extends WC_Payment_Gateway {
 		return ob_get_clean();
 	}
 
-	private function paymentMethodNotEnabledMessage($paymentMethodName) {
-		$activatePaymentMethodUrl = Util::getDomainUrl() . self::ACTIVATE_PAYMENT_METHOD_URL;
-		return sprintf(
-			/* translators: Placeholder 1: Payment method type. Placeholder 2: Activate payment method link. Placeholder 3: Payment method type */
-			__('You have not activated %1$s as a payment method. please go to %2$s to activate %3$s before trying again.', 'airwallex-online-payments-gateway'),
-			$paymentMethodName,
-			'<a target="_blank" href="'. $activatePaymentMethodUrl .'">Airwallex</a>',
-			$paymentMethodName
-		);
-	}
-
 	private function failedToAddDomainFileMessage() {
 		return sprintf(
 			/* translators: Placeholder 1: Domain file download link. Placeholder 2: Close link tag. 3: Registration file host domain */
@@ -391,7 +381,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				'size' => $this->getButtonSize(),
 				'sizeMap' => self::BUTTON_SIZE_MAP,
 				'theme' => $this->getButtonTheme(),
-				'merchantId' => Util::getMerchantInfoFromJwtToken($this->cardClient->getToken()),
+				'merchantId' => Util::getMerchantInfoFromJwtToken(),
 				'apiSettings' => [
 					'nonce' => [
 						'activatePaymentMethod' => wp_create_nonce('wc-airwallex-admin-settings-activate-payment-method'),
@@ -669,11 +659,6 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			return false;
 		}
 
-		// Trial subscriptions are not supported.
-		if ( class_exists( 'WC_Subscriptions_Product' ) && WC_Subscriptions_Product::get_trial_length( $product ) > 0 ) {
-			return false;
-		}
-
 		// Pre Orders charge upon release not supported.
 		if ( $this->isPreOrderProductChargedUponRelease( $product ) ) {
 			return false;
@@ -724,11 +709,6 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			$_product = apply_filters('woocommerce_cart_item_product', $cart_item['data'], $cart_item, $cart_item_key);
 
 			if (!in_array($_product->get_type(), $this->getSupportedProductTypes(), true)) {
-				return false;
-			}
-
-			// Trial subscriptions not supported.
-			if ( class_exists( 'WC_Subscriptions_Product' ) && WC_Subscriptions_Product::is_subscription( $_product ) && WC_Subscriptions_Product::get_trial_length( $_product ) > 0 ) {
 				return false;
 			}
 		}
@@ -831,21 +811,28 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				'oneoff' => [],
 				'recurring' => [],
 			],
-
 		];
 
 		try {
-			$items = $this->cardClient->getActiveCardSchemes($countryCode, $currencyCode);
+			$activePaymentMethodTypeItems = (new GetPaymentMethodTypesList())
+				->setCacheTime(600)
+				->setActive(true)
+				->setIncludeResources(true)
+				->setCountryCode($countryCode)
+				->setTransactionCurrency($currencyCode)
+				->get();
 
-			if (empty($items)) {
+
+			if (empty($activePaymentMethodTypeItems)) {
 				return $schemes;
 			}
 
-			foreach ($items as $method) {
-				if ( 'googlepay' === $method['name'] || 'applepay' === $method['name'] ) {
-					$type = $method['name'];
-					$mode = $method['transaction_mode'];
-					foreach ($method['card_schemes'] as $scheme) {
+			/** @var StructPaymentMethodType $activePaymentMethodTypeItem */
+			foreach ($activePaymentMethodTypeItems as $activePaymentMethodTypeItem) {
+				if ( 'googlepay' === $activePaymentMethodTypeItem->getName() || 'applepay' === $activePaymentMethodTypeItem->getName()) {
+					$type = $activePaymentMethodTypeItem->getName();
+					$mode = $activePaymentMethodTypeItem->getTransactionMode();
+					foreach ($activePaymentMethodTypeItem->getCardSchemes() as $scheme) {
 						$schemes[$type][$mode][] = $scheme['name'];
 					}
 				}
@@ -854,6 +841,16 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			$this->cacheService->set($cacheKey, $schemes, MINUTE_IN_SECONDS);
 		} catch (Exception $e) {
 			LogService::getInstance()->error(__METHOD__ . ' - Failed to get active card schemas.', $e->getMessage());
+		}
+
+		$defaultNetworks = [ 'visa', 'mastercard', 'amex', 'unionpay', 'jcb', 'discover', 'diners', 'maestro' ];
+
+		foreach ( [ 'googlepay', 'applepay' ] as $type ) {
+			foreach ( [ 'oneoff', 'recurring' ] as $mode ) {
+				if ( empty( $schemes[ $type ][ $mode ] ) ) {
+					$schemes[ $type ][ $mode ] = $defaultNetworks;
+				}
+			}
 		}
 
 		return $schemes;
@@ -895,14 +892,13 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			$subTotal         = WC()->cart->get_total( false );
 		}
 
-		$countryCode = wc_get_base_location()['country'];
+		$countryCode = wc_get_base_location()['country'] ?? '';
 		return [
 			'autoCapture'   => $this->cardGateway->is_capture_immediately(),
 			'countryCode' => $countryCode,
 			'currencyCode' => get_woocommerce_currency(),
 			'requiresShipping'    => $requiresShipping,
 			'requiresPhone' => 'required' === get_option('woocommerce_checkout_phone_field', 'required'),
-			'allowedCardNetworks' => $this->getActiveCardSchemes($countryCode, strtolower(get_woocommerce_currency())),
 			'totalPriceLabel' => get_bloginfo('name'),
 			'totalPriceStatus' => 'ESTIMATED',
 			'subTotal' => $subTotal,
@@ -925,6 +921,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 
 	public function getExpressCheckoutScriptData($isBlock) {
 		$data = [];
+		$countryCode = wc_get_base_location()['country'] ?? '';
 		try {
 			$data = [
 				'ajaxUrl' => WC_AJAX::get_endpoint('%%endpoint%%'),
@@ -934,8 +931,9 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				'googlePayEnabled' => $this->isMethodEnabled('google_pay'),
 				'applePayEnabled' => $this->isMethodEnabled('apple_pay'),
 				'supportedProductTypes' => $this->getSupportedProductTypes(),
+				'allowedCardNetworks' => $this->getActiveCardSchemes($countryCode, strtolower(get_woocommerce_currency())),
 				'merchantInfo' => array_merge(
-					Util::getMerchantInfoFromJwtToken($this->cardClient->getToken()),
+					Util::getMerchantInfoFromJwtToken() ?: [],
 					['businessName' => get_bloginfo('name')]
 				),
 				'button' => [
@@ -996,32 +994,22 @@ class ExpressCheckout extends WC_Payment_Gateway {
 			}
 
 			$orderContainsSubscription = $this->orderService->containsSubscription( $order->get_id() );
-			// we cannot create intent with amount 0, for subscription product with free trail, we need to go with the create consent flow
-			if ( 0 == $order->get_total() && $orderContainsSubscription ) {
-				return [
-					'result' => 'success',
-					'redirect' => apply_filters( 'woocommerce_checkout_no_payment_needed_redirect', $order->get_checkout_order_received_url(), $order ),
-				];
-			}
 
-			$apiClient = CardClient::getInstance();
-
-			// create customer if subscription 
+			// create customer if subscription
 			$airwallexCustomerId = null;
 			if ( $orderContainsSubscription ) {
-				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( get_current_user_id(), $apiClient );
+				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( get_current_user_id() );
 			}
-
 
 			// phpcs:ignore WordPress.Security.NonceVerification
 			$paymentMethodType = wc_clean( wp_unslash( $_POST['payment_method_type'] ) );
 			if ( !in_array($paymentMethodType, ['googlepay', 'applepay'], true) ) {
 				$paymentMethodType = '';
 			}
-			$referrerPaymentMethodType = $paymentMethodType ? 'woo_commerce_' . $paymentMethodType : 'woo_commerce';
 			LogService::getInstance()->debug(__METHOD__ . ' before create intent', array( 'orderId' => $order_id ) );
-			$paymentIntent = $apiClient->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, $referrerPaymentMethodType );
-			if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
+			$paymentIntent = CardClient::getInstance()->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), $airwallexCustomerId, $paymentMethodType );
+			/** @var StructPaymentIntent $paymentIntent */
+			if ( $paymentIntent->isAuthorized() || $paymentIntent->isCaptured() ) {
 				return [
 					'result' => 'success',
 					'redirect_url' => $order->get_checkout_order_received_url(),
@@ -1047,17 +1035,6 @@ class ExpressCheckout extends WC_Payment_Gateway {
 					'confirmationUrl' => $confirmationUrl,
 				],
 			];
-			LogService::getInstance()->debug(
-				__METHOD__ . ' receive create payment intent response',
-				array(
-					'response' => $response,
-					'session'  => array(
-						'cookie' => WC()->session->get_session_cookie(),
-						'data'   => WC()->session->get_session_data(),
-					),
-				),
-				WC()->session->get('airwallex_express_checkout_payment_method')
-			);
 		} catch ( Exception $e ) {
 			LogService::getInstance()->error( __METHOD__ . 'create payment intent failed', $e->getMessage(), WC()->session->get('airwallex_express_checkout_payment_method') );
 			$response = [

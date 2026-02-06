@@ -16,25 +16,13 @@ import {
 	displayLoginConfirmation,
 	maskPageWhileLoading,
 	removePageMask,
+	getSupportedNetworksForApplePay,
+	getSupportedNetworksForGooglePay,
 } from './utils.js';
 
 /* global awxExpressCheckoutSettings, Airwallex */
-jQuery(function ($) {
+jQuery(function($) {
 	'use strict';
-
-	$.ajax({
-		url: awxCommonData.getExpressCheckoutData.url + '&security=' + awxCommonData.getExpressCheckoutData.nonce,
-		method: 'GET',
-		dataType: 'json',
-		async: false,
-		success: function(response) {
-			window.awxExpressCheckoutSettings = response.data;
-			window.awxExpressCheckoutSettings.checkout = awxCommonData.getExpressCheckoutData.checkout;
-		},
-		error: function(xhr, status, error) {
-			console.error(status, error);
-		}
-	});
 
 	const paymentMode = awxCommonData.getExpressCheckoutData.hasSubscriptionProduct ? 'recurring' : 'oneoff';
 	let awxShippingOptions = [], shippingMethods = [];
@@ -63,8 +51,6 @@ jQuery(function ($) {
 
 			// get cart details
 			globalCartDetails = awxCommonData.getExpressCheckoutData.isProductPage ? await getEstimatedCartDetails() : await getCartDetails();
-			// if the order/product does not require initial payment, do not proceed
-			if (!globalCartDetails?.orderInfo?.total?.amount) return;
 
 			const { button, checkout } = awxExpressCheckoutSettings;
 			
@@ -192,6 +178,7 @@ jQuery(function ($) {
 					merchantName: merchantInfo.businessName,
 				},
 				autoCapture: checkout.autoCapture,
+				allowedCardNetworks: getSupportedNetworksForGooglePay(checkout.allowedCardNetworks.googlepay[paymentMode])
 			};
 
 			let callbackIntents = ['PAYMENT_AUTHORIZATION'];
@@ -355,7 +342,31 @@ jQuery(function ($) {
 				},
 				lineItems: getAppleFormattedLineItems(orderInfo.displayItems),
 				autoCapture: checkout.autoCapture,
+				supportedNetworks: getSupportedNetworksForApplePay(checkout.allowedCardNetworks.applepay[paymentMode])
 			};
+		},
+
+		processError(data, err) {
+			$.ajax({
+				url: awxCommonData.updateOrderStatusAfterPaymentDecline.url + '&security=' + awxCommonData.updateOrderStatusAfterPaymentDecline.nonce + "&order_id=" + data.order_id,
+				method: 'GET',
+				dataType: 'json',
+				success: function(response) {
+					let errMessage = response.success ? (err.message || '') : response.message;
+					removePageMask();
+					$('.awx-express-checkout-error').html(errMessage).show();
+					console.warn(errMessage);                 
+				},
+				error: function(xhr, status, error) {
+					let errMessage = xhr.responseText;
+					if (xhr.responseJSON && xhr.responseJSON.message) {
+						errMessage = xhr.responseJSON.message;
+					}
+					removePageMask();
+					$('.awx-express-checkout-error').html(errMessage).show();
+					console.warn(errMessage);   
+				}
+			});
 		},
 
 		processPayment: (element, data) => {
@@ -368,14 +379,16 @@ jQuery(function ($) {
 				} = data.payload;
 
 				if (createConsent) {
-					element.createPaymentConsent({
+					element.confirmIntent({
 						client_secret: clientSecret,
+						payment_consent: {
+							'next_triggered_by': 'merchant',
+							'merchant_trigger_reason': 'scheduled',
+						}
 					}).then(() => {
 						location.href = confirmationUrl;
 					}).catch((error) => {
-						removePageMask();
-						$('.awx-express-checkout-error').html(error.message).show();
-						console.warn(error.message);
+						airwallexExpressCheckout.processError(data, error)
 					});
 				} else {
 					element.confirmIntent({
@@ -383,9 +396,7 @@ jQuery(function ($) {
 					}).then(() => {
 						location.href = confirmationUrl;
 					}).catch((error) => {
-						removePageMask();
-						$('.awx-express-checkout-error').html(error.message).show();
-						console.warn(error.message);
+						airwallexExpressCheckout.processError(data, error)
 					});
 				}
 			} else {
@@ -419,14 +430,22 @@ jQuery(function ($) {
 		$('.payment_method_airwallex_express_checkout').hide();
 	});
 
-	if ('awxExpressCheckoutSettings' in window && 'env' in awxExpressCheckoutSettings) {
+	$.ajax({
+		url: awxCommonData.getExpressCheckoutData.url + '&security=' + awxCommonData.getExpressCheckoutData.nonce,
+		method: 'GET',
+		dataType: 'json'
+	}).done(function(expressCheckoutData) {
+		window.awxExpressCheckoutSettings = expressCheckoutData?.data;
+		window.awxExpressCheckoutSettings.checkout = awxCommonData.getExpressCheckoutData.checkout;
+		window.awxExpressCheckoutSettings.checkout.allowedCardNetworks = expressCheckoutData?.data?.allowedCardNetworks;
+
 		Airwallex.init({
 			env: awxExpressCheckoutSettings.env,
 			origin: window.location.origin,
 			locale: awxExpressCheckoutSettings.locale,
 		});
 
-		airwallexExpressCheckout.init();
+		renderExpressCheckoutByEvent();
 
 		// refresh payment data when total is updated.
 		$( document.body ).on( 'updated_cart_totals', function() {
@@ -441,5 +460,5 @@ jQuery(function ($) {
 		$(document.body).on('change', '[name="quantity"]', function () {
 			renderExpressCheckoutByEvent();
 		});
-	}
+	});
 });

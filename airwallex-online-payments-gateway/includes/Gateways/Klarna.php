@@ -4,6 +4,8 @@ namespace Airwallex\Gateways;
 
 use Airwallex\Services\Util;
 use Exception;
+use Airwallex\PayappsPlugin\CommonLibrary\Configuration\PaymentMethodType\Klarna as KlarnaConfiguration;
+use Airwallex\Services\LogService;
 
 defined( 'ABSPATH' ) || exit();
 
@@ -12,47 +14,7 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
 
     const GATEWAY_ID = 'klarna';
     const ROUTE_SLUG = 'airwallex_klarna';
-    const SUPPORTED_COUNTRY_TO_CURRENCY = [
-        'AT' => 'EUR',
-        'BE' => 'EUR',
-        'FI' => 'EUR',
-        'FR' => 'EUR',
-        'DE' => 'EUR',
-        'GR' => 'EUR',
-        'IE' => 'EUR',
-        'IT' => 'EUR',
-        'NL' => 'EUR',
-        'PT' => 'EUR',
-        'ES' => 'EUR',
-        'DK' => 'DKK',
-        'NO' => 'NOK',
-        'PL' => 'PLN',
-        'SE' => 'SEK',
-        'CH' => 'CHF',
-        'GB' => 'GBP',
-        'CZ' => 'CZK',
-        'US' => 'USD',
-    ];
-    const COUNTRY_LANGUAGE = [
-        'AT' => ['de'],
-        'BE' => ['be', 'nl', 'fr'],
-        'CA' => ['fr'],
-        'CH' => ['it', 'de', 'fr'],
-        'CZ' => ['cs'],
-        'DE' => ['de'],
-        'DK' => ['da'],
-        'ES' => ['es', 'ca'],
-        'FI' => ['fi', 'sv'],
-        'FR' => ['fr'],
-        'GR' => ['el'],
-        'IT' => ['it'],
-        'NL' => ['nl'],
-        'NO' => ['nb'],
-        'PL' => ['pl'],
-        'PT' => ['pt'],
-        'SE' => ['sv'],
-        'US' => ['es'],
-    ];
+    const PAYMENT_METHOD_TYPE_NAME = 'klarna';
 
     public function __construct() {
         $this->id = 'airwallex_' . self::GATEWAY_ID;
@@ -73,7 +35,7 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
 				'enabled'     => array(
 					'title'       => __( 'Enable/Disable', 'airwallex-online-payments-gateway' ),
 					'label'       => __( 'Enable Airwallex Klarna', 'airwallex-online-payments-gateway' ),
-					'type'        => 'checkbox',
+					'type'        => 'check_is_enabled',
 					'description' => '',
 					'default'     => 'no',
 				),
@@ -97,9 +59,10 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
 
     public function getLPMMethodScriptData($data) {
         $data[$this->id] = [
-            'supportedCountryCurrency' => self::SUPPORTED_COUNTRY_TO_CURRENCY,
+            'supportedCountryCurrency' => KlarnaConfiguration::SUPPORTED_COUNTRY_TO_CURRENCY,
         ];
         $data['paymentMethods'][] = $this->id;
+        $data['paymentMethodNames']['Klarna'] = __("Klarna", 'airwallex-online-payments-gateway');
 
         return $data;
     }
@@ -134,7 +97,7 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
     public function getLanguage($countryCode) {
         $language = isset($_POST['airwallex_browser_language']) ? wc_clean(wp_unslash($_POST['airwallex_browser_language'])) : '';
         $countryCode = strtoupper($countryCode);
-        if (isset(self::COUNTRY_LANGUAGE[$countryCode]) && in_array($language, self::COUNTRY_LANGUAGE[$countryCode], true)) {
+        if (isset(KlarnaConfiguration::COUNTRY_LANGUAGE[$countryCode]) && in_array($language, KlarnaConfiguration::COUNTRY_LANGUAGE[$countryCode], true)) {
             return $language;
         }
 
@@ -170,10 +133,10 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
     public function process_payment( $order_id ) {
         $order = wc_get_order( $order_id );
         if ( empty( $order ) ) {
-            $this->logService->debug(__METHOD__ . ' can not find order', [ 'orderId' => $order_id ] );
+            LogService::getInstance()->error(__METHOD__ . ' can not find order', [ 'orderId' => $order_id ] );
             throw new Exception( sprintf( __( 'Order not found: %s', 'airwallex-online-payments-gateway' ), $order_id ) );
         }
-        if ( empty(self::SUPPORTED_COUNTRY_TO_CURRENCY[$order->get_billing_country()]) ) {
+        if ( empty(KlarnaConfiguration::SUPPORTED_COUNTRY_TO_CURRENCY[$order->get_billing_country()]) ) {
             throw new Exception( __('Klarna is not available in your billing country. Please use a different payment method.', 'airwallex-online-payments-gateway') );
         }
         return parent::process_payment( $order_id );

@@ -36,7 +36,6 @@ if ( defined( 'WC_REMOVE_ALL_DATA' ) && true === WC_REMOVE_ALL_DATA ) {
 	delete_option( 'airwallex_order_status_pending' );
 	delete_option( 'airwallex_order_status_authorized' );
 	delete_option( 'airwallex_cronjob_interval' );
-	delete_option( 'airwallex_do_js_logging' );
 	delete_option( 'airwallex_merchant_country' );
 	delete_option( 'airwallex-online-payments-gatewayairwallex_main_settings' );
 	delete_option( 'airwallex-online-payments-gatewayairwallex_card_settings' );

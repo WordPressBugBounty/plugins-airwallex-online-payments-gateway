@@ -3,19 +3,14 @@
 namespace Airwallex\Controllers;
 
 use Airwallex\Services\LogService;
-use Airwallex\Client\GatewayClient;
 use Exception;
+use Airwallex\PayappsPlugin\CommonLibrary\UseCase\CurrencySwitcher;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\Quote as StructQuote;
 
 defined('ABSPATH') || exit();
 
 class QuoteController {
 	const CONFIGURATION_ERROR = 'configuration_error';
-
-	protected $gatewayClient;
-
-	public function __construct() {
-		$this->gatewayClient = GatewayClient::getInstance();
-	}
 
 	public function createQuoteForCurrencySwitching() {
         check_ajax_referer('wc-airwallex-lpm-create-quote-currency-switcher', 'security');
@@ -27,23 +22,29 @@ class QuoteController {
 			LogService::getInstance()->debug(__METHOD__ . ' - Create quote for ' . $paymentCurrency . ' and ' . $targetCurrency);
 			$paymentAmount = WC()->cart->get_total(false);
 
-			$quote = $this->gatewayClient->createQuoteForCurrencySwitching(
-				$paymentCurrency,
-				$targetCurrency,
-				$paymentAmount
-			);
+			/** @var StructQuote $quote */
+			$quote = (new CurrencySwitcher())
+				->setPaymentAmount($paymentAmount)
+				->setPaymentCurrency($paymentCurrency)
+				->setTargetCurrency($targetCurrency)
+				->get();
 
-			LogService::getInstance()->debug(__METHOD__ . ' - Quote created.', $quote);
-			$quoteArr = $quote->toArray();
-			unset($quoteArr['id']);
+			LogService::getInstance()->debug(__METHOD__ . ' - Quote created.', $quote->getId());
 			wp_send_json(
 				[
 					'success' => true,
-					'quote' => $quoteArr,
+					'quote' => [
+						'refreshAt' => $quote->getRefreshAt(),
+						'clientRate' => $quote->getClientRate(),
+						'targetCurrency' => $quote->getTargetCurrency(),
+						'paymentCurrency' => $quote->getPaymentCurrency(),
+						'targetAmount' => $quote->getTargetAmount(),
+						'paymentAmount' => $quote->getPaymentAmount(),
+					],
 				]
 			);
 		} catch (Exception $e) {
-			LogService::getInstance()->error(__METHOD__ . ' - Failed to create quote.', $e->getMessage());
+			LogService::getInstance()->error(__METHOD__ . ' - Failed to create quote:' . $e->getMessage(), compact('paymentAmount', 'paymentCurrency', 'targetCurrency'));
 			wp_send_json([
 				'success' => false,
 				'message' => __('Failed to create quote.', 'airwallex-online-payments-gateway'),

@@ -35,6 +35,16 @@ class GetList extends AbstractApi
     }
 
     /**
+     * @param bool $includeResources
+     *
+     * @return GetList
+     */
+    public function setIncludeResources(bool $includeResources): GetList
+    {
+        return $this->setParam('__resources', $includeResources);
+    }
+
+    /**
      *
      * @param string $countryCode
      *
@@ -85,7 +95,7 @@ class GetList extends AbstractApi
     protected function parseResponse($response): GetListStruct
     {
         $items = [];
-        $responseArray = json_decode($response->getBody(), true);
+        $responseArray = json_decode((string)$response->getBody(), true);
         if (!empty($responseArray['items'])) {
             foreach ($responseArray['items'] as $item) {
                 $items[] = new PaymentMethodType($item);

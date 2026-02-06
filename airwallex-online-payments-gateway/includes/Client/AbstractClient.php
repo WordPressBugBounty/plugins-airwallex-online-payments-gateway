@@ -2,34 +2,26 @@
 
 namespace Airwallex\Client;
 
-use Airwallex\Controllers\PaymentSessionController;
 use Airwallex\Gateways\Card;
 use Airwallex\Gateways\ExpressCheckout;
+use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init as CommonLibraryInit;
 use Airwallex\Services\CacheService;
 use Airwallex\Services\LogService;
 use Airwallex\Services\OrderService;
-use Airwallex\Struct\Customer;
-use Airwallex\Struct\PaymentIntent;
-use Airwallex\Struct\Refund;
 use Exception;
 use Airwallex\Services\Util;
 use Airwallex\Main;
-use Airwallex\Struct\PaymentConsent;
-use Airwallex\Struct\PaymentSession;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Customer\Retrieve as RetrieveCustomer;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Cancel as CancelPaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Authentication;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Customer\Update as UpdateCustomer;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Create as CreatePaymentIntentRequest;
 
 abstract class AbstractClient {
-
-	const AUTH_URL_LIVE       = 'https://pci-api.airwallex.com/api/v1/';
-	const AUTH_URL_SANDBOX    = 'https://pci-api-demo.airwallex.com/api/v1/';
-	const PCI_URL_LIVE        = 'https://pci-api.airwallex.com/api/v1/';
-	const PCI_URL_SANDBOX     = 'https://pci-api-demo.airwallex.com/api/v1/';
-	const GENERAL_URL_LIVE    = 'https://api.airwallex.com/api/v1/';
-	const GENERAL_URL_SANDBOX = 'https://api-demo.airwallex.com/api/v1/';
-	const LOG_URL_LIVE        = 'https://o11y.airwallex.com/';
-	const LOG_URL_SANDBOX     = 'https://o11y-demo.airwallex.com/';
+	const CACHE_ACCESS_TOKEN_NAME    = 'awxAuth';
 
 	protected $clientId;
 	protected $apiKey;
@@ -61,25 +53,9 @@ abstract class AbstractClient {
 		return get_option( 'airwallex_payment_descriptor', Card::getDescriptorSetting());
 	}
 
-	final public function getAuthUrl( $action ) {
-		return ( $this->isSandbox ? self::AUTH_URL_SANDBOX : self::AUTH_URL_LIVE ) . $action;
-	}
-
-	final public function getPciUrl( $action ) {
-		return ( $this->isSandbox ? self::PCI_URL_SANDBOX : self::PCI_URL_LIVE ) . $action;
-	}
-
-	final public function getGeneralUrl( $action ) {
-		return ( $this->isSandbox ? self::GENERAL_URL_SANDBOX : self::GENERAL_URL_LIVE ) . $action;
-	}
-
-	final public function getLogUrl( $action ) {
-		return ( $this->isSandbox ? self::LOG_URL_SANDBOX : self::LOG_URL_LIVE ) . $action;
-	}
-
 	final protected function getCacheService() {
 		if ( ! isset( $this->cacheService ) ) {
-			$this->cacheService = new CacheService( $this->apiKey );
+			$this->cacheService = CacheService::getInstance();
 		}
 		return $this->cacheService;
 	}
@@ -102,82 +78,47 @@ abstract class AbstractClient {
 	 * @throws Exception
 	 */
 	final public function getToken() {
-		if ( ! empty( $this->token ) && $this->tokenExpiry > time() ) {
-			return $this->token;
+		if (!Util::getClientId() || !Util::getApiKey()) {
+			throw new Exception('Client id and api key are required.');
 		}
 
-		$cachedTokenData = $this->getCacheService()->get( 'token' );
-		if ( ! empty( $cachedTokenData['token'] ) && ! empty( $cachedTokenData['expiry'] ) && $cachedTokenData['expiry'] > time() ) {
-			$this->token       = $cachedTokenData['token'];
-			$this->tokenExpiry = $cachedTokenData['expiry'];
-			return $this->token;
+		$cache = $this->getCacheService();
+		$token = $cache->get(self::CACHE_ACCESS_TOKEN_NAME);
+		if ($token) {
+			return $token;
 		}
 
-		$this->doAuth();
-
-		if ( empty( $this->token ) ) {
-			throw new Exception( 'Unable to authorize API' );
+		$accessToken = (new Authentication())->send();
+		if ($accessToken && $accessToken->getToken()) {
+			$token = $accessToken->getToken();
+			$cache->set(self::CACHE_ACCESS_TOKEN_NAME, $token, 25 * MINUTE_IN_SECONDS);
 		}
 
-		return $this->token;
-	}
-
-	final public function getHttpClient() {
-		return new HttpClient();
-	}
-
-	/**
-	 * Authenticate with airwallex using client id and api key
-	 *
-	 * @throws Exception
-	 */
-	final protected function doAuth() {
-		if ( empty( $this->clientId ) || empty( $this->apiKey ) ) {
-			return;
-		}
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'POST',
-			$this->getAuthUrl( 'authentication/login' ),
-			wp_json_encode( $this->getReferrer() ),
-			array(
-				'x-client-id' => $this->clientId,
-				'x-api-key'   => $this->apiKey,
-			)
-		);
-		if ( ! empty( $response ) && ! empty( $response->data ) && ! empty( $response->data['token'] ) ) {
-			$this->token       = $response->data['token'];
-			$this->tokenExpiry = strtotime( $response->data['expires_at'] ) - 10;
-			$this->getCacheService()->set(
-				'token',
-				array(
-					'token'  => $this->token,
-					'expiry' => $this->tokenExpiry,
-				)
-			);
-		}
+		return $token;
 	}
 
 	final public function testAuth() {
-		if (empty($this->clientId) || empty($this->apiKey)) {
+		if (empty(Util::getClientId()) || empty(Util::getApiKey())) {
 			return false;
 		}
-		$cacheName = 'awxTestAuth-' . $this->clientId . '-' . $this->apiKey;
+		CommonLibraryInit::getInstance()->updateConfig([
+			'env' => Util::getEnvironment(),
+			'client_id' => Util::getClientId(),
+			'api_key' => Util::getApiKey(),
+		]);
+		$cacheName = 'awxTestAuth_' . md5(Util::getClientId() . '-' . Util::getApiKey());
 		$token = $this->getCacheService()->get($cacheName);
-		if (is_null($token)) {
-			$client   = $this->getHttpClient();
-			$response = $client->call(
-				'POST',
-				$this->getAuthUrl( 'authentication/login' ),
-				wp_json_encode( $this->getReferrer() ),
-				array(
-					'x-client-id' => $this->clientId,
-					'x-api-key'   => $this->apiKey,
-				)
-			);
-			$token = empty( $response->data['token'] ) ? '' : $response->data['token'];
-			$this->getCacheService()->set( $cacheName, $token, $token ? 25 * MINUTE_IN_SECONDS : MINUTE_IN_SECONDS );
+		if ($token) return true;
+		$token = '';
+		try {
+			$accessToken = (new Authentication())->send();
+			if ($accessToken && $accessToken->getToken()) {
+				$token = $accessToken->getToken();
+			}
+		} catch (Exception $e)  {
+			LogService::getInstance()->error('Authentication failed: ' . $e->getMessage(), __METHOD__);
 		}
+		$this->getCacheService()->set($cacheName, $token, $token ? 25 * MINUTE_IN_SECONDS : MINUTE_IN_SECONDS);
 		return !empty($token);
 	}
 
@@ -190,11 +131,10 @@ abstract class AbstractClient {
 	 * @param null $customerId
 	 * @param string $paymentMethodType
 	 *
-	 * @return PaymentIntent
+	 * @return StructPaymentIntent
 	 * @throws Exception
 	 */
-	final public function createPaymentIntent( $amount, $orderId, $withDetails = false, $customerId = null, $paymentMethodType = 'woo_commerce' ) {
-		$client      = $this->getHttpClient();
+	final public function createPaymentIntent( $amount, $orderId, $withDetails = false, $customerId = null, $paymentMethodType = '' ) {
 		$order       = wc_get_order( (int) $orderId );
 		$orderNumber = $order->get_meta( '_order_number' );
 		$orderNumber = $orderNumber ? $orderNumber : $orderId;
@@ -250,14 +190,14 @@ abstract class AbstractClient {
 			try {
 				$customerObject = (new RetrieveCustomer())->setCustomerId($customerId)->send();
 				if (!$customerObject->getEmail()) {
-					$updateData = [
-						'email' => $order->get_billing_email() ?? '',
-						'first_name' => $order->get_billing_first_name() ?? '',
-						'last_name' => $order->get_billing_last_name() ?? '',
-						'phone_number' => $order->get_billing_phone() ?? '',
-						'address' => $customerAddress,
-					];
-					$this->updateCustomer($customerId, $updateData);
+					(new UpdateCustomer())
+						->setCustomerId($customerId)
+						->setEmail($order->get_billing_email() ?? '')
+						->setFirstName($order->get_billing_first_name() ?? '')
+						->setLastName($order->get_billing_last_name() ?? '')
+						->setPhoneNumber($order->get_billing_phone() ?? '')
+						->setAddress($customerAddress)
+						->send();
 				}
 			} catch (\Exception $e) {
 				RemoteLog::error( 'Error update customer failed: ' . $e->getMessage() );
@@ -271,7 +211,6 @@ abstract class AbstractClient {
 			'type'     => 'physical_goods',
 			'products' => array(),
 		);
-
 
 		$orderItemTotal = 0;
 
@@ -361,54 +300,71 @@ abstract class AbstractClient {
 
 		$data += $this->getReferrer($paymentMethodType);
 		$intent = $this->getCachedPaymentIntent( $data );
-		if ( $intent && $intent instanceof PaymentIntent ) {
-			$liveIntent = $this->getPaymentIntent( $intent->getId() );
-			if ( $liveIntent ) {
-				if ( number_format( $liveIntent->getAmount(), 2 ) === number_format( (float) $data['amount'], 2 ) ) {
+		if ( $intent && $intent instanceof StructPaymentIntent ) {
+			/** @var StructPaymentIntent $liveIntent */
+			try {
+				$liveIntent = (new RetrievePaymentIntent())->setPaymentIntentId($intent->getId())->send();
+				if ( $liveIntent
+					&& number_format( $liveIntent->getAmount(), 2 ) === number_format( (float) $data['amount'], 2 )
+					&& $liveIntent->getStatus() !== StructPaymentIntent::STATUS_CANCELLED ) {
 					return $liveIntent;
 				}
+			} catch ( Exception $e ) {
+				LogService::getInstance()->error('retrieve cached intent failed: ' . $e->getMessage(), __METHOD__);
 			}
 		}
 
 		$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
 		if ($paymentIntentId) {
-			$paymentIntent = $this->getPaymentIntent($paymentIntentId);
-			if ( in_array($paymentIntent->getStatus(), PaymentIntent::SUCCESS_STATUSES, true) ) {
-				OrderService::getInstance()->setPaymentSuccess( $order, $paymentIntent );
-				return $paymentIntent;
-			}
 			try {
-				(new CancelPaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
+				/** @var StructPaymentIntent $paymentIntent */
+				$paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
+
+				$metadata = $paymentIntent->getMetadata();
+				if (!empty($metadata) && !empty($metadata['wp_order_id']) && intval($metadata['wp_order_id']) === $order->get_id()) {
+					if ( $paymentIntent->isAuthorized() || $paymentIntent->isCaptured() ) {
+						OrderService::getInstance()->setPaymentSuccess( $order, $paymentIntent, __METHOD__ );
+						return $paymentIntent;
+					}
+					if ($paymentIntent->getStatus() !== StructPaymentIntent::STATUS_CANCELLED) {
+						(new CancelPaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
+					}
+				}
 			} catch (Exception $e) {
-				LogService::getInstance()->error("Cancel intent ($paymentIntentId) failed: " . $e->getMessage());
+				LogService::getInstance()->error('handle old intent failed: ' . $e->getMessage(), __METHOD__);
 			}
 		}
 
-		$response = $client->call(
-			'POST',
-			$this->getPciUrl( 'pa/payment_intents/create' ),
-			wp_json_encode( $data ),
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			),
-			$this->getAuthorizationRetryClosure()
-		);
+		try {
+			$newPaymentIntentRequest = (new CreatePaymentIntentRequest())
+				->setAmount($data['amount'])
+				->setCurrency($data['currency'])
+				->setDescriptor($data['descriptor'])
+				->setReferrerDataType($data['referrer_data']['type'])
+				->setMetadata($data['metadata'])
+				->setMerchantOrderId($data['merchant_order_id'])
+				->setReturnUrl($data['return_url'])
+				->setOrder($data['order']);
+			if ($customerId) {
+				$newPaymentIntentRequest = $newPaymentIntentRequest->setCustomerId($customerId);
+			} else {
+				$newPaymentIntentRequest = $newPaymentIntentRequest->setCustomer($data['customer']);
+			}
+			$newPaymentIntent = $newPaymentIntentRequest->send();
+			$order->update_meta_data( OrderService::META_KEY_ORDER_ORIGINAL_CURRENCY, $order->get_currency() );
+			$order->update_meta_data( OrderService::META_KEY_ORDER_ORIGINAL_AMOUNT, $order->get_total() );
+			$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_PAYMENT_METHOD_TYPE, $paymentMethodType );
+			$order->save_meta_data();
 
-		if ( empty( $response->data['id'] ) ) {
-			RemoteLog::error( wp_json_encode( $response ), RemoteLog::ON_PAYMENT_CREATION_ERROR);
-			throw new Exception( wp_json_encode( $response ) );
+			$this->savePaymentIntentToCache( $data, $newPaymentIntent );
+			return $newPaymentIntent;
+		} catch ( Exception $e ) {
+			RemoteLog::error( 'Create payment intent failed: ' . $e->getMessage(), RemoteLog::ON_PAYMENT_CREATION_ERROR);
+			throw new Exception( 'Create payment intent failed: ' . $e->getMessage() );
 		}
-
-		$order->update_meta_data( OrderService::META_KEY_ORDER_ORIGINAL_CURRENCY, $order->get_currency() );
-		$order->update_meta_data( OrderService::META_KEY_ORDER_ORIGINAL_AMOUNT, $order->get_total() );
-		$order->save_meta_data();
-
-		$returnIntent = new PaymentIntent( $response->data );
-		$this->savePaymentIntentToCache( $data, $returnIntent );
-		return $returnIntent;
 	}
 
-	protected function savePaymentIntentToCache( $data, PaymentIntent $paymentIntent ) {
+	protected function savePaymentIntentToCache( $data, $paymentIntent ) {
 		if ( isset( $data['request_id'] ) ) {
 			unset( $data['request_id'] );
 		}
@@ -424,391 +380,15 @@ abstract class AbstractClient {
 		return $this->getCacheService()->get( $key );
 	}
 
-
-	/**
-	 * Send confirm payment intent request to airwallex
-	 *
-	 * @param $paymentIntentId
-	 * @param $payload
-	 * @return PaymentIntent
-	 * @throws Exception
-	 */
-	final public function confirmPaymentIntent( $paymentIntentId, $payload  ) {
-		if ( empty( $paymentIntentId ) ) {
-			throw new Exception( 'payment intent id empty' );
+	protected function getReferrer( $paymentMethodType ) {
+		$nameMaps = [
+			'card'       => 'credit_card',
+			'wechatpay'  => 'wechat',
+		];
+		if (isset($nameMaps[$paymentMethodType])) {
+			$paymentMethodType = $nameMaps[$paymentMethodType];
 		}
-		
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'POST',
-			$this->getPciUrl( 'pa/payment_intents/' . $paymentIntentId . '/confirm' ),
-			wp_json_encode(
-				$payload
-				+ ['request_id' => uniqid(),]
-				+ $this->getReferrer()
-			),
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-
-		if (in_array($response->status, HttpClient::HTTP_STATUSES_FAILED, true)) {
-			throw new Exception( esc_html( 'Failed to confirm the intent, ' . isset($response->data['message']) ? $response->data['message'] : '' ) );
-		}
-
-		return new PaymentIntent( $response->data );
-	}
-
-	/**
-	 * Get payment intent from airwallex by payment intent id
-	 *
-	 * @param string $paymentIntentId
-	 * @return PaymentIntent
-	 * @throws Exception
-	 */
-	final public function getPaymentIntent( $paymentIntentId ) {
-		if ( empty( $paymentIntentId ) ) {
-			throw new Exception( 'payment intent id empty' );
-		}
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'GET',
-			$this->getPciUrl( 'pa/payment_intents/' . $paymentIntentId ),
-			null,
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-
-		if ( 200 !== $response->status ) {
-			throw new Exception( esc_html( 'Unable to get payment intent: ' . wp_json_encode( $response ), $response->status ) );
-		}
-		return new PaymentIntent( $response->data );
-	}
-
-	/**
-	 * Send capture payment request to airwallex
-	 *
-	 * @param $paymentIntentId
-	 * @param $amount
-	 * @return PaymentIntent
-	 * @throws Exception
-	 */
-	final public function capture( $paymentIntentId, $amount ) {
-		if ( empty( $paymentIntentId ) ) {
-			throw new Exception( 'payment intent id empty' );
-		}
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'POST',
-			$this->getPciUrl( 'pa/payment_intents/' . $paymentIntentId . '/capture' ),
-			wp_json_encode(
-				array(
-					'amount'     => $amount,
-					'request_id' => uniqid(),
-				)
-				+ $this->getReferrer()
-			),
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-		return new PaymentIntent( $response->data );
-	}
-
-	/**
-	 * Create refund in airwallex
-	 *
-	 * @param $paymentIntentId
-	 * @param $amount
-	 * @param $reason
-	 * @return Refund
-	 * @throws Exception
-	 */
-	final public function createRefund( $paymentIntentId, $amount = null, $reason = '' ) {
-		if ( empty( $paymentIntentId ) ) {
-			throw new Exception( 'payment intent id empty', '1' );
-		}
-		$client = $this->getHttpClient();
-		if ( null === $amount ) {
-			$paymentIntent = $this->getPaymentIntent( $paymentIntentId );
-			$amount        = $paymentIntent->getCapturedAmount();
-		}
-
-		$response = $client->call(
-			'POST',
-			$this->getPciUrl( 'pa/refunds/create' ),
-			wp_json_encode(
-				array(
-					'payment_intent_id' => $paymentIntentId,
-					'amount'            => $amount,
-					'reason'            => $reason,
-					'request_id'        => uniqid(),
-				)
-				+ ['metadata' => $this->getMetaData()]
-				+ $this->getReferrer()
-			),
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-
-		if ( empty( $response->data['id'] ) ) {
-			throw new Exception( 'refund creation failed: ' . ($response->data['message'] ?? wp_json_encode( $response )) , 1 );
-		}
-
-		return new Refund( $response->data );
-	}
-
-
-	final public function createCustomer( $wordpressCustomerId ) {
-		if ( empty( $wordpressCustomerId ) ) {
-			throw new Exception( 'customer id must not be empty' );
-		}
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'POST',
-			$this->getPciUrl( 'pa/customers/create' ),
-			wp_json_encode(
-				array(
-					'merchant_customer_id' => $wordpressCustomerId,
-					'request_id'           => uniqid(),
-					//TODO add details
-				)
-				+ $this->getReferrer()
-			),
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-
-		if ( empty( $response->data['id'] ) ) {
-			throw new Exception( 'customer creation failed: ' . wp_json_encode( $response ) );
-		}
-
-		return new Customer( $response->data );
-	}
-	final public function updateCustomer( $airwallexCustomerId, $data ) {
-		if ( empty( $airwallexCustomerId ) ) {
-			throw new Exception( 'customer id must not be empty' );
-		}
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'POST',
-			$this->getPciUrl( 'pa/customers/' . $airwallexCustomerId . '/update' ),
-			wp_json_encode(
-				array(
-					'request_id'           => uniqid(),
-				)
-				+ $data
-				+ $this->getReferrer()
-			),
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-
-		if ( empty( $response->data['id'] ) ) {
-			throw new Exception( 'customer creation failed: ' . wp_json_encode( $response ) );
-		}
-
-		return new Customer( $response->data );
-	}
-
-	final public function getCustomer( $wordpressCustomerId ) {
-		if ( empty( $wordpressCustomerId ) ) {
-			throw new Exception( 'customer id must not be empty' );
-		}
-		$client = $this->getHttpClient();
-
-		$response = $client->call(
-			'GET',
-			$this->getPciUrl(
-				'pa/customers?' . http_build_query(
-					array(
-						'merchant_customer_id' => $wordpressCustomerId,
-					)
-				)
-			),
-			null,
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-		if ( empty( $response->data['items'] ) ) {
-			return null;
-		}
-		return new Customer( $response->data['items'][0] );
-	}
-
-	final public function getPaymentMethodTypes() {
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'GET',
-			$this->getPciUrl(
-				'pa/config/payment_method_types?' . http_build_query(
-					array(
-						'active'      => 'true',
-						'__resources' => 'true',
-					)
-				)
-			),
-			null,
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-		if ( empty( $response->data['items'] ) ) {
-			return [];
-		}
-		return $response->data['items'];
-	}
-
-	final public function getAccount() {
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'GET',
-			$this->getGeneralUrl(
-				'account'
-			),
-			null,
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-		if ( empty( $response->data ) ) {
-			return null;
-		}
-		return $response->data;
-	}
-
-	public function createCustomerClientSecret( $airwallexCustomerId ) {
-		if ( empty( $airwallexCustomerId ) ) {
-			throw new Exception( 'customer id must not be empty' );
-		}
-		$client = $this->getHttpClient();
-
-		$response = $client->call(
-			'GET',
-			$this->getPciUrl( sprintf( '/pa/customers/%s/generate_client_secret', $airwallexCustomerId ) ),
-			null,
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-		if ( empty( $response->data['client_secret'] ) ) {
-			throw new Exception( 'customer secret creation failed: ' . wp_json_encode( $response ) );
-		}
-		return $response->data['client_secret'];
-	}
-
-	/**
-	 * Create payment method for subscription payment
-	 * 
-	 * @param $customerId
-	 * @param array $paymentMethod payment method detail
-	 * @param string $nextTriggeredBy One of merchant, customer
-	 * @param string $merchantTriggerReason Whether the subsequent payments are scheduled. Only applicable when next_triggered_by is merchant. One of scheduled, unscheduled.
-	 * @return PaymentConsent Payment consent
-	 */
-	final public function createPaymentConsent( $customerId, $paymentMethod, $nextTriggeredBy = 'merchant', $merchantTriggerReason = 'scheduled' ) {
-		if ( empty( $customerId ) ) {
-			throw new Exception( 'Customer ID is empty.' );
-		}
-
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'POST',
-			$this->getPciUrl( 'pa/payment_consents/create'),
-			wp_json_encode(
-				[
-					'next_triggered_by' => $nextTriggeredBy,
-					'merchant_trigger_reason' => $merchantTriggerReason,
-					'payment_method' => $paymentMethod,
-					'customer_id' => $customerId,
-					'request_id' => uniqid(),
-				]
-				+ ['metadata' => $this->getMetaData()]
-				+ $this->getReferrer()
-			),
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-
-		if (in_array($response->status, HttpClient::HTTP_STATUSES_FAILED, true)) {
-			throw new Exception( esc_html( 'Failed to create payment consent, ' . isset($response->data['message']) ? $response->data['message'] : '' ) );
-		}
-
-		return new PaymentConsent($response->data);
-	}
-
-	/**
-	 * Retrieve a PaymentConsent
-	 * 
-	 * @param string $consentId payment consent id
-	 * @return PaymentConsent Payment consent
-	 */
-	final public function getPaymentConsent( $consentId ) {
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'GET',
-			$this->getPciUrl( 'pa/payment_consents/' . $consentId),
-			null,
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-
-		return new PaymentConsent($response->data);
-	}
-
-	final public function startPaymentSession($validationUrl, $initiativeContext) {
-		if ( empty( $validationUrl ) ) {
-			throw new Exception( 'Validation URL is empty.' );
-		}
-
-		if ( empty( $initiativeContext ) ) {
-			throw new Exception( 'Initiative Context is empty.' );
-		}
-
-		$client   = $this->getHttpClient();
-		$response = $client->call(
-			'POST',
-			$this->getPciUrl( 'pa/payment_session/start'),
-			wp_json_encode(
-				[
-					'request_id' => uniqid(),
-					'validation_url' => $validationUrl,
-					'initiative_context' => $initiativeContext,
-				]
-				+ $this->getReferrer()
-			),
-			array(
-				'Authorization' => 'Bearer ' . $this->getToken(),
-			)
-		);
-
-		if (in_array($response->status, HttpClient::HTTP_STATUSES_FAILED, true)) {
-			if (isset($response->data['code']) && PaymentSessionController::CONFIGURATION_ERROR === $response->data['code']) {
-				throw new Exception( esc_html( $response->data['code'] ) );
-			} else {
-				throw new Exception( esc_html( 'Failed to create start payment session, ' . isset($response->data['message']) ? $response->data['message'] : '' ) );
-			}
-		}
-
-		return new PaymentSession( $response->data );
-	}
-
-	public function getAuthorizationRetryClosure() {
-		$me = $this;
-		return function () use ( $me ) {
-			$me->doAuth();
-			return 'Bearer ' . $me->getToken();
-		};
-	}
-
-	protected function getReferrer( $paymentMethodType = 'woo_commerce') {
+		$paymentMethodType = $paymentMethodType ? 'woo_commerce_' . $paymentMethodType : 'woo_commerce';
 		return array(
 			'referrer_data' => array(
 				'type'    => $paymentMethodType,

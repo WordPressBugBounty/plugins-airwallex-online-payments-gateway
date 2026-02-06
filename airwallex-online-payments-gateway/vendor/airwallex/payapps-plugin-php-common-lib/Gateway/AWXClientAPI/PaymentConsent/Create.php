@@ -36,12 +36,22 @@ class Create extends AbstractApi
     }
 
     /**
+     * @param string $merchantTriggerReason
+     *
+     * @return Create
+     */
+    public function setMerchantTriggerReason(string $merchantTriggerReason): Create
+    {
+        return $this->setParam('merchant_trigger_reason', $merchantTriggerReason);
+    }
+
+    /**
      * @param $response
      *
      * @return PaymentConsent
      */
     protected function parseResponse($response): PaymentConsent
     {
-        return new PaymentConsent(json_decode($response->getBody(), true));
+        return new PaymentConsent(json_decode((string)$response->getBody(), true));
     }
 }

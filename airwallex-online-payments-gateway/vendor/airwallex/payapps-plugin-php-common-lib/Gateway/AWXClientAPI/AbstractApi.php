@@ -2,16 +2,25 @@
 
 namespace Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI;
 
+use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheManager;
 use Airwallex\PayappsPlugin\CommonLibrary\Cache\CacheTrait;
 use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Init;
+use Airwallex\PayappsPlugin\CommonLibrary\Exception\UnauthorizedException;
+use Airwallex\PayappsPlugin\CommonLibrary\Exception\RequestException;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\Response;
 use Error;
 use Exception;
-use Composer\InstalledVersions;
 
 abstract class AbstractApi
 {
     use CacheTrait;
+
+    const ERROR_VALIDATION_ERROR = 'validation_error';
+    const ERROR_UNAUTHORIZED = 'unauthorized';
+    const ERROR_NOT_FOUND = 'not_found';
+    const ERROR_RESOURCE_NOT_FOUND = 'resource_not_found';
+    const ERROR_INTERNAL_ERROR = 'internal_error';
+    const ACCESS_TOKEN_CACHE_KEY = 'awx_access_token';
 
     /**
      * @var int
@@ -31,6 +40,11 @@ abstract class AbstractApi
     /**
      * @var string
      */
+    const STAGING_BASE_URL = 'https://api-staging.airwallex.com/api/v1/';
+
+    /**
+     * @var string
+     */
     const X_API_VERSION = '2024-06-30';
 
     /**
@@ -46,13 +60,29 @@ abstract class AbstractApi
     /**
      * @var array
      */
-    private $metaData = [];
+    private $metadata = [];
 
     /**
      * @return mixed
+     *
+     * @throws RequestException
      * @throws Exception
      */
     public function send()
+    {
+        try {
+            return $this->doSend();
+        } catch (UnauthorizedException $e) {
+            CacheManager::getInstance()->remove(self::ACCESS_TOKEN_CACHE_KEY);
+            return $this->doSend();
+        }
+    }
+
+    /**
+     * @throws RequestException
+     * @throws Exception
+     */
+    public function doSend()
     {
         try {
             if (Init::getInstance()->get('plugin_type') === 'woo_commerce') {
@@ -61,6 +91,27 @@ abstract class AbstractApi
             return $this->guzzleHttpSend();
         } catch (Error $e) {
             throw new Exception($e->getMessage());
+        }
+    }
+
+    /**
+     * @throws RequestException
+     * @throws Exception
+     */
+    public function checkResponse(string $body, int $statusCode)
+    {
+        if ($statusCode >= 400 && $statusCode < 500) {
+            if ($statusCode === 401) {
+                throw new UnauthorizedException($body);
+            }
+            throw new RequestException($body);
+        }
+        if ($body === 'ok') {
+            return;
+        }
+        $responseData = json_decode($body, true);
+        if ($responseData === null) {
+            throw new Exception('Malformed JSON in response');
         }
     }
 
@@ -77,14 +128,14 @@ abstract class AbstractApi
 
         if ($this->getMethod() === 'GET') {
             $data = wp_remote_get($url . '?' . http_build_query($this->params), [
-                'timeout' => self::TIMEOUT,
+                'timeout' => static::TIMEOUT,
                 'headers' => $headers,
             ]);
         } else {
             $this->initializePostParams();
             $data = wp_remote_post($url, [
                 'method' => $this->getMethod(),
-                'timeout' => self::TIMEOUT,
+                'timeout' => static::TIMEOUT,
                 'redirection' => 5,
                 'headers' => $headers,
                 'body' => json_encode($this->params),
@@ -92,30 +143,51 @@ abstract class AbstractApi
             ]);
         }
         $response = new Response();
-        $body = is_wp_error($data) ? '' : ($data['body'] ?? '');
+        if (is_wp_error($data)) {
+            throw new Exception($data->get_error_message());
+        }
+        $statusCode = wp_remote_retrieve_response_code($data);
+        $body = $data['body'] ?? '';
+        $this->checkResponse($body, $statusCode);
         $response->setBody($body);
         return $this->parseResponse($response);
     }
 
     /**
+     * @return mixed
+     * @throws RequestException
      * @throws Exception
      */
     public function guzzleHttpSend()
     {
-        $client = new \GuzzleHttp\Client([
-            'base_uri' => $this->getBaseUrl(),
-            'timeout' => self::TIMEOUT,
-        ]);
+        $isLegacyGuzzle = !method_exists(\GuzzleHttp\Client::class, 'request');
+
+        $clientConfig = [
+            $isLegacyGuzzle ? 'base_url' : 'base_uri' => $this->getBaseUrl(),
+            'timeout' => static::TIMEOUT,
+        ];
+
+        if ($isLegacyGuzzle) {
+            $clientConfig['defaults'] = ['timeout' => static::TIMEOUT];
+        }
+
+        $client = new \GuzzleHttp\Client($clientConfig);
 
         $options = [
             'headers' => array_merge($this->getHeaders(), [
                 'Content-Type' => 'application/json',
                 'x-api-version' => self::X_API_VERSION
             ]),
-            'http_errors' => false
         ];
 
-        $method = $this->getMethod();
+        if (!$isLegacyGuzzle) {
+            $options['http_errors'] = false;
+        } else {
+            $options['exceptions'] = false;
+        }
+
+        $method = strtoupper($this->getMethod());
+
         if ($method === 'POST') {
             $this->initializePostParams();
             $options['json'] = $this->params;
@@ -123,7 +195,15 @@ abstract class AbstractApi
             $options['query'] = $this->params;
         }
 
-        $response = $client->request($method, $this->getUri(), $options);
+        if ($isLegacyGuzzle) {
+            $request  = $client->createRequest($method, $this->getUri(), $options);
+            $response = $client->send($request);
+        } else {
+            $response = $client->request($method, $this->getUri(), $options);
+        }
+
+        $this->checkResponse((string)$response->getBody(), $response->getStatusCode());
+        
         return $this->parseResponse($response);
     }
 
@@ -183,7 +263,7 @@ abstract class AbstractApi
      */
     protected function getMetadata(): array
     {
-        return $this->metaData + [
+        return $this->metadata + [
             'php_version' => phpversion(),
             'platform_version' => Init::getInstance()->get('platform_version'),
             'host' => $_SERVER['HTTP_HOST'] ?? '',
@@ -194,9 +274,9 @@ abstract class AbstractApi
      * @param array $data
      * @return self
      */
-    public function setMetaData(array $data): self
+    public function setMetadata(array $data): self
     {
-        $this->metaData = $data;
+        $this->metadata = $data;
         return $this;
     }
 
@@ -205,7 +285,14 @@ abstract class AbstractApi
      */
     protected function getBaseUrl(): string
     {
-        return Init::getInstance()->get('env') === 'demo' ? static::DEMO_BASE_URL : static::PRODUCTION_BASE_URL;
+        $env = Init::getInstance()->get('env');
+        if ($env === 'staging') {
+            return static::STAGING_BASE_URL;
+        }
+        if ($env === 'demo') {
+            return static::DEMO_BASE_URL;
+        }
+        return static::PRODUCTION_BASE_URL;
     }
 
     /**
@@ -260,14 +347,14 @@ abstract class AbstractApi
 
     /**
      * @return string
+     * @throws RequestException
      * @throws Exception
      */
     protected function getToken(): string
     {
-        $cacheName = 'airwallex_token' . Init::getInstance()->get('api_key');
-        return $this->cacheRemember($cacheName, function () {
+        return $this->cacheRemember(self::ACCESS_TOKEN_CACHE_KEY, function () {
             $accessToken = (new Authentication())->send();
             return $accessToken->getToken();
-        }, 60 * 30);
+        }, 60 * 25);
     }
 }

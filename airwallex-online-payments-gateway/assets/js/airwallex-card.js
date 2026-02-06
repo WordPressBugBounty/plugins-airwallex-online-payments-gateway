@@ -1,4 +1,5 @@
 import { initAirwallex } from "./utils";
+import { getCardData } from "./api";
 
 /** global awxCommonData, awxEmbeddedCardData */
 jQuery(function ($) {
@@ -305,13 +306,16 @@ jQuery(function ($) {
                 }
                 await cvcElement.confirm(confirmData);
             } else if (result.createConsent) {
-                await Airwallex.createPaymentConsent({
+                await Airwallex.confirmPaymentIntent({
                     intent_id: result.paymentIntent,
                     customer_id: result.customerId,
                     client_secret: result.clientSecret,
                     currency: result.currency,
                     element: element,
-                    next_triggered_by: 'merchant',
+                    payment_consent: {
+                        merchant_trigger_reason: 'scheduled',
+                        next_triggered_by: 'merchant'
+                    },
                     billing: AirwallexClient.getBillingInformation(),
                 })
             } else if ($('#airwallex-save').prop('checked')) {
@@ -338,9 +342,26 @@ jQuery(function ($) {
                 });
             }
         } catch (err) {
-            if (err.code !== 'invalid_status_for_operation') {
-                AirwallexClient.displayCheckoutError(awxCheckoutForm, String(errorMessage).replace('%s', err.message || ''));
-                $(awxCheckoutForm).unblock();
+            if (err?.code !== 'invalid_status_for_operation') {
+                $.ajax({
+                    url: awxCommonData.updateOrderStatusAfterPaymentDecline.url + '&security=' + awxCommonData.updateOrderStatusAfterPaymentDecline.nonce + "&order_id=" + result.orderId,
+                    method: 'GET',
+                    dataType: 'json',
+                    success: function(response) {
+                        let errMessage = response.success ? (err.message || '') : response.message;
+                        AirwallexClient.displayCheckoutError(awxCheckoutForm, String(errorMessage).replace('%s', errMessage));
+                        $(awxCheckoutForm).unblock();                        
+                    },
+                    error: function(xhr, status, error) {
+                        let errMessage = xhr.responseText;
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errMessage = xhr.responseJSON.message;
+                        }
+                        AirwallexClient.displayCheckoutError(awxCheckoutForm, String(errorMessage).replace('%s', errMessage));
+                        $(awxCheckoutForm).unblock();                       
+                    }
+                });
+
                 return;
             }
         }
@@ -414,6 +435,8 @@ jQuery(function ($) {
         $('label[for="airwallex-new-card"]').css('font-weight', 700);
     });
 
+    let cachedCardLogos = null;
+
     let showTokens = async () => {
         if ( ! $('#payment_method_airwallex_card').is(":checked") ) {
             return;
@@ -450,7 +473,7 @@ jQuery(function ($) {
                         <input type="radio" name="save-card" id="${token.id}"> 
                         <label for="${token.id}">
                             <span>${token.formatted_type} •••• ${token.last4} (expires ${token.expiry_month}/${token.expiry_year.slice(-2)})</span> 
-                            <img src="${awxEmbeddedCardData.cardLogos['card_' + logoIndex]}" class="airwallex-card-icon" alt="Credit Card">
+                            <img style="display: none;" data-type="${'card_' + logoIndex}" class="airwallex-card-icon" alt="Credit Card">
                         </label> 
                     </div>
                     <div class="cvc-title" style="display: none;">Security code</div>   
@@ -462,7 +485,56 @@ jQuery(function ($) {
         $(".airwallex-container .save-cards").html(tokensHtml);
         $(".airwallex-container .new-card").show();
         $('input[name="save-card"]').first().trigger('click');
+
+        const renderLogos = (logos) => {
+            $('.airwallex-card-icon').each(function () {
+                const src = logos[$(this).data('type')];
+
+                if (src) {
+                    $(this).attr('src', src);
+                    $(this).css('display', 'block');
+                }
+            });
+        };
+
+        if (cachedCardLogos) {
+            renderLogos(cachedCardLogos);
+            return;
+        }
+
+        getCardData().then((data) => {
+            cachedCardLogos = data?.data?.logos;
+            renderLogos(cachedCardLogos);
+        });        
     }
     $(document).on('change', '#payment_method_airwallex_card', showTokens);
     $(document).on('updated_checkout', showTokens);
+
+    const showCardLogos = async () => {
+        const $cardLogoElement = $('#awx-card-logos-classic');
+        if (!$cardLogoElement.length) return;
+
+        const renderLogos = (logos) => {
+            const keys = Object.keys(logos || {});
+            if (!keys.length) return;
+
+            const logosHtml = keys
+                .map(key => `<img src="${logos[key]}" class="airwallex-card-icon" title="${key}">`)
+                .join('');
+
+            $cardLogoElement.replaceWith(logosHtml);
+        };
+
+        if (cachedCardLogos) {
+            renderLogos(cachedCardLogos);
+            return;
+        }
+
+        getCardData().then((data) => {
+            cachedCardLogos = data?.data?.logos;
+            renderLogos(cachedCardLogos);
+        });
+    };
+
+    $(document).on('updated_checkout', showCardLogos);
 });

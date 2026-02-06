@@ -108,6 +108,6 @@ class Update extends AbstractApi
      */
     protected function parseResponse($response): Customer
     {
-        return new Customer(json_decode($response->getBody(), true));
+        return new Customer(json_decode((string)$response->getBody(), true));
     }
 }

@@ -13,6 +13,7 @@ use Exception;
 use WC_Data_Store;
 use WC_Checkout;
 use WC_Validation;
+use Airwallex\Services\OrderService;
 
 class OrderController {
 
@@ -44,7 +45,8 @@ class OrderController {
 		}
 
 		$cart = clone WC()->cart;
-		$cart->empty_cart();
+		$cart->session = null;
+		$cart->empty_cart(false);
 		
 		$product     = wc_get_product( $productId );
 		$productType = $product->get_type();
@@ -107,6 +109,39 @@ class OrderController {
 		$data['orderInfo'] = $this->getDisplayItems(WC()->cart);
 		$data['success']   = true;
 
+		wp_send_json( $data );
+	}
+
+	public function updateOrderStatusAfterPaymentDecline() {
+		check_ajax_referer( 'wc-airwallex-update-order-status-after-payment-decline', 'security' );
+		$data = [];
+		$orderId  = isset($_GET['order_id']) ? absint( $_GET['order_id'] ) : 0;
+		if (empty($orderId)) {
+			$data['success'] = false;
+			$data['message'] = __( 'Order id is required.', 'airwallex-online-payments-gateway' );
+			wp_send_json( $data );
+			die;
+		}
+		$order = wc_get_order( $orderId );
+		if (empty($order)) {
+			$data['success'] = false;
+			$data['message'] = __( 'Order id is invalid.', 'airwallex-online-payments-gateway' );
+			wp_send_json( $data );
+			die;
+		}
+
+		$orderIdInSession = (int)WC()->session->get( 'airwallex_order');
+		$currentUserId = get_current_user_id();
+		if (($currentUserId && $order->get_user_id() !== $currentUserId)
+			|| (!$currentUserId && $order->get_id() !== $orderIdInSession)) {
+			$data['success'] = false;
+			$data['message'] = __( 'This order must belong to the current user.', 'airwallex-online-payments-gateway' );
+			wp_send_json( $data );			
+			die;
+		}
+
+		OrderService::getInstance()->setTemporaryOrderStateAfterDecline($order);
+		$data['success'] = true;
 		wp_send_json( $data );
 	}
 

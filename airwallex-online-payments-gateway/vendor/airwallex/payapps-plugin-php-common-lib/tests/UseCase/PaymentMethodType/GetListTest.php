@@ -26,5 +26,14 @@ final class GetListTest extends TestCase
             ->setTransactionMode(PaymentMethodType::PAYMENT_METHOD_TYPE_ONE_OFF)
             ->get();
         $this->assertCount(count($activeList), array_merge($recurringList, $oneOffList));
+        $paymentMethodTypesWithResources = (new GetPaymentMethodTypeList())
+            ->setIncludeResources(true)
+            ->get();
+        foreach ($paymentMethodTypesWithResources as $paymentMethodTypeWithResources) {
+            if ($paymentMethodTypeWithResources->getName() === 'card') {
+                $this->assertNotEmpty($paymentMethodTypeWithResources->getResources());
+                $this->assertNotEmpty($paymentMethodTypeWithResources->getCardSchemes());
+            }
+        }
     }
 }

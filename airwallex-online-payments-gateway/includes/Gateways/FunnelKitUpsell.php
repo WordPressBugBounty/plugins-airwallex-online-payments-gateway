@@ -2,8 +2,6 @@
 
 namespace Airwallex\Gateways;
 
-use Airwallex\Client\CardClient;
-use Airwallex\Client\GatewayClient;
 use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
 use Airwallex\Services\LogService;
 use Airwallex\Services\OrderService;
@@ -12,13 +10,14 @@ use WFOCU_Gateway;
 use WFOCU_AJAX_Controller;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentConsent\Retrieve as RetrievePaymentConsent;
-use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Confirm as ConfirmPaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Confirm as ConfirmPaymentIntentRequest;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Create as CreatePaymentIntent;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentConsent as StructPaymentConsent;
 use Exception;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\PluginService\Log as RemoteLog;
-use Airwallex\Struct\PaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Refund\Create as CreateRefund;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\Refund as StructRefund;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -65,6 +64,7 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                     $subscription->save_meta_data();
                 }
             } catch (Exception $e) {
+                LogService::getInstance()->error( __METHOD__, $e->getMessage() );
                 RemoteLog::error('FunnelKit Upsell create intent failed: ' . $e->getMessage());
                 $this->handle_api_error(__($e->getMessage(), 'airwallex-online-payments-gateway'), $e->getMessage(), $order);
             }
@@ -84,7 +84,8 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
             $amt          = $refundData['amt'] ?? '';
             $refundReason = $refundData['refund_reason'] ?? '';
             try {
-                $refund = GatewayClient::getInstance()->createRefund( $txnId, $amt, $refundReason );
+                /** @var StructRefund $refund */
+                $refund = (new CreateRefund())->setPaymentIntentId($txnId)->setAmount($amt)->setReason($refundReason)->send();
                 return $refund && $refund->getId();
             } catch ( Exception $e ) {
                 LogService::getInstance()->error( 'FunnelKit Upsell refund failed: ' . $e->getMessage() );
@@ -102,13 +103,14 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                 wp_send_json( array(
                     'result' => 'error',
                 ) );
+                die;
             }
 
             WFOCU_Core()->process_offer->execute( $currentOfferMeta );
 
             $parentOrder = WFOCU_Core()->data->get_parent_order();
 
-            $airwallexCustomerId = OrderService::getInstance()->getAirwallexCustomerId( get_current_user_id(), CardClient::getInstance() );
+            $airwallexCustomerId = OrderService::getInstance()->getAirwallexCustomerId( get_current_user_id() );
 
             $upsellPackage = WFOCU_Core()->data->get( '_upsell_package' );
 
@@ -117,6 +119,7 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                 try {
                     $paymentIntent = (new RetrievePaymentIntent())->setPaymentIntentId($paymentIntentId)->send();
                 } catch (Exception $e) {
+                    LogService::getInstance()->error( 'Failed to fetch intent: ' . $e->getMessage() );
                     RemoteLog::error('Failed to fetch intent: ' . $e->getMessage());
                     $this->handle_api_error(__($e->getMessage(), 'airwallex-online-payments-gateway'), $e->getMessage(), $parentOrder);
                     wp_send_json( array(
@@ -172,9 +175,9 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                     ->setCurrency($parentOrder->get_currency())
                     ->setMerchantOrderId($parentOrder->get_id())
                     ->setOrder(['products' => $products])
-                    ->setReferrerDataType(PaymentIntent::CARD_REFERRER_DATA_TYPE)
+                    ->setReferrerDataType(Card::CARD_REFERRER_DATA_TYPE)
                     ->setCustomerId($airwallexCustomerId)
-                    ->setMetaData(['is_funnelkit' => 'yes'])
+                    ->setMetadata(['is_funnelkit' => 'yes'])
                     ->send();
                 LogService::getInstance()->debug('Upsell payment intent created: ' . $paymentIntent->getId());
                 if ($paymentIntent->getId()) {
@@ -184,6 +187,7 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                     $parentOrder->save_meta_data();
                 }
             } catch (Exception $e) {
+                LogService::getInstance()->error('FunnelKit Upsell create intent failed: ' . $e->getMessage());
                 RemoteLog::error('FunnelKit Upsell create intent failed: ' . $e->getMessage(), RemoteLog::ON_PAYMENT_CREATION_ERROR);
                 $this->handle_api_error(__($e->getMessage(), 'airwallex-online-payments-gateway'), $e->getMessage(), $parentOrder);
                 wp_send_json( array(
@@ -218,7 +222,7 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                 }
                 LogService::getInstance()->debug('Upsell checkout by Payment Method ID: ' .$paymentConsent->getPaymentMethod()['id']);
 
-                $intentConfirmRequest = ( new ConfirmPaymentIntent() )
+                $intentConfirmRequest = ( new ConfirmPaymentIntentRequest() )
                     ->setPaymentIntentId( $paymentIntent->getId() )
                     ->setReturnUrl( WC()->api_request_url( self::THREEDS_RESULT_PAGE_ROUTE_SLUG ) );
                     

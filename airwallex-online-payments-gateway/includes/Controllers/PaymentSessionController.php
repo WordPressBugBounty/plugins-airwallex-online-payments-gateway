@@ -3,8 +3,8 @@
 namespace Airwallex\Controllers;
 
 use Airwallex\Services\LogService;
-use Airwallex\Client\CardClient;
 use Exception;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Config\ApplePay\StartPaymentSession;
 
 if (!defined('ABSPATH')) {
 	exit;
@@ -16,7 +16,6 @@ class PaymentSessionController {
 	protected $cardClient;
 
 	public function __construct() {
-		$this->cardClient = CardClient::getInstance();
 	}
 
 	public function startPaymentSession() {
@@ -27,13 +26,16 @@ class PaymentSessionController {
 
 		LogService::getInstance()->debug(__METHOD__ . " - Start payment session for {$origin} with {$validationURL}.");
 		try {
-			$paymentSession = $this->cardClient->startPaymentSession($validationURL, $origin);
-
+			$paymentSession = (new StartPaymentSession())->setInitiativeParams([
+				'validation_url' => $validationURL,
+				'initiative_context' => $origin,
+			])->send();
+			
 			LogService::getInstance()->debug(__METHOD__ . ' - Payment session started.');
 
 			wp_send_json([
 				'success' => true,
-				'paymentSession' => $paymentSession->toArray(),
+				'paymentSession' => json_decode($paymentSession, true),
 			]);
 		} catch (Exception $e) {
 			LogService::getInstance()->error(__METHOD__ . ' - Start payment session failed.', $e->getMessage());

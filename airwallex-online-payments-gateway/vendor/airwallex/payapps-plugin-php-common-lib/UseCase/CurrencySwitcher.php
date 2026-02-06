@@ -113,7 +113,11 @@ class CurrencySwitcher
      */
     public function get(): StructQuote
     {
-        $cacheName = "airwallex_currency_switcher_{$this->getTargetCurrency()}_{$this->getPaymentCurrency()}_{$this->getPaymentAmount()}_{$this->getTransactionId()}";
+        $cacheName = "awx_currency_switcher"
+                . '_' . $this->getTargetCurrency()
+                . '_' . $this->getPaymentCurrency()
+                . '_' . $this->getPaymentAmount()
+                . '_' . $this->getTransactionId();
         return $this->cacheRemember(
             $cacheName,
             function () {

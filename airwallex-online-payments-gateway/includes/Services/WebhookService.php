@@ -2,11 +2,11 @@
 
 namespace Airwallex\Services;
 
-use Airwallex\Struct\PaymentIntent;
-use Airwallex\Struct\Refund;
 use Exception;
 use WC_Order;
 use WC_Order_Refund;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\Refund as StructRefund;
+use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
 
 class WebhookService {
 
@@ -23,17 +23,18 @@ class WebhookService {
 		try {
 			$this->verifySignature( $headers, $msg );
 		} catch ( Exception $e ) {
-			$logService->warning( 'unable to verify webhook signature', array( $headers, $msg ) );
-			throw $e;
+			$logService->debug( 'unable to verify webhook signature: ' . $e->getMessage() );
+			wp_send_json( array( 'success' => 0 ), 401 );
+			die;
 		}
 
 		$messageData = json_decode( $msg, true );
-		$logService->debug( '🖧 received webhook notification', $messageData );
 		$eventType       = $messageData['name'];
 		$eventObjectType = explode( '.', $eventType )[0];
 		if ( 'payment_intent' === $eventObjectType ) {
 			$logService->debug( '🖧 received payment_intent webhook' );
-			$paymentIntent = new PaymentIntent( $messageData['data']['object'] );
+			$paymentIntent = new StructPaymentIntent( $messageData['data']['object'] );
+			$logService->debug( '🖧 received payment_intent webhook, name: ' . $eventType . ' payment intent id: ' . $paymentIntent->getId());
 			$orderId       = $this->getOrderIdForPaymentIntent( $paymentIntent );
 
 			/**
@@ -44,7 +45,14 @@ class WebhookService {
 			$order = wc_get_order( $orderId );
 
 			if ( $order ) {
-				$this->verifyIntentFromOrder($order, $paymentIntent->getId(), $eventType);
+				$upsellPaymentIntentIds = [];
+				if (class_exists('\WFOCU_Gateway')) {
+					$upsellPaymentIntentIds = \Airwallex\Gateways\FunnelKitUpsell::getInstance()->getUpsellPaymentIntentIds($order);
+				}
+				if ( in_array( $paymentIntent->getId(), $upsellPaymentIntentIds, true ) ) {
+					return;
+				}
+				$this->verifyIntentFromOrder($order, $paymentIntent, $eventType);
 				switch ( $eventType ) {
 					case 'payment_intent.cancelled':
 						$order->update_status( 'failed', 'Airwallex Webhook' );
@@ -53,12 +61,11 @@ class WebhookService {
 					case 'payment_intent.capture_required':
 					case 'payment_intent.requires_capture':
 						if ($order instanceof WC_Order) {
-							$orderService->setPaymentSuccess( $order, $paymentIntent );
+							$orderService->setPaymentSuccess( $order, $paymentIntent, __METHOD__ );
 						}
 						break;
 					default:
-						$attempt = $paymentIntent->getLatestPaymentAttempt();
-						if ( isset($attempt['']) && in_array( $attempt[''], array_map( 'strtolower', PaymentIntent::PENDING_STATUSES ), true ) ) {
+						if ( $paymentIntent->getStatus() === StructPaymentIntent::STATUS_REQUIRES_CUSTOMER_ACTION ) {
 							$logService->debug( '🖧 detected pending status from webhook', $eventType );
 							$orderService->setPendingStatus( $order );
 						}
@@ -68,14 +75,21 @@ class WebhookService {
 					$order->add_order_note( 'Airwallex Webhook notification: ' . $eventType . "\n\n" . 'Amount: ' . $paymentIntent->getAmount() . $paymentIntent->getCurrency() . "\n\nCaptured amount: " . $paymentIntent->getCapturedAmount() );
 				}
 			}
-		} elseif ( 'refund.processing' === $eventType || 'refund.accepted' === $eventType || 'refund.succeeded' === $eventType ) {
+			return;
+		}
+		if ( 'refund' === $eventObjectType ) {
 			$logService->debug( '🖧 received refund webhook' );
-			$refund = new Refund( $messageData['data']['object'] );
+			$refund = new StructRefund( $messageData['data']['object'] );
+			if (!in_array($refund->getStatus(), [StructRefund::STATUS_SETTLED, StructRefund::STATUS_SUCCEEDED, StructRefund::STATUS_PROCESSING, StructRefund::STATUS_ACCEPTED], true)) {
+				return;
+			}
+			$refundMetaKey = OrderService::getRefundOrderMetaKey($refund->getId());
 
+			$logService->debug( '🖧 received refund webhook, refund id: ' . $refund->getId() );
 			$order = $orderService->getOrderByAirwallexRefundId( $refund->getId() );
 			if ( $order ) {
-				$refundInfo = $order->get_meta( $refund->getMetaKey(), true );
-				if ( Refund::STATUS_SUCCEEDED !== $refundInfo['status'] ) {
+				$refundInfo = $order->get_meta( $refundMetaKey, true ) ?: [];
+				if ( empty($refundInfo['status']) || StructRefund::STATUS_SUCCEEDED !== $refundInfo['status'] ) {
 					$order->add_order_note(
 						sprintf(
 							__( "Airwallex Webhook notification: %1\$s \n\n Amount:  (%2\$s).", 'airwallex-online-payments-gateway' ),
@@ -83,8 +97,8 @@ class WebhookService {
 							$refund->getAmount()
 						)
 					);
-					$refundInfo['status'] = Refund::STATUS_SUCCEEDED;
-					$order->update_meta_data( $refund->getMetaKey(), $refundInfo );
+					$refundInfo['status'] = StructRefund::STATUS_SUCCEEDED;
+					$order->update_meta_data( $refundMetaKey, $refundInfo );
 					$order->save();
 				}
 				$logService->debug( __METHOD__ . " - Order {$order->get_id()}, refund id {$refund->getId()}, event type {$messageData['name']}, event id {$messageData['id']}" );
@@ -109,20 +123,19 @@ class WebhookService {
 				*/
 				if ( ! $orderService->getRefundIdByAirwallexRefundId( $refund->getId() ) ) {
 					if ( $orderService->getRefundByAmountAndTime( $order->get_id(), $refund->getAmount() ) ) {
-						$order->add_meta_data( $refund->getMetaKey(), array( 'status' => Refund::STATUS_SUCCEEDED ) );
+						$order->add_meta_data( $refundMetaKey, array( 'status' => StructRefund::STATUS_SUCCEEDED ) );
 						$order->save();
 					} else {
-						$wcRefund = wc_create_refund(
-							array(
-								'amount'         => $refund->getAmount(),
-								'reason'         => $refund->getReason(),
-								'order_id'       => $order->get_id(),
-								'refund_payment' => false,
-								'restock_items'  => false,
-							)
+						$refundData = array(
+							'amount'         => $refund->getAmount(),
+							'reason'         => $refund->getReason(),
+							'order_id'       => $order->get_id(),
+							'refund_payment' => false,
+							'restock_items'  => false,
 						);
+						$wcRefund = wc_create_refund($refundData);
 						if ( $wcRefund instanceof WC_Order_Refund ) {
-							$order->add_meta_data( $refund->getMetaKey(), array( 'status' => Refund::STATUS_SUCCEEDED ) );
+							$order->add_meta_data( $refundMetaKey, array( 'status' => StructRefund::STATUS_SUCCEEDED ) );
 							$order->save();
 						} else {
 							$order->add_order_note(
@@ -132,7 +145,7 @@ class WebhookService {
 									$refund->getId()
 								)
 							);
-							$logService->error( __METHOD__ . ' failed to create WC refund from webhook notification', $wcRefund );
+							$logService->error( __METHOD__ . ' failed to create WC refund from webhook notification', $refundData );
 						}
 					}
 				}
@@ -140,20 +153,18 @@ class WebhookService {
 		}
 	}
 
-	public function verifyIntentFromOrder($order, $paymentIntentId, $eventType) {
+	public function verifyIntentFromOrder($order, StructPaymentIntent $paymentIntent, $eventType) {
 		if ( empty( $order ) ) {
-			throw new Exception('No order found for the order id in webhook. Payment intent id: ' . $paymentIntentId);
+			throw new Exception('No order found for the order id in webhook. Payment intent id: ' . $paymentIntent->getId());
 		}
-
 		$paymentIntentIdFromOrder = $order->get_meta( OrderService::META_KEY_INTENT_ID );
-		$upsellPaymentIntentIds = [];
-		if (class_exists('\WFOCU_Gateway')) {
-			$upsellPaymentIntentIds = \Airwallex\Gateways\FunnelKitUpsell::getInstance()->getUpsellPaymentIntentIds($order);
-		}
-		if ( $paymentIntentId !== $paymentIntentIdFromOrder && !in_array( $paymentIntentId, $upsellPaymentIntentIds, true ) ) {
+		if ( $paymentIntent->getId() !== $paymentIntentIdFromOrder ) {
+			if (in_array($paymentIntent->getStatus(), [StructPaymentIntent::STATUS_CREATED, StructPaymentIntent::STATUS_REQUIRES_PAYMENT_METHOD], true)) {
+				return;
+			}
 			throw new Exception('Mismatch in payment intent ID from webhook and order. Debug info: ' . wp_json_encode([
 				'payment_intent_id_from_order' => $paymentIntentIdFromOrder,
-				'payment_intent_id_from_webhook' => $paymentIntentId,
+				'payment_intent_id_from_webhook' => $paymentIntent->getId(),
 				'event_name' => $eventType,
 			]));
 		}
@@ -187,10 +198,10 @@ class WebhookService {
 	/**
 	 * Get order id from payment intent
 	 *
-	 * @param PaymentIntent $paymentIntent
+	 * @param StructPaymentIntent $paymentIntent
 	 * @return int
 	 */
-	private function getOrderIdForPaymentIntent( PaymentIntent $paymentIntent ) {
+	private function getOrderIdForPaymentIntent( StructPaymentIntent $paymentIntent ) {
 		$metaData = $paymentIntent->getMetadata();
 		if ( ! empty( $metaData['wp_order_id'] ) ) {
 			return (int) $metaData['wp_order_id'];
