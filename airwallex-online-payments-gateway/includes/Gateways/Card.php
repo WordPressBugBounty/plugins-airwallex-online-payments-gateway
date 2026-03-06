@@ -399,6 +399,10 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function enqueueScriptsForEmbeddedCard() {
+		if ($this->isCartOrProductPage()) {
+			return;
+		}
+
 		wp_enqueue_script( 'airwallex-card-js' );
 		wp_enqueue_style( 'airwallex-css' );
 

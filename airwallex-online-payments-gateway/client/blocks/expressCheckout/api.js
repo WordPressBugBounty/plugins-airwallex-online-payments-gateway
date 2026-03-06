@@ -1,5 +1,6 @@
 import { getSetting } from '@woocommerce/settings';
 import $ from 'jquery';
+import { getOrderAttributionData } from '../../../assets/js/utils';
 
 const settings = getSetting('airwallex_express_checkout_data', {});
 
@@ -152,6 +153,7 @@ const getOrderDataForGooglePay = (paymentData) => {
 		},
 		formattedBilling,
 		formattedShipping,
+		getOrderAttributionData()
 	);
 
 	return data;
@@ -197,6 +199,7 @@ const getOrderDataForApplePay = (paymentData) => {
 		},
 		formattedBilling,
 		formattedShipping,
+		getOrderAttributionData()
 	);
 
 	return data;

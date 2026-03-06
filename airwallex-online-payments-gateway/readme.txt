@@ -2,8 +2,8 @@
 Contributors: airwallex
 Tags: credit card, airwallex, payments, wechat, alipay, apple pay
 Requires at least: 4.5
-Tested up to: 6.9
-Stable tag: 1.30.1
+Tested up to: 6.9.1
+Stable tag: 1.30.2
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -68,6 +68,11 @@ The non-compressed javascript files can be found under the ```assets/js``` folde
 We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) as our build tool.
 
 == Changelog ==
+
+= 1.30.2 =
+* Release Date - 4 March 2026*
+
+* Fix - Attribute correct order origin/source for Apple Pay/Google Pay orders
 
 = 1.30.1 =
 * Release Date - 8 January 2026*

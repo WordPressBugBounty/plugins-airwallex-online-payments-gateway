@@ -440,4 +440,9 @@ trait AirwallexGatewayTrait {
 
 		return ob_get_clean();
 	}
+
+    public function isCartOrProductPage()
+    {
+        return is_product() || is_cart() || wc_post_content_has_shortcode('product_page');
+    }
 }

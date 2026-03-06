@@ -82,6 +82,10 @@ class Main extends WC_Payment_Gateway {
 	}
 
 	public function enqueueScriptsForApm() {
+		if ($this->isCartOrProductPage()) {
+			return;
+		}
+
 		wp_enqueue_script('airwallex-apm-js');
 	}
 

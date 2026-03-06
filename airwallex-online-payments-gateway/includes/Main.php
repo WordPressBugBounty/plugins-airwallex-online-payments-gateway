@@ -470,7 +470,7 @@ class Main {
 		wp_register_script(
 			'airwallex-express-checkout',
 			AIRWALLEX_PLUGIN_URL . '/build/airwallex-express-checkout.min.js',
-			['airwallex-lib-js', 'jquery'],
+			['airwallex-common-js', 'airwallex-lib-js', 'jquery'],
 			AIRWALLEX_VERSION,
 			true
 		);

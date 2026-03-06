@@ -64,3 +64,18 @@ export const getLocaleFromBrowserLanguage = () => {
 export const getSessionId = () => {
 	return document.getElementById('airwallex-fraud-api')?.getAttribute('data-order-session-id');
 }
+
+export const getOrderAttributionData = () => {
+	if (typeof wc_order_attribution === 'undefined' || typeof wc_order_attribution.getAttributionData !== 'function') {
+		return {};
+	}
+
+	const attributionData = wc_order_attribution.getAttributionData();
+	const prefixedData = {};
+
+	for (const [key, value] of Object.entries(attributionData)) {
+		prefixedData[`wc_order_attribution_${key}`] = value;
+	}
+
+	return prefixedData;
+};

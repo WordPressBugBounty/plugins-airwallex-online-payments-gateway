@@ -1,4 +1,5 @@
 import $ from 'jquery';
+import { getOrderAttributionData } from '../utils';
 
 /* global awxExpressCheckoutSettings, Airwallex */
 /**
@@ -302,6 +303,7 @@ const getOrderDataForGooglePay = (paymentData) => {
 		},
 		formattedBilling,
 		formattedShipping,
+		getOrderAttributionData()
 	);
 
 	return data;
@@ -347,6 +349,7 @@ const getOrderDataForApplePay = (paymentData) => {
 		},
 		formattedBilling,
 		formattedShipping,
+		getOrderAttributionData()
 	);
 
 	return data;

@@ -7,7 +7,7 @@ namespace Composer\Autoload;
 class ComposerStaticInit8ce8e7609f1540203383bf39c5c03933
 {
     public static $prefixLengthsPsr4 = array (
-        'A' => 
+        'A' =>
         array (
             'Airwallex\\PayappsPlugin\\CommonLibrary\\' => 38,
             'Airwallex\\' => 10,
@@ -15,12 +15,12 @@ class ComposerStaticInit8ce8e7609f1540203383bf39c5c03933
     );
 
     public static $prefixDirsPsr4 = array (
-        'Airwallex\\PayappsPlugin\\CommonLibrary\\' => 
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\' =>
         array (
             0 => __DIR__ . '/../..' . '/payapps-plugin-php-common-lib',
             1 => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib',
         ),
-        'Airwallex\\' => 
+        'Airwallex\\' =>
         array (
             0 => __DIR__ . '/../..' . '/includes',
         ),
