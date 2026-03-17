@@ -40,34 +40,88 @@ class OrderController {
 	 * @return array Cart details
 	 */
 	public function calculateCartForProduct($productId, $qty, $attributes) {
-		if ( ! defined( 'WOOCOMMERCE_CART' ) ) {
-			define( 'WOOCOMMERCE_CART', true );
+		$product = wc_get_product( $productId );
+		if ( ! $product ) {
+			return [
+				'success' => false,
+				'message' => __( 'Invalid product.', 'airwallex-online-payments-gateway' ),
+			];
 		}
 
-		$cart = clone WC()->cart;
-		$cart->session = null;
-		$cart->empty_cart(false);
-		
-		$product     = wc_get_product( $productId );
 		$productType = $product->get_type();
+
 		if ( ( 'variable' === $productType || 'variable-subscription' === $productType ) && $attributes ) {
 			$data_store   = WC_Data_Store::load( 'product' );
 			$variation_id = $data_store->find_matching_product_variation( $product, $attributes );
 
-			$cart->add_to_cart( $product->get_id(), $qty, $variation_id, $attributes );
+			if ( $variation_id ) {
+				$product = wc_get_product( $variation_id );
+			}
 		}
 
-		if ( 'simple' === $productType || 'subscription' === $productType ) {
-			$cart->add_to_cart( $product->get_id(), $qty );
+		$price = $this->getProductPrice( $product ) * $qty;
+		$decimals = wc_get_price_decimals();
+
+		$taxes = $this->getTaxesLikeCart( $product, $price );
+		$total_tax = array_sum( $taxes );
+
+		$quantityLabel = ( $qty > 1 ) ? ' (x' . $qty . ')' : '';
+		$displayItems  = [
+			[
+				'label' => $product->get_name() . $quantityLabel,
+				'price' => wc_format_decimal( $price, $decimals ),
+				'type'  => 'LINE_ITEM',
+			],
+		];
+
+		foreach ( $taxes as $tax ) {
+			$displayItems[] = [
+				'label' => __( 'Tax', 'airwallex-online-payments-gateway' ),
+				'price' => wc_format_decimal( $tax, $decimals ),
+				'type'  => 'TAX',
+			];
 		}
 
-		$cart->calculate_totals();
-
-		$data              = $this->getCartBasics($cart);
-		$data['orderInfo'] = $this->getDisplayItems($cart);
-		$data['success']   = true;
+		$data = [
+			'requiresShipping' => false,
+			'currencyCode'     => get_woocommerce_currency(),
+			'countryCode'      => wc_get_base_location()['country'],
+			'orderInfo'        => [
+				'displayItems' => $displayItems,
+				'total'        => [
+					'label'  => get_bloginfo( 'name' ),
+					'amount' => wc_format_decimal( $price + $total_tax, $decimals ),
+				],
+			],
+			'success'          => true,
+		];
 
 		return $data;
+	}
+
+	private function getProductPrice( $product ) {
+		if ( $this->cartPricesIncludeTax() ) {
+			$product_price = wc_get_price_including_tax( $product );
+		} else {
+			$product_price = wc_get_price_excluding_tax( $product );
+		}
+
+		return (float) $product_price;
+	}
+
+	private function getTaxesLikeCart( $product, $price ) {
+		if ( ! wc_tax_enabled() || $this->cartPricesIncludeTax() ) {
+			return [];
+		}
+
+		$tax_class = $product->get_tax_class();
+		$rates     = WC_Tax::get_rates( $tax_class );
+
+		return WC_Tax::calc_tax( $price, $rates, false );
+	}
+
+	private function cartPricesIncludeTax() {
+		return ! wc_tax_enabled() || 'incl' === get_option( 'woocommerce_tax_display_cart' );
 	}
 	
 	/**
@@ -161,6 +215,15 @@ class OrderController {
 		$data              = $this->getCartBasics(WC()->cart);
 		$data['orderInfo'] = $this->getDisplayItems(WC()->cart);
 		$data['success']   = true;
+
+		// Override requiresShipping for product page (when product_id is provided)
+		$product_id = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
+		if ( $product_id ) {
+			$product = wc_get_product( $product_id );
+			if ( $product ) {
+				$data['requiresShipping'] = $product->needs_shipping();
+			}
+		}
 
 		wp_send_json( $data );
 	}

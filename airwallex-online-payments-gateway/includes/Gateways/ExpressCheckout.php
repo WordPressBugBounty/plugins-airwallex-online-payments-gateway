@@ -872,6 +872,19 @@ class ExpressCheckout extends WC_Payment_Gateway {
 		return false;
 	}
 
+	public function isVirtualProductPage() {
+		if (!$this->isProduct()) {
+			return false;
+		}
+
+		$product = $this->getProduct();
+		if (!$product) {
+			return false;
+		}
+
+		return $product->is_virtual();
+	}
+
 	public function getCheckoutDetail() {
 		if (is_admin()) {
 			return [];

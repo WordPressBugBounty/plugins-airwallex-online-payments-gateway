@@ -33,12 +33,12 @@ jQuery(function($) {
 
 	const renderExpressCheckoutByEvent = function () {
 		if (isExpressCheckoutRendering) {
-			setTimeout(function(){
-				isExpressCheckoutRendering = false;
-			}, 1000)
 			return;
 		}
 		isExpressCheckoutRendering = true;
+		setTimeout(function(){
+			isExpressCheckoutRendering = false;
+		}, 1000)
 		airwallexExpressCheckout.init();
 	};
 
@@ -50,7 +50,7 @@ jQuery(function($) {
 			}
 
 			// get cart details
-			globalCartDetails = awxCommonData.getExpressCheckoutData.isProductPage ? await getEstimatedCartDetails() : await getCartDetails();
+			globalCartDetails = awxCommonData.getExpressCheckoutData.isVirtualProductPage ? await getEstimatedCartDetails() : await getCartDetails();
 
 			const { button, checkout } = awxExpressCheckoutSettings;
 			
@@ -156,7 +156,7 @@ jQuery(function($) {
 		},
 
 		getGooglePayRequestOptions: async function() {
-			const cartDetails = awxCommonData.getExpressCheckoutData.isProductPage ? await getEstimatedCartDetails() : await getCartDetails();
+			const cartDetails = awxCommonData.getExpressCheckoutData.isVirtualProductPage ? await getEstimatedCartDetails() : await getCartDetails();
 			const { button, checkout, merchantInfo, transactionId } = awxExpressCheckoutSettings;
 
 			if (!cartDetails.success) {

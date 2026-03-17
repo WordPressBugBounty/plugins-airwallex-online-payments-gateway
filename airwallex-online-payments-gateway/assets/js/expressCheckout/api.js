@@ -205,6 +205,11 @@ export const getCartDetails = () => {
 		security: awxExpressCheckoutSettings.nonce.payment
 	};
 
+	data.product_id = $('.single_add_to_cart_button').val();
+	if ($('.single_variation_wrap').length) {
+		data.product_id = $('.single_variation_wrap').find('input[name="product_id"]').val();
+	}
+
 	return $.ajax({
 		type: 'POST',
 		data: data,
