@@ -211,61 +211,36 @@ jQuery(function ($) {
 			if ($('.airwallex_general').length === 0) {
 				return;
 			}
-			// move the fallback buttons to the correct position
-			airwallexConnectionFlow.moveFallbackButtons();
 			// move the connection failed alert under the enable sandbox checkbox
 			airwallexConnectionFlow.moveConnectionFailedAlert();
 			airwallexConnectionFlow.displayAlert();
 			airwallexConnectionFlow.displayConnectionFailedAlert();
 			airwallexConnectionFlow.toggleConnectedAccount();
-			airwallexConnectionFlow.toggleConnectViaAPIKey();
+
+			airwallexConnectionFlow.initializeCheckboxState();
+			airwallexConnectionFlow.toggleConnectionMethod();
+
+			$('.wc-airwallex-use-api-key-checkbox').on('change', function() {
+				airwallexConnectionFlow.toggleConnectionMethod();
+			});
+
 			$('.wc-airwallex-connect-button').on('click', function(e) {
-				e.preventDefault();
-				const env = airwallexConnectionFlow.getEnv();
-				$.ajax({
-					type: 'POST',
-					data: {
-						security: awxAdminSettings.apiSettings.nonce.connectionClick,
-						env,
-					},
-					url: awxAdminSettings.apiSettings.ajaxUrl.connectionClick,
-				}).fail(function (error) {
-					console.log(error);
-				});
-				if (env === 'prod' && $('#awx-account-connected').is(':visible') && awxAdminSettings.apiSettings.connectedViaApiKey) {
-					airwallexConnectionFlow.showConnectViaAPIKey();
-					airwallexConnectionFlow.hideProdConnectedAlert();
-				} else {
-					airwallexConnectionFlow.startConnectionFlow();
-				}
-			});
-
-			// check for the connection status when the enable sandbox checkbox is toggled
-			$('#airwallex-online-payments-gatewayairwallex_general_enable_sandbox').on('change', function() {
-				airwallexConnectionFlow.testConnection();
-			});
-
-			$('.wc-airwallex-connect-api-key-button').on('click', function(e) {
-				e.preventDefault();
-				// to save the form if user does not change the field, trigger change first otherwise the save button is disabled
-				$('#airwallex-online-payments-gatewayairwallex_general_client_id').trigger('change');
-				$('.woocommerce-save-button').trigger('click');
-			});
-
-			$('.wc-airwallex-connect-flow-button').on('click', function(e) {
 				e.preventDefault();
 				airwallexConnectionFlow.startConnectionFlow();
 			});
 
-			$('.wc-airwallex-connect-cancel-button').on('click', function(e) {
-				e.preventDefault();
-				airwallexConnectionFlow.hideConnectViaAPIKey();
-				airwallexConnectionFlow.showProdConnectedAlert();
+			$('#airwallex-online-payments-gatewayairwallex_general_enable_sandbox').on('change', function() {
+				airwallexConnectionFlow.updateCredentialFields();
+				airwallexConnectionFlow.testConnection();
+				airwallexConnectionFlow.initializeCheckboxState();
+				airwallexConnectionFlow.toggleConnectionMethod();
 			});
-		},
 
-		moveFallbackButtons: function() {
-			$('#wc-airwallex-connect-api-key-buttons').insertAfter($('#airwallex-online-payments-gatewayairwallex_general_webhook_secret').closest('fieldset'));
+			$('.wc-airwallex-connect-api-key-button').on('click', function(e) {
+				e.preventDefault();
+				airwallexConnectionFlow.connectViaApiKey();
+			});
+
 		},
 
 		moveConnectionFailedAlert: function() {
@@ -335,7 +310,6 @@ jQuery(function ($) {
 				airwallexConnectionFlow.toggleConnected(response.success);
 				airwallexConnectionFlow.displayAlert();
 				airwallexConnectionFlow.displayConnectionFailedAlert();
-				airwallexConnectionFlow.toggleConnectViaAPIKey();
 				airwallexConnectionFlow.toggleLoadingSpinner(ele, false);
 				airwallexConnectionFlow.toggleConnectedAccount();
 			}).fail(function (error) {
@@ -380,41 +354,98 @@ jQuery(function ($) {
 			}
 		},
 
-		toggleConnectViaAPIKey: function() {
+		initializeCheckboxState: function() {
 			const env = airwallexConnectionFlow.getEnv();
-			const settings = awxAdminSettings.apiSettings;
-			if ('prod' === env && (settings.connectionFailed || (!settings.connectedViaConnectionFlow && settings.connectionClicked.prod === 'yes'))) {
-				$('.wc-airwallex-connect-button').closest('tr').hide();
-				$('#airwallex-online-payments-gatewayairwallex_general_client_id').closest('tr').show();
-				$('#airwallex-online-payments-gatewayairwallex_general_api_key').closest('tr').show();
-				$('#airwallex-online-payments-gatewayairwallex_general_webhook_secret').closest('tr').show();
-				$('#wc-airwallex-connect-api-key-buttons').show();
+			const useApiKey = awxAdminSettings.apiSettings.useApiKey[env];
+			$('.wc-airwallex-use-api-key-checkbox').prop('checked', useApiKey === 'yes');
+		},
+
+		toggleConnectionMethod: function() {
+			const isChecked = $('.wc-airwallex-use-api-key-checkbox').is(':checked');
+			if (isChecked) {
+				airwallexConnectionFlow.showApiKeyFields();
 			} else {
-				$('.wc-airwallex-connect-button').closest('tr').show();
-				$('#airwallex-online-payments-gatewayairwallex_general_client_id').closest('tr').hide();
-				$('#airwallex-online-payments-gatewayairwallex_general_api_key').closest('tr').hide();
-				$('#airwallex-online-payments-gatewayairwallex_general_webhook_secret').closest('tr').hide();
-				$('#wc-airwallex-connect-api-key-buttons').hide();
+				airwallexConnectionFlow.showConnectButton();
 			}
 		},
 
-		
-
-		showConnectViaAPIKey: function() {
+		showApiKeyFields: function() {
+			$('.wc-airwallex-connect-button').closest('tr').hide();
 			$('#airwallex-online-payments-gatewayairwallex_general_client_id').closest('tr').show();
 			$('#airwallex-online-payments-gatewayairwallex_general_api_key').closest('tr').show();
 			$('#airwallex-online-payments-gatewayairwallex_general_webhook_secret').closest('tr').show();
-			$('#wc-airwallex-connect-api-key-buttons').show();
-			$('.wc-airwallex-connect-cancel-button').show();
-			$('.wc-airwallex-connect-button').closest('tr').hide();
+			$('#wc-airwallex-connect-api-key-button-row').show();
 		},
 
-		hideConnectViaAPIKey: function() {
+		showConnectButton: function() {
+			$('.wc-airwallex-connect-button').closest('tr').show();
 			$('#airwallex-online-payments-gatewayairwallex_general_client_id').closest('tr').hide();
 			$('#airwallex-online-payments-gatewayairwallex_general_api_key').closest('tr').hide();
 			$('#airwallex-online-payments-gatewayairwallex_general_webhook_secret').closest('tr').hide();
-			$('#wc-airwallex-connect-api-key-buttons').hide();
-			$('.wc-airwallex-connect-button').closest('tr').show();
+			$('#wc-airwallex-connect-api-key-button-row').hide();
+		},
+
+		connectViaApiKey: function() {
+			const $button = $('.wc-airwallex-connect-api-key-button');
+			const $message = $('.wc-airwallex-connection-test-message');
+			const i18n = awxAdminSettings.apiSettings.i18n.connectionTest;
+
+			const $clientIdField = $('#airwallex-online-payments-gatewayairwallex_general_client_id');
+			const $apiKeyField = $('#airwallex-online-payments-gatewayairwallex_general_api_key');
+			const $webhookSecretField = $('#airwallex-online-payments-gatewayairwallex_general_webhook_secret');
+
+			const clientId = $.trim($clientIdField.val());
+			const apiKey = $.trim($apiKeyField.val());
+			const webhookSecret = $.trim($webhookSecretField.val());
+
+			if (!clientId || !apiKey || !webhookSecret) {
+				$message.removeClass('success error').addClass('error')
+					.html('<span style="color: #dc3232;">' + i18n.requiredFields + '</span>')
+					.show();
+				return;
+			}
+
+			$message.hide();
+			$button.prop('disabled', true);
+
+			const env = airwallexConnectionFlow.getEnv();
+
+			$.ajax({
+				type: 'POST',
+				data: {
+					security: awxAdminSettings.apiSettings.nonce.connectionTest,
+					env: env,
+					client_id: clientId,
+					api_key: apiKey,
+					connect_with_api_key: 'true',
+				},
+				url: awxAdminSettings.apiSettings.ajaxUrl.connectionTest,
+			}).done(function (response) {
+				$button.prop('disabled', false);
+
+				if (response.success) {
+					window.onbeforeunload = null;
+					$(window).off('beforeunload');
+
+					const $form = $clientIdField.closest('form');
+					if ($form.length) {
+						if (!$form.find('input[name="save"]').length) {
+							$form.append('<input type="hidden" name="save" value="Save changes">');
+						}
+						$form.submit();
+					}
+				} else {
+					$message.removeClass('success').addClass('error')
+						.html('<span style="color: #dc3232;">' + (response.message || i18n.failedMessage) + '</span>')
+						.show();
+				}
+			}).fail(function (error) {
+				console.log(error);
+				$button.prop('disabled', false);
+				$message.removeClass('success').addClass('error')
+					.html('<span style="color: #dc3232;">' + i18n.errorMessage + '</span>')
+					.show();
+			});
 		},
 
 		showProdConnectedAlert: function() {
@@ -427,6 +458,17 @@ jQuery(function ($) {
 
 		getEnv: function() {
 			return $('#airwallex-online-payments-gatewayairwallex_general_enable_sandbox').is(':checked') ? 'demo' : 'prod';
+		},
+
+		updateCredentialFields: function() {
+			const env = airwallexConnectionFlow.getEnv();
+			const credentials = awxAdminSettings.apiSettings.credentials[env];
+
+			if (credentials) {
+				$('#airwallex-online-payments-gatewayairwallex_general_client_id').val(credentials.client_id || '');
+				$('#airwallex-online-payments-gatewayairwallex_general_api_key').val(credentials.api_key || '');
+				$('#airwallex-online-payments-gatewayairwallex_general_webhook_secret').val(credentials.webhook_secret || '');
+			}
 		}
 	};
 

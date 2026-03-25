@@ -100,7 +100,12 @@ class ConnectionFlowController {
             }
             wp_safe_redirect(admin_url('admin.php?page=wc-settings&tab=checkout&section=airwallex_general'));
         } catch (Exception $e) {
-            update_option('airwallex_connection_type', 'api_key');
+            if (Util::getEnvironment() === "demo") {
+                update_option('airwallex_connection_type_demo', 'api_key');
+            } else {
+                update_option('airwallex_connection_type', 'api_key');
+            }
+
             wp_safe_redirect(admin_url('admin.php?page=wc-settings&tab=checkout&section=airwallex_general&error=connection_failed'));
             LogService::getInstance()->error('Failed to finalize connection', $e->getMessage());
         }
@@ -132,6 +137,8 @@ class ConnectionFlowController {
             update_option('airwallex_enable_sandbox', 'demo' === $cachedRequestData['env'] ? 'yes' : 'no');
             if ('prod' === $cachedRequestData['env']) {
                 update_option('airwallex_connection_type', 'connection_flow');
+            } else {
+                update_option('airwallex_connection_type_demo', 'connection_flow');
             }
             LogService::getInstance()->debug('Save Account Setting successfully');
             wp_send_json([

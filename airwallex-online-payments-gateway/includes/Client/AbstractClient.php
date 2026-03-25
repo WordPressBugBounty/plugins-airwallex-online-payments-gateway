@@ -97,16 +97,16 @@ abstract class AbstractClient {
 		return $token;
 	}
 
-	final public function testAuth() {
-		if (empty(Util::getClientId()) || empty(Util::getApiKey())) {
+	final public function testAuth($env = '', $clientId = '', $apiKey = '') {
+		if (empty($env) || empty($clientId) || empty($apiKey)) {
 			return false;
 		}
 		CommonLibraryInit::getInstance()->updateConfig([
-			'env' => Util::getEnvironment(),
-			'client_id' => Util::getClientId(),
-			'api_key' => Util::getApiKey(),
+			'env' => $env,
+			'client_id' => $clientId,
+			'api_key' => $apiKey,
 		]);
-		$cacheName = 'awxTestAuth_' . md5(Util::getClientId() . '-' . Util::getApiKey());
+		$cacheName = 'awxTestAuth_' . md5($env . '-' . $clientId . '-' . $apiKey);
 		$token = $this->getCacheService()->get($cacheName);
 		if ($token) return true;
 		$token = '';

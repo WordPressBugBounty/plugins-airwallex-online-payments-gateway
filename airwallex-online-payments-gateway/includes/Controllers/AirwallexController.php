@@ -401,17 +401,28 @@ class AirwallexController {
 		check_ajax_referer('wc-airwallex-admin-settings-connection-test', 'security');
 
 		$env  = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : '';
+		if ($env) {
+			update_option('airwallex_enable_sandbox', 'demo' === $env ? 'yes' : 'no');
+		}
 
 		try {
 			$apiClient = AdminClient::getInstance();
-			if ($env) {
-				$apiClient->setClientId(Util::getClientId($env));
-				$apiClient->setApiKey(Util::getApiKey($env));
-				$apiClient->setIsSandbox('demo' === $env);
-				update_option('airwallex_enable_sandbox', 'demo' === $env ? 'yes' : 'no');
+			if (isset($_POST['connect_with_api_key'])) {
+				$clientId = isset($_POST['client_id']) ? trim(wc_clean(wp_unslash($_POST['client_id']))) : '';
+				$apiKey = isset($_POST['api_key']) ? trim(wc_clean(wp_unslash($_POST['api_key']))) : '';
+			} else {
+				$clientId = Util::getClientId();
+				$apiKey = Util::getApiKey();
 			}
 
-			if ( $apiClient->testAuth() ) {
+			if ( $apiClient->testAuth($env, $clientId, $apiKey) ) {
+				if (isset($_POST['connect_with_api_key'])) {
+					if ('prod' === $env) {
+						update_option('airwallex_connection_type', 'api_key');
+					} else {
+						update_option('airwallex_connection_type_demo', 'api_key');
+					}
+				}
 				wp_send_json([
 					'success' => true,
 					'message' => __('Connection test to Airwallex was successful.', 'airwallex-online-payments-gateway'),
@@ -423,6 +434,7 @@ class AirwallexController {
 				]);
 			}
 		} catch (Exception $e) {
+			LogService::getInstance()->error('Connection test failed', $e->getMessage());
 			wp_send_json([
 				'success' => false,
 				'message' => __('Something went wrong.', 'airwallex-online-payments-gateway'),

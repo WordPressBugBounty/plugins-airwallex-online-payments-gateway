@@ -1,8 +1,8 @@
 <?php return array(
     'root' => array(
         'name' => 'airwallex/airwallex-online-payments-gateway',
-        'pretty_version' => '1.30.3',
-        'version' => '1.30.3.0',
+        'pretty_version' => '1.31.0',
+        'version' => '1.31.0.0',
         'reference' => null,
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
@@ -11,8 +11,8 @@
     ),
     'versions' => array(
         'airwallex/airwallex-online-payments-gateway' => array(
-            'pretty_version' => '1.30.3',
-            'version' => '1.30.3.0',
+            'pretty_version' => '1.31.0',
+            'version' => '1.31.0.0',
             'reference' => null,
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',

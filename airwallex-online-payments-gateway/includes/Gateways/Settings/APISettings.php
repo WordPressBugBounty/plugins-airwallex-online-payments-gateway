@@ -78,6 +78,14 @@ class APISettings extends AbstractAirwallexSettings {
 				'value'   => get_option( 'airwallex_enable_sandbox' ),
 				'class' => 'wc-airwallex-sandbox',
 			),
+			'use_api_key_connection' => array(
+				'title' => __('Connect with API keys', 'airwallex-online-payments-gateway'),
+				'type' => 'checkbox',
+				'description' => __('Use API key authentication instead of OAuth connection flow', 'airwallex-online-payments-gateway'),
+				'default' => 'no',
+				'id' => 'airwallex_use_api_key_connection',
+				'class' => 'wc-airwallex-use-api-key-checkbox',
+			),
 			'connection_failed_alter' => [
 				'type' => 'alert',
 				'display' => true,
@@ -105,7 +113,7 @@ class APISettings extends AbstractAirwallexSettings {
 				'description' => '',
 				'default' => Util::getClientId(),
 				'id' => 'airwallex_client_id',
-				'value' => get_option('airwallex_client_id'),
+				'value' => Util::getClientId(),
 			),
 			'api_key' => array(
 				'title' => __('API Key', 'airwallex-online-payments-gateway'),
@@ -113,7 +121,7 @@ class APISettings extends AbstractAirwallexSettings {
 				'description' => '',
 				'default' => Util::getApiKey(),
 				'id' => 'airwallex_api_key',
-				'value' => get_option('airwallex_api_key'),
+				'value' => Util::getApiKey(),
 			),
 			'webhook_secret' => array(
 				'title' => __('Webhook Secret', 'airwallex-online-payments-gateway'),
@@ -121,7 +129,7 @@ class APISettings extends AbstractAirwallexSettings {
 				'description' => __('Webhook URL:', 'airwallex-online-payments-gateway') . WC()->api_request_url( Main::ROUTE_SLUG_WEBHOOK ),
 				'default' => Util::getWebhookSecret(),
 				'id' => 'airwallex_webhook_secret',
-				'value' => get_option('airwallex_webhook_secret'),
+				'value' => Util::getWebhookSecret(),
 			),
 			'connect_via_api_key' => array(
 				'title' => '',
@@ -272,8 +280,6 @@ class APISettings extends AbstractAirwallexSettings {
 				'css'         => '',
 				'showDismiss' => false,
 				'label_via_api_key' => __('Connect with API key', 'airwallex-online-payments-gateway'),
-				'label_via_connection_flow' => __('Connect via Airwallex log-in', 'airwallex-online-payments-gateway'),
-				'label_cancel' => __('Cancel', 'airwallex-online-payments-gateway'),
 			)
 		);
 		ob_start();
@@ -286,18 +292,30 @@ class APISettings extends AbstractAirwallexSettings {
 	public function init_settings() {
 		parent::init_settings();
 
-		// make it compatible with the old approach
+		$env = Util::getEnvironment();
+		$envSuffix = 'demo' === $env ? '_demo' : '';
+
 		foreach ($this->settings as $key => $value) {
-			$this->settings[$key] = get_option('airwallex_' . $key, $value);
+			if (in_array($key, ['client_id', 'api_key', 'webhook_secret'], true)) {
+				$this->settings[$key] = get_option('airwallex_' . $key . $envSuffix, get_option('airwallex_' . $key, $value));
+			} else {
+				$this->settings[$key] = get_option('airwallex_' . $key, $value);
+			}
 		}
 	}
 
 	public function process_admin_options() {
 		parent::process_admin_options();
 
-		// make it compatible with the old approach
+		$env = Util::getEnvironment();
+		$envSuffix = 'demo' === $env ? '_demo' : '';
+
 		foreach ($this->settings as $key => $value) {
-			update_option('airwallex_' . $key, $value, 'yes');
+			if (in_array($key, ['client_id', 'api_key', 'webhook_secret'], true)) {
+				update_option('airwallex_' . $key . $envSuffix, $value, 'yes');
+			} else {
+				update_option('airwallex_' . $key, $value, 'yes');
+			}
 		}
 	}
 
@@ -350,12 +368,32 @@ class APISettings extends AbstractAirwallexSettings {
 					'manage' => __('Manage', 'airwallex-online-payments-gateway'),
 				],
 				'connectionFailed' => $this->isConnectionFailed(),
-				'connectionClicked' => [
-					'demo' => get_option('airwallex_connection_clicked_demo') ?: 'no',
-					'prod' => get_option('airwallex_connection_clicked_prod') ?: 'no',
-				],
 				'connectedViaConnectionFlow' => Util::isConnectedViaConnectionFlow(),
 				'connectedViaApiKey' => Util::isConnectedViaApiKey(),
+				'useApiKey' => [
+					'demo' => get_option('airwallex_connection_type_demo') === 'connection_flow' ? 'no' : 'yes',
+					'prod' => get_option('airwallex_connection_type') === 'connection_flow' ? 'no' : 'yes',
+				],
+				'credentials' => [
+					'demo' => [
+						'client_id' => Util::getClientId('demo'),
+						'api_key' => Util::getApiKey('demo'),
+						'webhook_secret' => Util::getWebhookSecret('demo'),
+					],
+					'prod' => [
+						'client_id' => Util::getClientId('prod'),
+						'api_key' => Util::getApiKey('prod'),
+						'webhook_secret' => Util::getWebhookSecret('prod'),
+					],
+				],
+				'i18n' => [
+					'connectionTest' => [
+						'requiredFields' => __('Please fill in all required fields: Client ID, API Key, and Webhook Secret.', 'airwallex-online-payments-gateway'),
+						'successMessage' => __('Connection successful! Saving settings and refreshing...', 'airwallex-online-payments-gateway'),
+						'failedMessage' => __('Connection failed. Please check your credentials.', 'airwallex-online-payments-gateway'),
+						'errorMessage' => __('Connection test failed. Please try again.', 'airwallex-online-payments-gateway'),
+					],
+				],
 				'isForceSetPaymentFormAsWPPage' => $isForceSetPaymentFormAsWPPage
 			],
 		];

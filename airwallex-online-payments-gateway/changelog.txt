@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2026-03-20 - version 1.31.0
+
+* Feat - Add option to manually configure connection to Airwallex
+
 2026-03-17 - version 1.30.3
 
 * Fix - Compatibility with Woodmart Theme

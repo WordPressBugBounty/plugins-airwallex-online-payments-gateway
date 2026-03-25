@@ -3,6 +3,7 @@
 namespace Airwallex\Gateways\Settings;
 
 use Airwallex\Client\CardClient;
+use Airwallex\Services\Util;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -101,7 +102,7 @@ trait AirwallexSettingsTrait {
 	}
 
 	public function isConnected() {
-		return CardClient::getInstance()->testAuth();
+		return CardClient::getInstance()->testAuth(Util::getEnvironment(), Util::getClientId(), Util::getApiKey());
 	}
 
 	public function enqueueAdminSettingsScripts() {
