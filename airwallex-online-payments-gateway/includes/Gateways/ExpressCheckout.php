@@ -93,7 +93,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 		add_action( 'woocommerce_checkout_order_processed', [ $this, 'addOrderMeta' ], 10, 2 );
 		add_action( 'woocommerce_subscription_failing_payment_method_updated_' . $this->id, array( $this, 'update_failing_payment_method' ), 10, 2 );
 		add_action( 'woocommerce_subscription_validate_payment_meta', [ $this, 'validate_subscription_payment_meta' ], 10, 2 );
-	   
+
 		add_filter( 'woocommerce_subscription_payment_meta', [ $this, 'add_subscription_payment_meta' ], 10, 2 );
 		add_filter('woocommerce_registration_error_email_exists', [$this, 'registrationEmailExistsError'], 10, 2);
 
@@ -153,6 +153,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 						'checkout' => __('Checkout', 'airwallex-online-payments-gateway'),
 						'product_detail' => __('Product Page', 'airwallex-online-payments-gateway'),
 						'cart' => __('Cart', 'airwallex-online-payments-gateway'),
+						'mini_cart' => __('Mini Cart', 'airwallex-online-payments-gateway'),
 					],
 					'default' => ['checkout', 'cart'],
 					'disabled'    => !$isCardGatewayEnabled,
@@ -429,6 +430,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 
 	public function enqueueScripts() {
 		wp_enqueue_script('airwallex-express-checkout');
+		wp_enqueue_style('airwallex-css');
 	}
 
 	public function displayExpressCheckoutButtonHtml() {
@@ -968,6 +970,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				],
 				'transactionId' => Util::generateUuidV4(),
 				'supports' => $this->supports,
+				'isShowButtonOnProductPage' => $this->shouldShowButtonOnPage('product_detail')
 			];
 
 			return $data;
@@ -1068,5 +1071,63 @@ class ExpressCheckout extends WC_Payment_Gateway {
 		];
 
 		return $data;
+	}
+
+	public function isMiniCartEnabled() {
+		return $this->shouldShowButtonOnPage('mini_cart');
+	}
+
+	public function shouldShowExpressCheckoutInMiniCart() {
+		if ( ! $this->isMiniCartEnabled() ) {
+			return false;
+		}
+		if ($this->isCartOrCheckout()) {
+			return false;
+		}
+		if ($this->isProduct() && $this->shouldShowButtonOnPage('product_detail')) {
+			return false;
+		}
+		if (wp_doing_ajax() && $this->shouldShowButtonOnPage('product_detail')) {
+			$referer = wp_get_referer();
+			if ($referer) {
+				$post_id = url_to_postid($referer);
+				if ($post_id && 'product' === get_post_type($post_id)) {
+					return false;
+				}
+			}
+		}
+		if (!$this->isCartItemsAllowed()) {
+			return false;
+		}
+		if ( empty( $this->get_option('payment_methods') ) ) {
+			return false;
+		}
+
+		$gateways = WC()->payment_gateways->get_available_payment_gateways();
+		if ( ! isset( $gateways['airwallex_card'] ) || ! isset( $gateways['airwallex_express_checkout'] ) ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	public function displayMiniCartButtons() {
+		try {
+			if ( ! $this->shouldShowExpressCheckoutInMiniCart() ) {
+				return;
+			}
+
+			include AIRWALLEX_PLUGIN_PATH . 'html/express-checkout-mini-cart-buttons.php';
+		} catch ( Exception $e ) {
+			LogService::getInstance()->error( __METHOD__, $e->getMessage());
+		}
+	}
+
+	public function enqueueMiniCartScripts() {
+		wp_enqueue_script('airwallex-lib-js');
+		wp_enqueue_script('airwallex-common-js');
+		wp_enqueue_script('airwallex-express-checkout');
+		wp_enqueue_style('airwallex-css');
+		wp_add_inline_script('airwallex-express-checkout', 'var awxMiniCartEnabled = true;', 'before');
 	}
 }

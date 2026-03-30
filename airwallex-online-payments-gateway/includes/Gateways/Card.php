@@ -519,7 +519,7 @@ class Card extends WC_Payment_Gateway {
 			'<div class="airwallex-container %1$s" style="display: %2$s;">
 				%3$s
 				%4$s
-				<div class="new-card-title">%5$s</div>
+				<div class="awx-new-card-title">%5$s</div>
 				<div id="airwallex-card"></div>
 				%6$s
 				<div class="awx-alert" style="display: none;"><div class="body"></div></div>

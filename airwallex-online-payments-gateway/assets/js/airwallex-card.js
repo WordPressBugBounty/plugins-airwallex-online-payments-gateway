@@ -380,7 +380,7 @@ jQuery(function ($) {
     const resetSaveCardUI = function () {
         $(".airwallex-container .new-card, .save-card input").removeAttr("checked");
         $(".airwallex-container .save-card input").removeAttr("checked");
-        $(".airwallex-container .new-card-title, #airwallex-card, .line.save, .cvc-title, .cvc-container").hide();
+        $(".airwallex-container .awx-new-card-title, #airwallex-card, .line.save, .cvc-title, .cvc-container").hide();
         $('.airwallex-container .save-card label').css('font-weight', 400);
     };
 
@@ -431,7 +431,7 @@ jQuery(function ($) {
 
     $(document).on('change', 'input[name="new-card"]', function() {
         resetSaveCardUI();
-        $(".new-card-title, #airwallex-card, .line.save").show();
+        $(".awx-new-card-title, #airwallex-card, .line.save").show();
         $('label[for="airwallex-new-card"]').css('font-weight', 700);
     });
 

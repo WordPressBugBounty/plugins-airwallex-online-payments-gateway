@@ -42,6 +42,40 @@ label[for="payment_method_airwallex_card"] > img, .airwallex-card-icon{
 	display: none;
 }
 
+.awx-mini-cart-express-row {
+	width: 100%;
+	order: -1;
+}
+
+.awx-mini-cart-buttons-row {
+	display: flex;
+	gap: 8px;
+	width: 100%;
+}
+
+.awx-mini-cart-buttons-row > * {
+	flex: 1;
+}
+
+.wc-block-mini-cart__footer-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.awx-mini-cart-express-row #awx-express-checkout-button {
+	display: flex;
+	gap: 8px;
+}
+
+.awx-mini-cart-express-row .awx-ec-button {
+	flex: 1;
+}
+
+.awx-mini-cart-express-row #awx-ec-apple-pay-btn {
+	margin-bottom: 0;
+}
+
 .awx-express-checkout-button-set {
 	display: flex;
 	border: 1px solid #ddd;
@@ -432,12 +466,12 @@ apple-pay-button {
 	margin-top: 10px;
 }
 
-.airwallex-container .new-card-title {
+.airwallex-container .awx-new-card-title {
 	margin-bottom: 5px;
 	font-size: 14px;
 }
 
-#add_payment_method .airwallex-container .new-card-title {
+#add_payment_method .airwallex-container .awx-new-card-title {
 	font-size: 16px;
 }
 
@@ -509,7 +543,7 @@ label[for="airwallex-new-card"] {
 	font-size: 14px;
 }
 
-.manage-payment-method .new-card-title {
+.manage-payment-method .awx-new-card-title {
 	color: #30313d;
 }
 
@@ -624,4 +658,12 @@ label[for="airwallex-new-card"] {
 
 #payment li.payment_method_awx_onboarding_gateway {
     display: none;
+}
+
+#site-header-cart .awx-ec-button {
+	display: inline-block;
+}
+
+#site-header-cart #awx-ec-apple-pay-btn {
+	margin-bottom: 0;
 }

@@ -554,6 +554,24 @@ class Main {
 		$commonScriptData['getExpressCheckoutData']['checkout'] = ExpressCheckout::getInstance()->getCheckoutDetail();
 		$commonScriptData['getExpressCheckoutData']['hasSubscriptionProduct'] = ExpressCheckout::getInstance()->hasSubscriptionProduct();
 		wp_add_inline_script( 'airwallex-common-js', 'var awxCommonData=' . wp_json_encode($commonScriptData), 'before' );
+
+		$expressCheckout = ExpressCheckout::getInstance();
+		if ( $expressCheckout && $expressCheckout->shouldShowExpressCheckoutInMiniCart() ) {
+			$expressCheckout->enqueueMiniCartScripts();
+
+			$enabledMethods = array();
+			if ( $expressCheckout->isMethodEnabled( 'apple_pay' ) ) {
+				$enabledMethods[] = 'apple_pay';
+			}
+			if ( $expressCheckout->isMethodEnabled( 'google_pay' ) ) {
+				$enabledMethods[] = 'google_pay';
+			}
+
+			wp_localize_script( 'airwallex-express-checkout', 'awxMiniCartConfig', array(
+				'templateUrl'    => AIRWALLEX_PLUGIN_URL . '/templates/express-checkout-mini-cart.html',
+				'enabledMethods' => $enabledMethods,
+			) );
+		}
 	}
 
 	public function enqueueAdminScripts() {
@@ -604,6 +622,10 @@ class Main {
 		add_action( 'woocommerce_after_add_to_cart_quantity', $displayExpressCheckoutButtonHtml, 3 );
 		add_action( 'woocommerce_proceed_to_checkout', $displayExpressCheckoutButtonHtml, 3 );
 		add_action( 'woocommerce_checkout_before_customer_details', $displayExpressCheckoutButtonHtml, 3 );
+
+		add_action( 'woocommerce_widget_shopping_cart_buttons', function() {
+			GatewayFactory::create( ExpressCheckout::class )->displayMiniCartButtons();
+		}, 1 );
 	}
 
 	public function disableGatewayOrderPay($available_gateways) {
