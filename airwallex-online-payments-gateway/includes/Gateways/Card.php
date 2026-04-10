@@ -281,13 +281,13 @@ class Card extends WC_Payment_Gateway {
 		add_action( 'woocommerce_payment_token_deleted', array( $this, 'deletePaymentMethod' ), 10, 2 );
 		add_action( 'wp', array( $this, 'deletePaymentMethodAction' ), 1 );
 
+		add_filter( 'wfocu_wc_get_supported_gateways', [ $this, 'add_supported_gateways' ], 10, 1 );
 		if ( class_exists( 'WC_Subscriptions_Order' ) ) {
 			add_action( 'woocommerce_scheduled_subscription_payment_' . $this->id, array( $this, 'do_subscription_payment' ), 10, 2 );
 			add_filter( 'woocommerce_my_subscriptions_payment_method', array( $this, 'subscription_payment_information' ), 10, 2 );
 			add_filter( 'woocommerce_subscription_payment_meta', [ $this, 'add_subscription_payment_meta' ], 10, 2 );
 			add_action( 'woocommerce_subscription_validate_payment_meta', [ $this, 'validate_subscription_payment_meta' ], 10, 2 );
 			add_action( 'woocommerce_subscription_failing_payment_method_updated_' . $this->id, array( $this, 'update_failing_payment_method' ), 10, 2 );
-			add_filter( 'wfocu_wc_get_supported_gateways', [ $this, 'add_supported_gateways' ], 10, 1 );
 			add_filter( 'wfocu_subscriptions_get_supported_gateways', [ $this, 'enable_subscription_upsell_support' ] );
 		}
 	}

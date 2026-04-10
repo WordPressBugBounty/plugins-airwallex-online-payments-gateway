@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2026-04-10 - version 1.32.1
+
+* Fix: Upsell integration failing on sites without WooCommerce Subscriptions enabled
+
 2026-03-30 - version 1.32.0
 
 * Add - Express Checkout buttons on select themes with Mini Cart functionality

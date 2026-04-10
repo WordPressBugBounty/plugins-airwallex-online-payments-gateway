@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit8ce8e7609f1540203383bf39c5c03933
+class ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c
 {
     public static $prefixLengthsPsr4 = array (
         'A' =>
@@ -88,6 +88,7 @@ class ComposerStaticInit8ce8e7609f1540203383bf39c5c03933
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Customer\\GenerateClientSecret' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Customer/GenerateClientSecret.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Customer\\Retrieve' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Customer/Retrieve.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Customer\\Update' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Customer/Update.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\DataSanitizationTrait' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/DataSanitizationTrait.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\PaymentConsent\\Create' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/PaymentConsent/Create.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\PaymentConsent\\Disable' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/PaymentConsent/Disable.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\PaymentConsent\\GetList' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/PaymentConsent/GetList.php',
@@ -130,6 +131,8 @@ class ComposerStaticInit8ce8e7609f1540203383bf39c5c03933
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\PaymentConsent\\All' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/PaymentConsent/All.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\PaymentIntent\\ConfirmAfterpay' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/PaymentIntent/ConfirmAfterpay.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\PaymentMethodType\\GetList' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/PaymentMethodType/GetList.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Util\\AmountHelper' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Util/AmountHelper.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Util\\StringHelper' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Util/StringHelper.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\AuthenticateTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/AuthenticateTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\Config\\ApplePay\\Domain\\ApplePayDomainsTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/Config/ApplePay/Domain/ApplePayDomainsTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\Customer\\CustomerTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/Customer/CustomerTest.php',
@@ -160,9 +163,9 @@ class ComposerStaticInit8ce8e7609f1540203383bf39c5c03933
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit8ce8e7609f1540203383bf39c5c03933::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit8ce8e7609f1540203383bf39c5c03933::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit8ce8e7609f1540203383bf39c5c03933::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c::$classMap;
 
         }, null, ClassLoader::class);
     }

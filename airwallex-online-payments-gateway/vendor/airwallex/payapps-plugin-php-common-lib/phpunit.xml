@@ -5,4 +5,21 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <filter>
+        <whitelist processUncoveredFilesFromWhitelist="true">
+            <directory suffix=".php">./Cache</directory>
+            <directory suffix=".php">./Configuration</directory>
+            <directory suffix=".php">./Exception</directory>
+            <directory suffix=".php">./Gateway</directory>
+            <directory suffix=".php">./Logger</directory>
+            <directory suffix=".php">./Struct</directory>
+            <directory suffix=".php">./UseCase</directory>
+            <directory suffix=".php">./Util</directory>
+        </whitelist>
+    </filter>
+    <logging>
+        <log type="coverage-clover" target="coverage/clover.xml"/>
+        <log type="coverage-text" target="coverage/coverage.txt"/>
+        <log type="coverage-html" target="coverage/html"/>
+    </logging>
 </phpunit>
