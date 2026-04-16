@@ -1,8 +1,12 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2026-04-15 - version 1.33.0
+
+* Add - Automatically enable "save card" when using Funnelkit
+
 2026-04-10 - version 1.32.1
 
-* Fix: Upsell integration failing on sites without WooCommerce Subscriptions enabled
+* Fix - Upsell integration failing on sites without WooCommerce Subscriptions enabled
 
 2026-03-30 - version 1.32.0
 

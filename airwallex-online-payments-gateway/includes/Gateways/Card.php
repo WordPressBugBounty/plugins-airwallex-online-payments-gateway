@@ -459,6 +459,15 @@ class Card extends WC_Payment_Gateway {
 		return function_exists('autoship_cart_has_valid_autoship_items') && autoship_cart_has_valid_autoship_items();
 	}
 
+	/**
+	 * Check if FunnelKit plugin is active
+	 *
+	 * @return bool
+	 */
+	public function is_funnelkit_active() {
+		return class_exists('WFOCU_Gateway');
+	}
+
 	public function payment_fields() {
 		if ( $this->get_option( 'checkout_form_type' ) !== 'inline' && ! is_account_page() && empty($_REQUEST['change_payment_method'])) {
 			parent::payment_fields();
@@ -500,12 +509,14 @@ class Card extends WC_Payment_Gateway {
 			$isAllowToSave = true;
 		}
 
+		$checkedAttr = $this->is_funnelkit_active() ? ' checked' : '';
 		$saveCheckboxHtml = ($isAllowToSave && ! is_account_page()) ? sprintf(
 			/* translators: Placeholder 1: Save payment message. */
 			'<div class="line save">
-				<input type="checkbox" id="airwallex-save">
+				<input type="checkbox" id="airwallex-save"%s>
 				<label for="airwallex-save">%s</label>
 			</div>',
+			$checkedAttr,
 			$savePaymentMessage
 		) : '';
 

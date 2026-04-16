@@ -50,7 +50,7 @@ const AirwallexContentCard       = (props) => {
 			<InlineCard settings ={settings} props={props} />
 			{ settings.is_logged_in && settings.is_save_card_enabled && ! settings.is_subscription && (
 				<div className="line save">
-					<input type="checkbox" id="airwallex-save" />
+					<input type="checkbox" id="airwallex-save" defaultChecked={settings.is_funnelkit_active} />
 					<label htmlFor="airwallex-save" style={{ color: 'rgba(20, 23, 26, 1)', marginLeft: '6px'}}>
 						{savePaymentMessage}
 					</label>

@@ -71,6 +71,7 @@ class AirwallexCardWCBlockSupport extends AirwallexWCBlockSupport {
 			'is_subscription'     => $this->gateway->containsSubscription(),
 			'is_save_card_enabled'=> $this->gateway->is_save_card_enabled(),
 			'is_skip_cvc_enabled' => $this->gateway->is_skip_cvc_enabled(),
+			'is_funnelkit_active' => $this->gateway->is_funnelkit_active(),
 			'tokens'              => $this->gateway->savedTokens(),
 		);
 

@@ -3,7 +3,7 @@ Contributors: airwallex
 Tags: credit card, airwallex, payments, wechat, alipay, apple pay
 Requires at least: 4.5
 Tested up to: 6.9.4
-Stable tag: 1.32.1
+Stable tag: 1.33.0
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -69,10 +69,15 @@ We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/ref
 
 == Changelog ==
 
+= 1.33.0 =
+* Release Date - 15 April 2026*
+
+* Add - Automatically enable "save card" when using Funnelkit
+
 = 1.32.1 =
 * Release Date - 10 April 2026*
 
-* Fix: Upsell integration failing on sites without WooCommerce Subscriptions enabled
+* Fix - Upsell integration failing on sites without WooCommerce Subscriptions enabled
 
 = 1.32.0 =
 * Release Date - 30 March 2026*
