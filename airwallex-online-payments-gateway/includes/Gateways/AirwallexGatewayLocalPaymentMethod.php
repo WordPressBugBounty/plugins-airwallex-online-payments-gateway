@@ -163,9 +163,11 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
             try {
                 $confirmIntentRequest = (new ConfirmPaymentIntentRequest())
                     ->setPaymentIntentId($paymentIntent->getId())
-                    ->setDeviceData($deviceData)
                     ->setPaymentMethod($this->getPaymentMethod($order, $paymentIntent->getId()))
                     ->setPaymentMethodOptions($this->getPaymentMethodOptions());
+                if (!empty($deviceData)) {
+                    $confirmIntentRequest = $confirmIntentRequest->setDeviceData($deviceData);
+                }
                 if ($targetCurrency !== $paymentIntent->getBaseCurrency() && false !== array_search($targetCurrency, $availableCurrency)) {
                     $this->logService->debug(__METHOD__ . ' - Create quote for ' . $targetCurrency );
                     $quote = (new CurrencySwitcher())

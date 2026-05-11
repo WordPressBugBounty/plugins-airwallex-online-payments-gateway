@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2026-05-11 - version 1.33.1
+
+* Fix - Resolved an occasional payment confirmation error caused by malformed data
+
 2026-04-15 - version 1.33.0
 
 * Add - Automatically enable "save card" when using Funnelkit

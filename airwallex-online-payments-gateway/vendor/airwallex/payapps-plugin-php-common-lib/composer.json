@@ -1,6 +1,6 @@
 {
     "name": "airwallex/payapps-plugin-php-common-lib",
-    "version": "1.24.0",
+    "version": "1.26.0",
     "type": "library",
     "minimum-stability": "stable",
     "autoload": {

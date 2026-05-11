@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c
+class ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f
 {
     public static $prefixLengthsPsr4 = array (
         'A' =>
@@ -132,6 +132,7 @@ class ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\PaymentIntent\\ConfirmAfterpay' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/PaymentIntent/ConfirmAfterpay.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\PaymentMethodType\\GetList' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/PaymentMethodType/GetList.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Util\\AmountHelper' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Util/AmountHelper.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Util\\PaymentMethodSchemeHelper' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Util/PaymentMethodSchemeHelper.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Util\\StringHelper' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Util/StringHelper.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\AuthenticateTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/AuthenticateTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\Config\\ApplePay\\Domain\\ApplePayDomainsTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/Config/ApplePay/Domain/ApplePayDomainsTest.php',
@@ -146,6 +147,7 @@ class ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\UseCase\\Config\\CurrencySwitcherAvailableCurrenciesTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/UseCase/Config/CurrencySwitcherAvailableCurrenciesTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\UseCase\\PaymentConsent\\AllTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/UseCase/PaymentConsent/AllTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\UseCase\\PaymentMethodType\\GetListTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/UseCase/PaymentMethodType/GetListTest.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Util\\PaymentMethodSchemeHelperTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Util/PaymentMethodSchemeHelperTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\mock\\Cache' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/mock/Cache.php',
         'Airwallex\\Services\\CacheService' => __DIR__ . '/../..' . '/includes/Services/CacheService.php',
         'Airwallex\\Services\\LogService' => __DIR__ . '/../..' . '/includes/Services/LogService.php',
@@ -163,9 +165,9 @@ class ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit1ef102a375163d7d928ec41c7a9a571c::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f::$classMap;
 
         }, null, ClassLoader::class);
     }
