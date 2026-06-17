@@ -24,6 +24,7 @@ class ConnectionFlowController {
     }
 
     public function startConnection() {
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
         $env = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : 'prod';
         LogService::getInstance()->debug('Start connection for ' . $env . ' environment');
 
@@ -39,6 +40,7 @@ class ConnectionFlowController {
             $domainUrl = Util::getDomainUrl($env);
             $startConnectionParams = [
                 'platform' => 'woo',
+                // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
                 'origin' => isset($_SERVER['HTTP_ORIGIN']) ? wc_clean(wp_unslash($_SERVER['HTTP_ORIGIN'])) : '',
                 'returnUrl' => WC()->api_request_url( self::ROUTE_SLUG_CONNECTION_CALLBACK ),
                 'requestId' => $requestId,
@@ -62,13 +64,18 @@ class ConnectionFlowController {
 
     public function connectionCallback() {
         try {
-            LogService::getInstance()->debug('Connection flow callback', $_GET);
+            LogService::getInstance()->debug('Connection flow callback', [
+                // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- OAuth-style callback reached via redirect from Airwallex; admin capability is verified below.
+                'requestId' => isset( $_GET['requestId'] ) ? sanitize_text_field( wp_unslash( $_GET['requestId'] ) ) : null,
+            ]);
 
             if (!Util::currentUserHasRole('administrator')) {
                 throw new Exception(__('You do not have permission to perform this action.', 'airwallex-online-payments-gateway'));
             }
-            
+
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- OAuth-style callback reached via redirect from Airwallex; admin capability is verified above; wc_clean() sanitizes the value, but the sniff doesn't recognize it.
             $code = isset($_GET['code']) ? wc_clean(wp_unslash($_GET['code'])) : '';
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- OAuth-style callback reached via redirect from Airwallex; admin capability is verified above; wc_clean() sanitizes the value, but the sniff doesn't recognize it.
             $requestId = isset($_GET['requestId']) ? wc_clean(wp_unslash($_GET['requestId'])) : '';
 
             // validate the request id against the stored one

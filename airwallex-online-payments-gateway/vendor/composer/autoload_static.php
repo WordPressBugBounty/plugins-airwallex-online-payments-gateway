@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f
+class ComposerStaticInit4cacd4649d0f78dfa0b43d41a8284760
 {
     public static $prefixLengthsPsr4 = array (
         'A' =>
@@ -139,6 +139,7 @@ class ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\Customer\\CustomerTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/Customer/CustomerTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentConsent\\PaymentConsentTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentConsent/PaymentConsentTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentIntent\\CancelTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentIntent/CancelTest.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentIntent\\CreateDeviceDataTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentIntent/CreateDeviceDataTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentIntent\\PaymentIntentTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentIntent/PaymentIntentTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\PluginService\\AccountTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/PluginService/AccountTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\PluginService\\ConnectionFinalizeTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/PluginService/ConnectionFinalizeTest.php',
@@ -165,9 +166,9 @@ class ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit9ef8d327c18c47f78f5c5c39d1ba3c9f::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit4cacd4649d0f78dfa0b43d41a8284760::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit4cacd4649d0f78dfa0b43d41a8284760::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit4cacd4649d0f78dfa0b43d41a8284760::$classMap;
 
         }, null, ClassLoader::class);
     }

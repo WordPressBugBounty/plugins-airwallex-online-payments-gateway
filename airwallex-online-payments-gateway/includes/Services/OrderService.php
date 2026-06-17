@@ -19,9 +19,6 @@ use Airwallex\Services\LogService;
 class OrderService {
     protected static $instance = null;
 
-    const PAYMENT_COMPLETE_MESSAGE = 'Airwallex payment complete';
-    const PAYMENT_CAPTURED_MESSAGE = 'Airwallex payment captured';
-    const PAYMENT_AUTHORIZED_MESSAGE = 'Airwallex payment authorized';
     const META_KEY_PREFIX_PAYMENT_PROCESSED = 'airwallex_payment_processed_';
     const META_KEY_INTENT_ID = '_tmp_airwallex_payment_intent';
     const META_KEY_ORDER_ORIGINAL_CURRENCY = '_tmp_airwallex_order_original_currency';
@@ -69,10 +66,12 @@ class OrderService {
 		$orderId = null;
 		if ( class_exists(OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
 			// HPOS enabled
+			$ordersTable = esc_sql( OrdersTableDataStore::get_orders_table_name() );
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Direct order lookup by payment intent ID; table name from trusted WC class, escaped via esc_sql(); cannot be cached as order rows mutate during payment processing.
 			$row = $wpdb->get_row(
 				$wpdb->prepare(
-					'
-					SELECT id FROM ' . OrdersTableDataStore::get_orders_table_name() . "
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name interpolated from trusted WC class, escaped via esc_sql().
+					"SELECT id FROM {$ordersTable}
 					WHERE
 						type = 'shop_order'
 							AND
@@ -87,6 +86,7 @@ class OrderService {
 			}
 		} else {
 			// HPOS disabled
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Direct order lookup by payment intent ID; table names from trusted $wpdb properties; cannot be cached as order rows mutate during payment processing.
 			$row = $wpdb->get_row(
 				$wpdb->prepare(
 					'
@@ -124,14 +124,13 @@ class OrderService {
 		if ( class_exists(OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
 			// HPOS enabled
 
+			$ordersTable = esc_sql( OrdersTableDataStore::get_orders_table_name() );
+			$metaTable   = esc_sql( OrdersTableDataStore::get_meta_table_name() );
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Direct refund lookup by amount/time window; table names from trusted WC class, escaped via esc_sql(); cannot be cached as refund rows mutate during refund processing.
 			$row = $wpdb->get_row(
 				$wpdb->prepare(
-					'
-							SELECT o.id FROM 
-											 ' . OrdersTableDataStore::get_orders_table_name() . ' o
-											 JOIN ' . OrdersTableDataStore::get_orders_table_name() . ' o_parent ON (o.parent_order_id = o_parent.id)
-											 JOIN ' . OrdersTableDataStore::get_meta_table_name() . " pm ON (o.id = pm.order_id AND pm.meta_key = '_refund_amount')
-											 LEFT JOIN " . OrdersTableDataStore::get_meta_table_name() . " pm_refund_id ON (o.id = pm.order_id AND pm.meta_key = '_airwallex_refund_id')
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names interpolated from trusted WC class, escaped via esc_sql().
+					"SELECT o.id FROM {$ordersTable} o JOIN {$ordersTable} o_parent ON (o.parent_order_id = o_parent.id) JOIN {$metaTable} pm ON (o.id = pm.order_id AND pm.meta_key = '_refund_amount') LEFT JOIN {$metaTable} pm_refund_id ON (o.id = pm.order_id AND pm.meta_key = '_airwallex_refund_id')
 							WHERE
 								o_parent.payment_method LIKE %s
 									AND
@@ -161,9 +160,10 @@ class OrderService {
 		} else {
 			// HPOS disabled
 
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Direct refund lookup by amount/time window; table names from trusted $wpdb properties; cannot be cached as refund rows mutate during refund processing.
 			$row = $wpdb->get_row(
 				$wpdb->prepare(
-					'SELECT p.ID FROM 
+					'SELECT p.ID FROM
 							 ' . $wpdb->posts . ' p
 							 JOIN ' . $wpdb->postmeta . " pm ON (p.ID = pm.post_id AND pm.meta_key = '_refund_amount')
 							 JOIN " . $wpdb->postmeta . " pm_payment ON (p.post_parent = pm_payment.post_id AND pm_payment.meta_key = '_payment_method' AND  pm_payment.meta_value LIKE %s)
@@ -194,7 +194,6 @@ class OrderService {
 			}
 		}
 
-
 		return null;
 	}
 
@@ -208,11 +207,13 @@ class OrderService {
 		global $wpdb;
 		if ( class_exists(OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
 			// HPOS enabled
+			$ordersTable = esc_sql( OrdersTableDataStore::get_orders_table_name() );
+			$metaTable   = esc_sql( OrdersTableDataStore::get_meta_table_name() );
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Direct refund-row lookup by airwallex refund ID; table names from trusted WC class, escaped via esc_sql(); cannot be cached as refund rows mutate during refund processing.
 			$row = $wpdb->get_row(
 				$wpdb->prepare(
-					'
-						SELECT o.id FROM ' . OrdersTableDataStore::get_orders_table_name() . ' o
-							JOIN ' . OrdersTableDataStore::get_meta_table_name() . " pm ON (o.id = pm.order_id AND pm.meta_key = '_airwallex_refund_id')
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names interpolated from trusted WC class, escaped via esc_sql().
+					"SELECT o.id FROM {$ordersTable} o JOIN {$metaTable} pm ON (o.id = pm.order_id AND pm.meta_key = '_airwallex_refund_id')
 						WHERE
 							o.type = 'shop_order_refund'
 								AND
@@ -227,6 +228,7 @@ class OrderService {
 			}
 		} else {
 			// HPOS disabled
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Direct refund-row lookup by airwallex refund ID; table names from trusted $wpdb properties; cannot be cached as refund rows mutate during refund processing.
 			$row = $wpdb->get_row(
 				$wpdb->prepare(
 					'
@@ -258,18 +260,20 @@ class OrderService {
 		global $wpdb;
 		if ( class_exists(OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
 			// HPOS enabled
+			$ordersTable = esc_sql( OrdersTableDataStore::get_orders_table_name() );
+			$metaTable   = esc_sql( OrdersTableDataStore::get_meta_table_name() );
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Direct order lookup by airwallex refund meta; table names from trusted WC class, escaped via esc_sql(); cannot be cached as the meta is written during refund processing.
 			$orderId = $wpdb->get_var(
 				$wpdb->prepare(
-					'
-						SELECT wc_order.id
-						FROM ' . OrdersTableDataStore::get_orders_table_name() . ' wc_order
-						INNER JOIN ' . OrdersTableDataStore::get_meta_table_name() . " order_meta ON wc_order.id = order_meta.order_id
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names interpolated from trusted WC class, escaped via esc_sql().
+					"SELECT wc_order.id FROM {$ordersTable} wc_order INNER JOIN {$metaTable} order_meta ON wc_order.id = order_meta.order_id
 						WHERE wc_order.type = 'shop_order' AND order_meta.meta_key = %s",
 					self::getRefundOrderMetaKey($refundId)
 				)
 			);
 		} else {
 			// HPOS disabled
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Direct order lookup by airwallex refund meta; table names from trusted $wpdb properties; cannot be cached as the meta is written during refund processing.
 			$orderId = $wpdb->get_var(
 				$wpdb->prepare(
 					"
@@ -281,7 +285,6 @@ class OrderService {
 				)
 			);
 		}
-
 
 		return empty( $orderId ) ? false : wc_get_order( $orderId );
 	}
@@ -318,10 +321,12 @@ class OrderService {
 
 		if ( class_exists(OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
 			// HPOS enabled
+			$ordersTable = esc_sql( OrdersTableDataStore::get_orders_table_name() );
+			$metaTable   = esc_sql( OrdersTableDataStore::get_meta_table_name() );
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Cron-driven scan for pending Airwallex orders; table names from trusted WC class, escaped via esc_sql(); cannot be cached as we need fresh status each tick.
 			return $wpdb->get_col(
-				'
-					SELECT wc_order.id FROM ' . OrdersTableDataStore::get_orders_table_name() . " wc_order
-				 	LEFT JOIN " . OrdersTableDataStore::get_meta_table_name() . " order_meta_intent_not_found ON (wc_order.id = order_meta_intent_not_found.order_id AND order_meta_intent_not_found.meta_key = '_airwallex_payment_intent_not_found')
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names interpolated from trusted WC class, escaped via esc_sql().
+				"SELECT wc_order.id FROM {$ordersTable} wc_order LEFT JOIN {$metaTable} order_meta_intent_not_found ON (wc_order.id = order_meta_intent_not_found.order_id AND order_meta_intent_not_found.meta_key = '_airwallex_payment_intent_not_found')
 					WHERE
 						payment_method = 'airwallex_card'
 							AND
@@ -333,6 +338,7 @@ class OrderService {
 			);
 		} else {
 			// HPOS disabled
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Cron-driven scan for pending Airwallex orders; table names from trusted $wpdb properties; cannot be cached as we need fresh status each tick.
 			return $wpdb->get_col(
 				'
 					SELECT p.ID FROM ' . $wpdb->posts . ' p
@@ -485,18 +491,21 @@ class OrderService {
 	public function paymentCompleteByCapture($order, $referrer, $paymentIntent) {
 		global $wpdb;
 
-		$tableName = $this->getOrderMetaTableName();
-		$orderIdColumnName = $this->getOrderIdColumnNameFromMetaTable();
+		$tableName = esc_sql( $this->getOrderMetaTableName() );
+		$orderIdColumnName = esc_sql( $this->getOrderIdColumnNameFromMetaTable() );
 		$orderId = $order->get_id();
 		$metaKey = self::META_KEY_PREFIX_PAYMENT_PROCESSED . $orderId;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- START TRANSACTION for the SELECT...FOR UPDATE row lock during payment capture; cannot be cached.
 		$wpdb->query( "START TRANSACTION" );
 		try {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- SELECT...FOR UPDATE row lock during payment capture; table/column names from trusted internal helpers, escaped via esc_sql(); cannot be cached.
 			$wpdb->get_row(
-				$wpdb->prepare( "SELECT * FROM $tableName WHERE $orderIdColumnName = %d  AND meta_key = %s FOR UPDATE",
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table/column names from trusted internal helpers, escaped via esc_sql().
+				$wpdb->prepare( "SELECT * FROM {$tableName} WHERE {$orderIdColumnName} = %d  AND meta_key = %s FOR UPDATE",
 					$orderId,
 					self::META_KEY_INTENT_ID
-				) 
+				)
 			);
 			$order->read_meta_data(true);
 			$isProcessed = $order->meta_exists( $metaKey );
@@ -505,14 +514,16 @@ class OrderService {
 				$order->payment_complete( $paymentIntent->getId() );
 				$order->add_meta_data( $metaKey, 'processed' );
 				$order->save_meta_data();
-				$order->add_order_note( __( self::PAYMENT_COMPLETE_MESSAGE, 'airwallex-online-payments-gateway' ) );
+				$order->add_order_note( __( 'Airwallex payment complete', 'airwallex-online-payments-gateway' ) );
 				LogService::getInstance()->debug( $referrer . ': paymentCompleteByCapture', array('payment_intent_id' => $paymentIntent->getId()) );
 			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- COMMIT for the SELECT...FOR UPDATE row lock during payment capture; cannot be cached.
 			$wpdb->query( "COMMIT" );
 			if ( !$isProcessed ) {
 				$this->updateOrderDetails( $order, $paymentIntent );
 			}
 		} catch ( Exception $e ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- ROLLBACK for the SELECT...FOR UPDATE row lock during payment capture; cannot be cached.
 			$wpdb->query( "ROLLBACK" );
 			LogService::getInstance()->error( "$referrer " . __METHOD__ . $e->getMessage() );
 			throw $e;
@@ -523,15 +534,18 @@ class OrderService {
 		global $wpdb;
 
 		$logService = LogService::getInstance();
-		$tableName = $this->getOrderMetaTableName();
-		$orderIdColumnName = $this->getOrderIdColumnNameFromMetaTable();
+		$tableName = esc_sql( $this->getOrderMetaTableName() );
+		$orderIdColumnName = esc_sql( $this->getOrderIdColumnNameFromMetaTable() );
 		$orderId = $order->get_id();
 		$metaKey = self::META_KEY_PREFIX_PAYMENT_PROCESSED . $orderId;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- START TRANSACTION for the SELECT...FOR UPDATE row lock during payment authorize; cannot be cached.
 		$wpdb->query( "START TRANSACTION" );
 		try {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- SELECT...FOR UPDATE row lock during payment authorize; table/column names from trusted internal helpers, escaped via esc_sql(); cannot be cached.
 			$wpdb->get_row(
-				$wpdb->prepare("SELECT * FROM $tableName WHERE $orderIdColumnName = %d  AND meta_key = %s FOR UPDATE",
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table/column names from trusted internal helpers, escaped via esc_sql().
+				$wpdb->prepare("SELECT * FROM {$tableName} WHERE {$orderIdColumnName} = %d  AND meta_key = %s FOR UPDATE",
 					$orderId,
 					self::META_KEY_INTENT_ID
 				)
@@ -552,13 +566,14 @@ class OrderService {
 						$order->payment_complete( $paymentIntent->getId() );
 						$order->add_meta_data(  $metaKey, 'processed' );
 						$order->save_meta_data();
-						$order->add_order_note( __( self::PAYMENT_CAPTURED_MESSAGE, 'airwallex-online-payments-gateway' ) );
+						$order->add_order_note( __( 'Airwallex payment captured', 'airwallex-online-payments-gateway' ) );
 						$logService->debug( $referrer . ' payment success: ' . $paymentIntent->getId());
 					} else {
 						$logService->error( $referrer . ' payment capture failed: ' . $paymentIntent->getId() );
 						if ($referrer === 'checkout') {
 							wc_add_notice( __( 'Airwallex payment error: capture failed. ', 'airwallex-online-payments-gateway' ), 'error' );
 							wp_safe_redirect( wc_get_checkout_url() );
+							// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- COMMIT for the SELECT...FOR UPDATE row lock during payment authorize; cannot be cached.
 							$wpdb->query( "COMMIT" );
 							die;
 						}
@@ -568,14 +583,16 @@ class OrderService {
 					$order->payment_complete( $paymentIntent->getId() );
 					$order->add_meta_data(  $metaKey, 'processed' );
 					$order->save_meta_data();
-					$order->add_order_note( __( self::PAYMENT_AUTHORIZED_MESSAGE, 'airwallex-online-payments-gateway' ) );
+					$order->add_order_note( __( 'Airwallex payment authorized', 'airwallex-online-payments-gateway' ) );
 				}
 			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- COMMIT for the SELECT...FOR UPDATE row lock during payment authorize; cannot be cached.
 			$wpdb->query( "COMMIT" );
 			if ( !$isProcessed ) {
 				$this->updateOrderDetails( $order, $paymentIntent );
 			}
 		} catch ( Exception $e ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- ROLLBACK for the SELECT...FOR UPDATE row lock during payment authorize; cannot be cached.
 			$wpdb->query( "ROLLBACK" );
 			$logService->error( "$referrer " . __METHOD__ . $e->getMessage() );
 			throw $e;
@@ -584,18 +601,19 @@ class OrderService {
 
 	public function setPaymentSuccess( $order, $paymentIntent, $referrer = 'webhook' ) {
 		if ( empty( $order ) ) {
-			throw new Exception( __("Order not found.") );
+			throw new Exception( esc_html__( 'Order not found.', 'airwallex-online-payments-gateway' ) );
 		}
 
 		/** @var StructPaymentIntent $paymentIntent */
 		$metadata = $paymentIntent->getMetadata();
 		if (!empty($metadata) && !empty($metadata['wp_order_id']) && intval($metadata['wp_order_id']) !== $order->get_id()) {
 			throw new Exception(
-				sprintf(
-					__('Order ID mismatched: expected %d, got %s', 'airwallex-online-payments-gateway'),
+				esc_html( sprintf(
+					/* translators: 1: expected WooCommerce order ID, 2: order ID received in the payment intent metadata. */
+					__('Order ID mismatched: expected %1$d, got %2$s', 'airwallex-online-payments-gateway'),
 					$order->get_id(),
 					$metadata['wp_order_id'] ?? 'null'
-				)
+				) )
 			);
 		}
 

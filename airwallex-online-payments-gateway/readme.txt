@@ -1,9 +1,9 @@
 === Airwallex Online Payments Gateway ===
 Contributors: airwallex
-Tags: credit card, airwallex, payments, wechat, alipay, apple pay
+Tags: airwallex, payments, credit card, woocommerce, subscriptions
 Requires at least: 4.5
-Tested up to: 6.9.4
-Stable tag: 1.33.1
+Tested up to: 7.0
+Stable tag: 1.34.0
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -68,6 +68,11 @@ The non-compressed javascript files can be found under the ```assets/js``` folde
 We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) as our build tool.
 
 == Changelog ==
+
+= 1.34.0 =
+* Release Date - 9 Jun 2026*
+
+* Fix - WordPress 7.0 compatibility updates and code optimizations
 
 = 1.33.1 =
 * Release Date - 11 May 2026*

@@ -227,12 +227,12 @@ class APISettings extends AbstractAirwallexSettings {
 		);
 		ob_start();
 
-		$awxAlertAdditionalClass = $data['class'];
-		$awxAlterShowDismiss = $data['showDismiss'];
-		$awxAlterDisplay = $data['display'];
-		$awxAlertType = $data['alert_type'];
-		$awxAlertText = $data['text'];
-		$awxAlertTitle = $data['title'];
+		$airwallexAlertAdditionalClass = $data['class'];
+		$airwallexAlterShowDismiss = $data['showDismiss'];
+		$airwallexAlterDisplay = $data['display'];
+		$airwallexAlertType = $data['alert_type'];
+		$airwallexAlertText = $data['text'];
+		$airwallexAlertTitle = $data['title'];
 
 		include AIRWALLEX_PLUGIN_PATH . 'templates/airwallex-alert-box.php';
 
@@ -400,6 +400,7 @@ class APISettings extends AbstractAirwallexSettings {
 	}
 
 	private function isConnectionFailed() {
-		return isset($_GET['error']) && 'connection_failed' === wc_clean($_GET['error']);
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Admin settings page indicator only; wc_clean() sanitizes the value but the sniff doesn't recognize it; value is compared against a known literal.
+		return isset($_GET['error']) && 'connection_failed' === wc_clean( wp_unslash( $_GET['error'] ) );
 	}
 }

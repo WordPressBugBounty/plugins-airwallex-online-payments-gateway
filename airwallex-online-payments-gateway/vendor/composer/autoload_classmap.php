@@ -118,6 +118,7 @@ return array(
     'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\Customer\\CustomerTest' => $vendorDir . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/Customer/CustomerTest.php',
     'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentConsent\\PaymentConsentTest' => $vendorDir . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentConsent/PaymentConsentTest.php',
     'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentIntent\\CancelTest' => $vendorDir . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentIntent/CancelTest.php',
+    'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentIntent\\CreateDeviceDataTest' => $vendorDir . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentIntent/CreateDeviceDataTest.php',
     'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentIntent\\PaymentIntentTest' => $vendorDir . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentIntent/PaymentIntentTest.php',
     'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\PluginService\\AccountTest' => $vendorDir . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/PluginService/AccountTest.php',
     'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\PluginService\\ConnectionFinalizeTest' => $vendorDir . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/PluginService/ConnectionFinalizeTest.php',

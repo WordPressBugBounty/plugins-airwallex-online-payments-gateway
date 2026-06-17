@@ -105,9 +105,9 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 	 * Render the alter box for ineligible currency with currency switching turned on
 	 */
 	public function renderCurrencyIneligibleCWOnHtml() {
-		$awxAlertAdditionalClass = 'wc-airwallex-lpm-currency-ineligible-switcher-on';
-		$awxAlertType            = '';
-		$awxAlertText            = '';
+		$airwallexAlertAdditionalClass = 'wc-airwallex-lpm-currency-ineligible-switcher-on';
+		$airwallexAlertType            = '';
+		$airwallexAlertText            = '';
 
 		include AIRWALLEX_PLUGIN_PATH . 'templates/airwallex-alert-box.php';
 	}
@@ -116,9 +116,9 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 	 * Render the alter box for ineligible currency with currency switching turned off
 	 */
 	public function renderCurrencyIneligibleCWOffHtml() {
-		$awxAlertAdditionalClass = 'wc-airwallex-lpm-currency-ineligible-switcher-off';
-		$awxAlertType            = 'critical';
-		$awxAlertText            = '';
+		$airwallexAlertAdditionalClass = 'wc-airwallex-lpm-currency-ineligible-switcher-off';
+		$airwallexAlertType            = 'critical';
+		$airwallexAlertText            = '';
 
 		include AIRWALLEX_PLUGIN_PATH . 'templates/airwallex-alert-box.php';
 	}
@@ -128,12 +128,15 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
     }
 
     public function process_payment( $order_id ) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Called from WooCommerce process_payment() which is gated by WC's checkout nonce; value is compared against a known literal.
         if ( !empty( $_POST['is_payment_aborted']) && $_POST['is_payment_aborted'] === 'true' ) {
-            throw new Exception( __( 'Payment aborted.', 'airwallex-online-payments-gateway' ));
+            throw new Exception( esc_html__( 'Payment aborted.', 'airwallex-online-payments-gateway' ));
         }
         $result = [];
         try {
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from WooCommerce process_payment() which is gated by WC's checkout nonce; payload is JSON, decoded after wc_clean()+wp_unslash().
             $deviceData = isset($_POST['airwallex_device_data']) ? json_decode(wc_clean(wp_unslash($_POST['airwallex_device_data'])), true) : [];
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from WooCommerce process_payment() which is gated by WC's checkout nonce; sanitized via wc_clean()+wp_unslash().
             $targetCurrency = isset($_POST['airwallex_target_currency']) ? wc_clean(wp_unslash($_POST['airwallex_target_currency'])) : get_woocommerce_currency();
             $availableCurrency = $this->getAvailableCurrencies();
 
@@ -203,15 +206,11 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
         } catch (Exception $e) {
             $this->logService->error(__METHOD__ . ' Some went wrong during checkout.', $e->getMessage());
             RemoteLog::error( $e->getMessage(), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
-			$errorJson = json_decode($e->getMessage(), true);
-			if (json_last_error() === JSON_ERROR_NONE && !empty($errorJson['data']['message'])) {
-				throw new Exception(esc_html__($errorJson['data']['message'], 'airwallex-online-payments-gateway'));
-			}            
             $result = [
                 'result' => 'failed',
                 'message' => $e->getMessage(),
             ];
-            wc_add_notice($e->getMessage(), 'error');
+            wc_add_notice( __( "We couldn't start your payment. Please try again or choose another payment method.", 'airwallex-online-payments-gateway' ), 'error' );
         }
 
         return $result;

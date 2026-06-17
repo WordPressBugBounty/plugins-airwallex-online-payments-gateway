@@ -30,10 +30,13 @@ class GatewaySettingsController {
 	public function activatePaymentMethod() {
 		check_ajax_referer('wc-airwallex-admin-settings-activate-payment-method', 'security');
 
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$paymentMethodType = isset($_POST['payment_method_type']) ? wc_clean(wp_unslash($_POST['payment_method_type'])) : '';
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$domain = isset($_POST['domain_name']) ? wc_clean(wp_unslash($_POST['domain_name'])) : '';
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$domain = ! empty( $domain ) ? $domain : ( isset($_SERVER['SERVER_NAME']) ? wc_clean(wp_unslash($_SERVER['SERVER_NAME'])) : '' );
-		
+
 		LogService::getInstance()->debug(__METHOD__ . " - Activate payment method {$paymentMethodType} for {$domain}.");
 		$result = ['success' => true];
 		try {
@@ -95,6 +98,7 @@ class GatewaySettingsController {
 			LogService::getInstance()->debug(__METHOD__ . " - Add domain registration file for {$serverName}.");
 			// try to add domain association file.
 			if ( isset( $_SERVER['DOCUMENT_ROOT'] ) ) {
+				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 				$path = wc_clean(wp_unslash($_SERVER['DOCUMENT_ROOT'])) . DIRECTORY_SEPARATOR . '.well-known';
 				$file = $path . DIRECTORY_SEPARATOR . 'apple-developer-merchantid-domain-association';
 				if (sha1_file(AIRWALLEX_PLUGIN_PATH . 'apple-developer-merchantid-domain-association') === sha1_file($file)) {

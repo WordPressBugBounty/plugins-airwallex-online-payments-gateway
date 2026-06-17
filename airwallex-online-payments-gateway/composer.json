@@ -1,6 +1,6 @@
 {
     "name": "airwallex/airwallex-online-payments-gateway",
-    "version": "1.33.1",
+    "version": "1.34.0",
     "description": "Official Airwallex Plugin.",
     "homepage": "https://www.airwallex.com",
     "license": "GPL-3.0",
@@ -37,6 +37,6 @@
         }
     },
     "require": {
-        "airwallex/payapps-plugin-php-common-lib": "1.26.*"
+        "airwallex/payapps-plugin-php-common-lib": "1.27.*"
     }
 }

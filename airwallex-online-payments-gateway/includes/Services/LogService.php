@@ -35,7 +35,7 @@ class LogService {
 			$uploadDir = wp_upload_dir();
 			$this->logDir = $uploadDir['basedir'] . '/airwallex-logs/';
 			if ( ! is_dir( $this->logDir ) ) {
-				mkdir( $this->logDir, 0755, true );
+				wp_mkdir_p( $this->logDir );
 			}
 		}
 	}

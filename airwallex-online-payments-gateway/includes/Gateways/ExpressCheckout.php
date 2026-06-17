@@ -201,6 +201,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				],
 		]);
 
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- wc_airwallex_settings is a public filter hook kept stable for BC; renaming would break downstream consumers.
 		$this->form_fields = apply_filters('wc_airwallex_settings', $formFields);
 	}
 
@@ -416,7 +417,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 
 		$order = wc_get_order( $order_id );
 
-		// phpcs:ignore WordPress.Security.NonceVerification
+		// phpcs:ignore WordPress.Security.NonceVerification,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$paymentMethodType = wc_clean( wp_unslash( $_POST['payment_method_type'] ) );
 
 		if ( 'applepay' === $paymentMethodType ) {
@@ -1017,8 +1018,8 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( get_current_user_id() );
 			}
 
-			// phpcs:ignore WordPress.Security.NonceVerification
-			$paymentMethodType = wc_clean( wp_unslash( $_POST['payment_method_type'] ) );
+			// phpcs:ignore WordPress.Security.NonceVerification,WordPress.Security.ValidatedSanitizedInput.InputNotValidated,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from WC process_payment() which is gated by WC's checkout nonce; wc_clean() sanitizes the value; result is constrained to a known allowlist below.
+			$paymentMethodType = isset( $_POST['payment_method_type'] ) ? wc_clean( wp_unslash( $_POST['payment_method_type'] ) ) : '';
 			if ( !in_array($paymentMethodType, ['googlepay', 'applepay'], true) ) {
 				$paymentMethodType = '';
 			}

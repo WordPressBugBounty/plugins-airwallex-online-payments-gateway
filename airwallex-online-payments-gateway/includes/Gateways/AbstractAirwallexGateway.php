@@ -22,7 +22,6 @@ abstract class AbstractAirwallexGateway extends WC_Payment_Gateway {
 	protected $orderService;
 	protected $quoteController;
 	protected $orderController;
-	public $paymentMethodType;
 	public $paymentMethodName;
 
 	public function __construct() {

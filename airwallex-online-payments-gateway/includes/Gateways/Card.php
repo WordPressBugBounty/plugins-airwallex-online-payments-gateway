@@ -117,6 +117,7 @@ class Card extends WC_Payment_Gateway {
 
 	public function has_fields()
 	{
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- WooCommerce-controlled query var on the change-payment-method page; only checked for presence.
 		if ( is_account_page() || !empty($_REQUEST['change_payment_method'] ) ) {
 			return true;
 		}
@@ -399,7 +400,7 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function enqueueScriptsForEmbeddedCard() {
-		if ($this->isCartOrProductPage()) {
+		if ( ! $this->isCheckoutContextPage() ) {
 			return;
 		}
 
@@ -407,6 +408,7 @@ class Card extends WC_Payment_Gateway {
 		wp_enqueue_style( 'airwallex-css' );
 
 		$currency = get_woocommerce_currency();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- WooCommerce-controlled query var on the order-pay endpoint; value is compared against a known literal.
 		if ( isset( $_GET['pay_for_order'] ) && 'true' === $_GET['pay_for_order'] ) {
 			global $wp;
 			$order_id = (int) $wp->query_vars['order-pay'];
@@ -417,12 +419,12 @@ class Card extends WC_Payment_Gateway {
 
 		$cardScriptData = [
  			'autoCapture' => $this->is_capture_immediately() ? 'true' : 'false',
-			/* translators: 1) Detail error message. */
 			'getCustomerClientSecretAjaxUrl' => WC_AJAX::get_endpoint('airwallex_get_customer_client_secret'),
 			'getCheckoutAjaxUrl' => WC_AJAX::get_endpoint( 'checkout' ),
 			'getTokensAjaxUrl' => WC_AJAX::get_endpoint('airwallex_get_tokens'),
 			'isLoggedIn' => is_user_logged_in(),
 			'isAccountPage' => is_account_page(),
+			/* translators: %s: detailed error message returned from the payment provider. */
 			'errorMessage' => __( 'An error has occurred. Please check your payment details (%s)', 'airwallex-online-payments-gateway' ),
 			'incompleteMessage' => __( 'Your credit card details are incomplete', 'airwallex-online-payments-gateway' ),
 			'resourceAlreadyExistsMessage' => __( 'This payment method has already been saved. Please use a different payment method.', 'airwallex-online-payments-gateway' ),
@@ -469,6 +471,7 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function payment_fields() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- WooCommerce-controlled query var on the change-payment-method page; only checked for presence.
 		if ( $this->get_option( 'checkout_form_type' ) !== 'inline' && ! is_account_page() && empty($_REQUEST['change_payment_method'])) {
 			parent::payment_fields();
 			return;
@@ -490,13 +493,17 @@ class Card extends WC_Payment_Gateway {
 		);
 
 		$isLoggedIn = is_user_logged_in();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- WooCommerce-controlled query var; only checked for presence.
 		$isChangePaymentMethod = is_checkout_pay_page() && isset( $_REQUEST['change_payment_method'] );
 		$containsSubscription = $this->containsSubscription() || $isChangePaymentMethod;
 		$isSaveCardEnabled = $this->is_save_card_enabled();
 		$saveCardsHtml = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? '<div class="save-cards"></div>' : '';
+		// Class-based hiding (see explanation near the main wp_kses call below):
+		// WP < 5.3's safecss_filter_attr() would strip a `display: none` inline
+		// style, leaving this row visible until JS shows it.
 		$newCardRadioHtml = $isLoggedIn && $isSaveCardEnabled ? sprintf(
 			/* translators: Placeholder 1: Use new card message. */
-			'<div class="new-card line" style="display: none;">
+			'<div class="new-card line awx-hidden">
 				<input type="radio" name="new-card" id="airwallex-new-card">
 				<label for="airwallex-new-card">%s</label>
 			</div>',
@@ -523,30 +530,45 @@ class Card extends WC_Payment_Gateway {
 		$spinnerHtml = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? '<div class="wc-awx-checkbox-spinner" style="display: block;"></div>' : '';
 		$showAirwallexContainer = $isLoggedIn && $isSaveCardEnabled && ! is_account_page() ? 'none' : 'block';
 		echo wp_kses_post( '<p>' . $this->description . '</p>' );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- WooCommerce-controlled query var; only checked for presence.
 		$managePaymentMethod = ( is_account_page() || ! empty($_REQUEST['change_payment_method']) ) ? 'manage-payment-method' : '';
 
-		echo sprintf(
-			/* translators: Placeholder 1: Change payment method class name. Placeholder 2: Airwallex container style. Placeholder 3: Save card html. Placeholder 4: New card radio html. Placeholder 5: Card information message. Placeholder 6: Save card checkbox html. */
-			'<div class="airwallex-container %1$s" style="display: %2$s;">
-				%3$s
-				%4$s
-				<div class="awx-new-card-title">%5$s</div>
-				<div id="airwallex-card"></div>
-				%6$s
-				<div class="awx-alert" style="display: none;"><div class="body"></div></div>
-			</div>',
-			$managePaymentMethod,
-			$showAirwallexContainer,
-			$saveCardsHtml,
-			$newCardRadioHtml,
-			$cardInformationMessage,
-			$saveCheckboxHtml
+		$allowedHtml = array(
+			'div'   => array( 'class' => true, 'id' => true, 'style' => true ),
+			'input' => array( 'type' => true, 'name' => true, 'id' => true, 'value' => true, 'checked' => true ),
+			'label' => array( 'for' => true ),
+		);
+		// Use class-based hiding (not inline style="display: none") because
+		// WordPress < 5.3's safecss_filter_attr() drops the `display` property,
+		// which would strip our inline style and leave the alert/new-card row
+		// visible on initial render.
+		$containerHiddenClass = ( 'none' === $showAirwallexContainer ) ? ' awx-hidden' : '';
+		echo wp_kses(
+			sprintf(
+				/* translators: Placeholder 1: Change payment method class name. Placeholder 2: Initial hidden class for the container. Placeholder 3: Save card html. Placeholder 4: New card radio html. Placeholder 5: Card information message. Placeholder 6: Save card checkbox html. */
+				'<div class="airwallex-container %1$s%2$s">
+					%3$s
+					%4$s
+					<div class="awx-new-card-title">%5$s</div>
+					<div id="airwallex-card"></div>
+					%6$s
+					<div class="awx-alert awx-hidden"><div class="body"></div></div>
+				</div>',
+				esc_attr( $managePaymentMethod ),
+				esc_attr( $containerHiddenClass ),
+				$saveCardsHtml,
+				$newCardRadioHtml,
+				esc_html( $cardInformationMessage ),
+				$saveCheckboxHtml
+			),
+			$allowedHtml
 		);
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- WooCommerce-controlled query var; only checked for presence.
 		if ( is_account_page() || ! empty($_REQUEST['change_payment_method']) ) {
-			echo $allowChargeForFutureMessage;
+			echo wp_kses_post( $allowChargeForFutureMessage );
 		}
-		echo $spinnerHtml;
+		echo wp_kses_post( $spinnerHtml );
 	}
 
 	public function get_form_fields() {
@@ -627,16 +649,20 @@ class Card extends WC_Payment_Gateway {
 			);
 
 			$this->logService->debug($message, array('orderId' => $order->get_id()));
-			throw new Exception( __( 'You are not allowed to change payment method for this order.', 'airwallex-online-payments-gateway' ) );
+			throw new Exception( esc_html__( 'You are not allowed to change payment method for this order.', 'airwallex-online-payments-gateway' ) );
 		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from process_payment(), which is gated by WooCommerce's own checkout nonce.
 		if (empty($_REQUEST['awx_customer_id'])) {
-			throw new Exception( __( 'Customer ID is required.', 'airwallex-online-payments-gateway' ) );
+			throw new Exception( esc_html__( 'Customer ID is required.', 'airwallex-online-payments-gateway' ) );
 		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from process_payment(), which is gated by WooCommerce's own checkout nonce.
 		if (empty($_REQUEST['awx_consent_id'])) {
-			throw new Exception( __( 'Consent ID is required.', 'airwallex-online-payments-gateway' ) );
+			throw new Exception( esc_html__( 'Consent ID is required.', 'airwallex-online-payments-gateway' ) );
 		}
-		$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, sanitize_text_field($_REQUEST['awx_consent_id']) );
-		$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, sanitize_text_field($_REQUEST['awx_customer_id']) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from process_payment(), which is gated by WooCommerce's own checkout nonce.
+		$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, sanitize_text_field( wp_unslash( $_REQUEST['awx_consent_id'] ) ) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from process_payment(), which is gated by WooCommerce's own checkout nonce.
+		$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, sanitize_text_field( wp_unslash( $_REQUEST['awx_customer_id'] ) ) );
 		$order->save();
 		return array( 'result' => 'success', 'redirect' => $order->get_view_order_url());
 	}
@@ -649,6 +675,7 @@ class Card extends WC_Payment_Gateway {
 				throw new Exception( 'Airwallex payment error: can not find order', 'airwallex-online-payments-gateway' );
 			}
 
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from WooCommerce process_payment(), which is gated by WC's own checkout nonce; value is compared against a known literal.
 			if (isset($_REQUEST['is_change_payment_method']) && $_REQUEST['is_change_payment_method'] === 'true' && function_exists('wcs_is_subscription') && wcs_is_subscription($order)) {
 				return $this->change_subscription_payment_method( $order );
 			}
@@ -657,7 +684,8 @@ class Card extends WC_Payment_Gateway {
 			$airwallexCustomerId = null;
 			$containsSubscription = $orderService->containsSubscription( $order->get_id() );
 
-			$tokenIdFromRequest = $_POST['token'] ?? 0;
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.MissingUnslash,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from WooCommerce process_payment() which is gated by WC's checkout nonce; the value is cast to int via WC_Payment_Tokens::get() lookup below.
+			$tokenIdFromRequest = isset( $_POST['token'] ) ? absint( wp_unslash( $_POST['token'] ) ) : 0;
 			$paymentMethodId = '';
 			if ($tokenIdFromRequest) {
 				$token = WC_Payment_Tokens::get( $tokenIdFromRequest );
@@ -726,10 +754,6 @@ class Card extends WC_Payment_Gateway {
 			return $result;
 		} catch ( Exception $e ) {
 			$this->logService->error( __METHOD__ . ' - card payment create intent failed.', $e->getMessage(), LogService::CARD_ELEMENT_TYPE );
-			$errorJson = json_decode($e->getMessage(), true);
-			if (json_last_error() === JSON_ERROR_NONE && !empty($errorJson['data']['message'])) {
-				throw new Exception(esc_html__($errorJson['data']['message'], 'airwallex-online-payments-gateway'));
-			}			
 			throw new Exception( esc_html__( 'Airwallex payment error', 'airwallex-online-payments-gateway' ) );
 		}
 	}
@@ -764,7 +788,7 @@ class Card extends WC_Payment_Gateway {
 		} catch ( Exception $e ) {
 			$this->logService->error( 'capture failed', $e->getMessage() );
 			$order->add_order_note( 'Airwallex payment failed capture: ' . $e->getMessage() );
-			throw new Exception( 'Airwallex capture error: ' . $e->getMessage() );
+			throw new Exception( esc_html( 'Airwallex capture error: ' . $e->getMessage() ) );
 		}
 	}
 
@@ -803,6 +827,7 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function output( $attrs ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Shortcode landing page reached via redirect; order_id is only checked for presence and validated through getOrderFromRequest() below.
 		if ( is_admin() || empty( WC()->session ) || empty($_GET['order_id']) ) {
 			$this->logService->debug( 'Update card payment shortcode.', array(), LogService::CARD_ELEMENT_TYPE );
 			return;
@@ -895,7 +920,7 @@ class Card extends WC_Payment_Gateway {
 			wp_send_json([
 				'success' => false,
 				'error' => [
-					'message' => __($e->getMessage(), 'airwallex-online-payments-gateway'),
+					'message' => __( "We couldn't load your saved payment methods. Please try again.", 'airwallex-online-payments-gateway' ),
 				],
 			]);
 		}

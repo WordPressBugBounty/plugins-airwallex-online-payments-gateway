@@ -66,7 +66,11 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
             } catch (Exception $e) {
                 LogService::getInstance()->error( __METHOD__, $e->getMessage() );
                 RemoteLog::error('FunnelKit Upsell create intent failed: ' . $e->getMessage());
-                $this->handle_api_error(__($e->getMessage(), 'airwallex-online-payments-gateway'), $e->getMessage(), $order);
+                $this->handle_api_error(
+                    __( "We couldn't link your saved payment method to this subscription. Please contact us if you don't see your subscription updated.", 'airwallex-online-payments-gateway' ),
+                    $e->getMessage(),
+                    $order
+                );
             }
         }
 
@@ -121,7 +125,11 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                 } catch (Exception $e) {
                     LogService::getInstance()->error( 'Failed to fetch intent: ' . $e->getMessage() );
                     RemoteLog::error('Failed to fetch intent: ' . $e->getMessage());
-                    $this->handle_api_error(__($e->getMessage(), 'airwallex-online-payments-gateway'), $e->getMessage(), $parentOrder);
+                    $this->handle_api_error(
+                        __( "We couldn't verify your payment details. Please try again.", 'airwallex-online-payments-gateway' ),
+                        $e->getMessage(),
+                        $parentOrder
+                    );
                     wp_send_json( array(
                             'result' => 'error',
                             'data' => WFOCU_Core()->process_offer->_handle_upsell_charge( true ),
@@ -136,7 +144,7 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                     WFOCU_Core()->data->set( 'current_offer', $get_offer );
                     WFOCU_Core()->data->save();
                     $error = '3D Secure authentication was canceled by the user.';
-                    $this->handle_api_error(__($error, 'airwallex-online-payments-gateway'), $error, $parentOrder);
+                    $this->handle_api_error(__( '3D Secure authentication was canceled by the user.', 'airwallex-online-payments-gateway' ), $error, $parentOrder);
                     wp_send_json( array(
                             'result'                => 'success',
                             'payment_intent_status' => $paymentIntent->getStatus(),
@@ -189,7 +197,11 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
             } catch (Exception $e) {
                 LogService::getInstance()->error('FunnelKit Upsell create intent failed: ' . $e->getMessage());
                 RemoteLog::error('FunnelKit Upsell create intent failed: ' . $e->getMessage(), RemoteLog::ON_PAYMENT_CREATION_ERROR);
-                $this->handle_api_error(__($e->getMessage(), 'airwallex-online-payments-gateway'), $e->getMessage(), $parentOrder);
+                $this->handle_api_error(
+                    __( "We couldn't process this upsell offer. Your original order is unaffected.", 'airwallex-online-payments-gateway' ),
+                    $e->getMessage(),
+                    $parentOrder
+                );
                 wp_send_json( array(
                         'result' => 'error',
                         'data' => WFOCU_Core()->process_offer->_handle_upsell_charge( true ),
@@ -206,7 +218,7 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                 $paymentConsentId = $parentOrder->get_meta( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, true );
             } else {
                 $log = "Missing both payment consent and token. At least one is required.";
-                $this->handle_api_error(__($log, 'airwallex-online-payments-gateway'), $log, $parentOrder);
+                $this->handle_api_error(__( 'Missing both payment consent and token. At least one is required.', 'airwallex-online-payments-gateway' ), $log, $parentOrder);
                 wp_send_json( array(
                         'result' => 'error',
                         'data' => WFOCU_Core()->process_offer->_handle_upsell_charge( true ),
@@ -218,7 +230,7 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                 $paymentConsent = (new RetrievePaymentConsent())->setPaymentConsentId($paymentConsentId)->send();
 
                 if (empty($paymentConsent->getPaymentMethod()['id'])) {
-                    throw new Exception(__("Invalid payment consent id: ") . $paymentConsentId);
+                    throw new Exception(__( 'Invalid payment consent id: ', 'airwallex-online-payments-gateway' ) . $paymentConsentId);
                 }
                 LogService::getInstance()->debug('Upsell checkout by Payment Method ID: ' .$paymentConsent->getPaymentMethod()['id']);
 
@@ -242,7 +254,11 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
             } catch (Exception $e) {
                 RemoteLog::error('FunnelKit Upsell process payment failed: ' . $e->getMessage());
                 LogService::getInstance()->error('Upsell failed:' . $e->getMessage());
-                $this->handle_api_error(__($e->getMessage(), 'airwallex-online-payments-gateway'), $e->getMessage(), $parentOrder);
+                $this->handle_api_error(
+                    __( "We couldn't complete this upsell payment. Your original order is unaffected. If you see a charge, please contact us.", 'airwallex-online-payments-gateway' ),
+                    $e->getMessage(),
+                    $parentOrder
+                );
                 wp_send_json( array(
                         'result' => 'error',
                         'data' => WFOCU_Core()->process_offer->_handle_upsell_charge( true ),
@@ -290,11 +306,14 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
         }
 
         public function has_token( $order ) {
-            if (!empty($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'airwallex_webhook') !== false) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only used for a strpos() substring check against a known literal; no sink.
+            if (!empty($_SERVER['REQUEST_URI']) && strpos( wp_unslash( $_SERVER['REQUEST_URI'] ), 'airwallex_webhook') !== false) {
                 return true;
             }
 
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Token id is cast to int and validated against the current user / gateway below.
             if ( ! empty( $_GET['token_id'] ) ) {
+                // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Token id is cast to int and validated against the current user / gateway below.
                 $tokenIdFromRequest = intval( $_GET['token_id'] );
                 $token              = \WC_Payment_Tokens::get( $tokenIdFromRequest );
                 if ( $token && $token->get_user_id() === get_current_user_id() && $token->get_gateway_id() === Card::GATEWAY_ID) {
@@ -350,21 +369,22 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
             if ( $skip_key === 6 ) {
 
                 if ($order->get_meta( self::AIRWALLEX_UPSELL_REQUIRES_CVC_META_KEY, true ) === 'yes' ) {
-                    $title = 'CVC Required.';
-                    $description = "The payment method token requires CVC, which isn't supported during upsell.";
+                    $title = __( 'CVC Required.', 'airwallex-online-payments-gateway' );
+                    $description = __( "The payment method token requires CVC, which isn't supported during upsell.", 'airwallex-online-payments-gateway' );
                 } else {
-                    $title = 'No token found.';
-                    $description = "The shopper completed the purchase using a new card.";
+                    $title = __( 'No token found.', 'airwallex-online-payments-gateway' );
+                    $description = __( 'The shopper completed the purchase using a new card.', 'airwallex-online-payments-gateway' );
                 }
 
-                $custom_note = sprintf( '<div style="display:flex;align-items:center;margin-bottom:4px;gap:4px;padding-left:20px !important;background: url(%s) no-repeat left !important;">
-                        <strong style="font-size:13px;">%s</strong>
+                /* translators: 1: error icon URL, 2: upsell skipped heading, 3: failure title, 4: failure description. */
+                $custom_note = sprintf( '<div style="display:flex;align-items:center;margin-bottom:4px;gap:4px;padding-left:20px !important;background: url(%1$s) no-repeat left !important;">
+                        <strong style="font-size:13px;">%2$s</strong>
                     </div>
-                    <strong>%s</strong> %s ', 
-                    esc_url( WFOCU_PLUGIN_URL . '/admin/assets/img/icon_error.svg' ), 
-                    __( 'Upsell Skipped', 'woofunnels-upstroke-one-click-upsell' ), 
-                    __( $title, 'airwallex-online-payments-gateway' ),
-                    __( $description, 'airwallex-online-payments-gateway' )
+                    <strong>%3$s</strong> %4$s ',
+                    esc_url( WFOCU_PLUGIN_URL . '/admin/assets/img/icon_error.svg' ),
+                    __( 'Upsell Skipped', 'airwallex-online-payments-gateway' ),
+                    $title,
+                    $description
                 );
             }
 
@@ -376,16 +396,18 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
 
         public function threeDSReturnPage() {
             $code = "3DS-Success";
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- 3DS return page reached via redirect; success flag is compared against a known literal.
             if (empty($_GET['succeeded']) || $_GET['succeeded'] !== 'true') {
                 $code = "3DS-Error";
             }
-            $paymentIntentId = $_GET['payment_intent_id'] ?? '';
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- 3DS return page reached via redirect; value is escaped via esc_js() at the output sink below.
+            $paymentIntentId = isset( $_GET['payment_intent_id'] ) ? sanitize_text_field( wp_unslash( $_GET['payment_intent_id'] ) ) : '';
             echo '<html lang="en">
                     <body>
                         <script type="text/javascript">
                             window.parent.postMessage({
-                                code: "' . $code . '",
-                                payment_intent_id: "' . $paymentIntentId . '"
+                                code: "' . esc_js( $code ) . '",
+                                payment_intent_id: "' . esc_js( $paymentIntentId ) . '"
                             });
                         </script>
                     </body>

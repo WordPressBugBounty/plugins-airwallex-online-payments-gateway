@@ -15,7 +15,9 @@ class QuoteController {
 	public function createQuoteForCurrencySwitching() {
         check_ajax_referer('wc-airwallex-lpm-create-quote-currency-switcher', 'security');
 		
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$paymentCurrency = isset($_POST['payment_currency']) ? wc_clean(wp_unslash($_POST['payment_currency'])) : '';
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$targetCurrency = isset($_POST['target_currency']) ? wc_clean(wp_unslash($_POST['target_currency'])) : '';
 
 		try {

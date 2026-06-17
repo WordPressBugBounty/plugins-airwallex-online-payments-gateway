@@ -99,6 +99,7 @@ class POS extends AirwallexGatewayLocalPaymentMethod {
         if (empty(WC()->session)) {
             wp_send_json_success(array('data' => []));
         }
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
         $page = isset($_GET['page']) ? wc_clean(wp_unslash($_GET['page'])) : '';
         try {
             $terminals = (new GetTerminalList())->setPage($page)->setPageSize(5)->setStatus(StructTerminal::STATUS_ACTIVE)->send();
@@ -230,17 +231,17 @@ class POS extends AirwallexGatewayLocalPaymentMethod {
             $error = json_decode($e->getMessage(), true);
             if (is_array($error) && isset($error['code'])) {
                 if ($error['code'] === ProcessPaymentIntentInTerminal::ERROR_TERMINAL_UNAVAILABLE) {
-                    throw new Exception(__('The terminal is temporarily unavailable. Try again later or take action directly on the terminal.', 'airwallex-online-payments-gateway'));
+                    throw new Exception(esc_html__('The terminal is temporarily unavailable. Try again later or take action directly on the terminal.', 'airwallex-online-payments-gateway'));
                 }
                 if ($error['code'] === ProcessPaymentIntentInTerminal::ERROR_TERMINAL_BUSY) {
-                    throw new Exception(__('The terminal is busy. Please wait a moment and try again.', 'airwallex-online-payments-gateway'));
+                    throw new Exception(esc_html__('The terminal is busy. Please wait a moment and try again.', 'airwallex-online-payments-gateway'));
                 }
             }
-            throw new Exception($e->getMessage());
+            throw new Exception(esc_html__('The terminal could not process this payment. Please try again, or check the order log for the underlying error code before contacting support.', 'airwallex-online-payments-gateway'));
         } catch (Exception $e) {
             OrderService::getInstance()->setTemporaryOrderStateAfterDecline($order);
             LogService::getInstance()->error(__METHOD__ . ' - process a payment in terminal.', $e->getMessage());
-            throw new Exception(__($e->getMessage(), 'airwallex-online-payments-gateway'));
+            throw new Exception(esc_html__('We could not reach the terminal to process this payment. Please check the terminal connection and try again.', 'airwallex-online-payments-gateway'));
         }
     }
 

@@ -1,5 +1,9 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2026-06-09 - version 1.34.0
+
+* Fix - WordPress 7.0 compatibility updates and code optimizations
+
 2026-05-11 - version 1.33.1
 
 * Fix - Resolved an occasional payment confirmation error caused by malformed data

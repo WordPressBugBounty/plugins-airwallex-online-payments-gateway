@@ -204,7 +204,7 @@ class Util {
 			$characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 			$charactersLength = strlen( $characters );
 			for ($i = 0; $i < 16; $i++) {
-				$data .= $characters[mt_rand( 0, $charactersLength - 1 )];
+				$data .= $characters[wp_rand( 0, $charactersLength - 1 )];
 			}
 		}
     
@@ -279,7 +279,7 @@ class Util {
 	 * @return string
 	 */
 	public static function getOriginFromUrl($url) {
-		$urlComponents = parse_url($url);
+		$urlComponents = wp_parse_url($url);
 
 		if (!isset($urlComponents['scheme'], $urlComponents['host'])) {
 			return ''; // Handle the error for an invalid URL

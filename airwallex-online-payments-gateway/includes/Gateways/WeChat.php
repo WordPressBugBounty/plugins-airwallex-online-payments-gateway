@@ -32,7 +32,6 @@ class WeChat extends WC_Payment_Gateway {
 	public $icon               = '';
 	public $id                 = self::GATEWAY_ID;
 	public $plugin_id;
-	public $paymentMethodType;
 	public $supports = array(
 		'products',
 		'refunds',
@@ -166,15 +165,12 @@ class WeChat extends WC_Payment_Gateway {
 			];
 		} catch ( Exception $e ) {
 			$this->logService->error( 'Drop in payment action failed', $e->getMessage(), LogService::CARD_ELEMENT_TYPE );
-			$errorJson = json_decode($e->getMessage(), true);
-			if (json_last_error() === JSON_ERROR_NONE && !empty($errorJson['data']['message'])) {
-				throw new Exception(esc_html__($errorJson['data']['message'], 'airwallex-online-payments-gateway'));
-			}
 			throw new Exception( esc_html__( 'Airwallex payment error', 'airwallex-online-payments-gateway' ) );
 		}
 	}
 
 	public function output( $attrs ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Shortcode landing page reached via redirect; order_id is only checked for presence and validated through getOrderFromRequest() below.
 		if ( is_admin() || empty( WC()->session ) || empty($_GET['order_id']) ) {
 			$this->logService->debug( 'Update wechat payment shortcode.', array(), LogService::WECHAT_ELEMENT_TYPE );
 			return;

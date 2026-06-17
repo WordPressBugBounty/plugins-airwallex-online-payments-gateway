@@ -134,6 +134,7 @@ class AirwallexController {
 				throw new Exception( __( 'Invalid request.', 'airwallex-online-payments-gateway' ) );
 			}
 
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 			$order_key = isset($_GET['key']) ? wc_clean( wp_unslash( $_GET['key'] ) ) : '';
 			$order_id  = isset($_GET['order_id']) ? absint( $_GET['order_id'] ) : 0;
 			$order     = wc_get_order( $order_id );
@@ -141,6 +142,7 @@ class AirwallexController {
 				throw new Exception( __( 'You are not authorized to update this order.', 'airwallex-online-payments-gateway' ) );
 			}
 
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 			$payment_method_id = isset( $_POST['payment_method'] ) ? wc_clean( wp_unslash( $_POST['payment_method'] ) ) : false;
 			if ( ! $payment_method_id ) {
 				throw new Exception( __( 'Invalid payment method.', 'airwallex-online-payments-gateway' ) );
@@ -158,7 +160,7 @@ class AirwallexController {
 			wp_send_json($result);
 		} catch ( Exception $e ) {
 			$this->logService->error( __METHOD__, $e->getMessage() );
-			wc_add_notice( $e->getMessage(), 'error' );
+			wc_add_notice( __( 'We were unable to process your payment. Please try again.', 'airwallex-online-payments-gateway' ), 'error' );
 			wp_send_json([
 				'result' => 'fail',
 				'error' => $e->getMessage(),
@@ -172,8 +174,16 @@ class AirwallexController {
 
 		if (empty($paymentIntentId)) {
 			$errorMessage = 'Order confirmation error: Unable to retrieve a valid intent ID.';
-			RemoteLog::error( json_encode(['msg' => $errorMessage, '$_GET' => $_GET]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
-			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
+			$diagnosticParams = [
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Diagnostic logging of the redirect-back query string; not used for any state change.
+				'order_id'            => isset( $_GET['order_id'] ) ? (int) $_GET['order_id'] : null,
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Diagnostic logging of the redirect-back query string; not used for any state change.
+				'awx_return_result'   => isset( $_GET['awx_return_result'] ) ? sanitize_text_field( wp_unslash( $_GET['awx_return_result'] ) ) : null,
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Diagnostic logging of the redirect-back query string; not used for any state change.
+				'confirmationError'   => isset( $_GET['confirmationError'] ) ? sanitize_text_field( wp_unslash( $_GET['confirmationError'] ) ) : null,
+			];
+			RemoteLog::error( json_encode(['msg' => $errorMessage, 'params' => $diagnosticParams]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
+			throw new Exception( esc_html__( 'Order confirmation error: Unable to retrieve a valid intent ID.', 'airwallex-online-payments-gateway' ) );
 		}
 
 		return array(
@@ -264,6 +274,7 @@ class AirwallexController {
 				'paymentConfirmation() payment intent: ' . $paymentIntentId
 			);
 
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Redirect-back handler reached via shopper browser after payment provider redirect; cannot carry a WordPress nonce.
 			if ( ! empty( $_GET['awx_return_result'] ) ) {
 				$this->handleRedirectWithReturnResult( $paymentIntent );
 			}
@@ -274,7 +285,7 @@ class AirwallexController {
 				$orderService->setPaymentSuccess($order, $paymentIntent, __METHOD__);
 			} catch (Exception $e) {
 				$this->logService->error( __METHOD__, $e->getMessage() );
-				wc_add_notice( __( $e->getMessage(), 'airwallex-online-payments-gateway' ), 'error' );
+				wc_add_notice( __( 'Your payment was received, but we had a problem updating your order. Please contact us before paying again.', 'airwallex-online-payments-gateway' ), 'error' );
 				wp_safe_redirect( wc_get_checkout_url() );
 				die;
 			}
@@ -285,8 +296,9 @@ class AirwallexController {
 			} else if (!$paymentIntent->isAuthorized() && !$paymentIntent->isCaptured()) {
 				$this->logService->warning( 'paymentConfirmation() invalid status: ' . $paymentIntentId );
 				OrderService::getInstance()->setTemporaryOrderStateAfterDecline( $order );
-				$error = empty($_GET['confirmationError']) ? 'Airwallex payment error' : sanitize_text_field( wp_unslash( $_GET['confirmationError'] ) );
-				wc_add_notice( __( $error, 'airwallex-online-payments-gateway' ), 'error' );
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Redirect-back handler reached via shopper browser after payment provider redirect; cannot carry a WordPress nonce.
+				$error = empty($_GET['confirmationError']) ? __( 'Airwallex payment error', 'airwallex-online-payments-gateway' ) : sanitize_text_field( wp_unslash( $_GET['confirmationError'] ) );
+				wc_add_notice( $error, 'error' );
 				wp_safe_redirect( wc_get_checkout_url() );
 				die;
 			}
@@ -300,6 +312,7 @@ class AirwallexController {
 
 			WC()->cart->empty_cart();
 
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Redirect-back handler reached via shopper browser after payment provider redirect; cannot carry a WordPress nonce.
 			if ( (! empty($_GET['is_airwallex_save_checked']) && in_array($_GET['is_airwallex_save_checked'], ['true', '1'], true))
 				|| $orderService->containsSubscription( $order->get_id() )) {
 				try {
@@ -339,7 +352,8 @@ class AirwallexController {
 	 * @param StructPaymentIntent $paymentIntent
 	 */
 	private function handleRedirectWithReturnResult( $paymentIntent ) {
-		$awxReturnResult = isset($_GET['awx_return_result']) ? wc_clean( $_GET['awx_return_result'] ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Redirect-back handler reached via shopper browser; wc_clean() sanitizes the value, but the sniff doesn't recognize it.
+		$awxReturnResult = isset($_GET['awx_return_result']) ? wc_clean( wp_unslash( $_GET['awx_return_result'] ) ) : '';
 		switch ($awxReturnResult) {
 			case 'success':
 				break;
@@ -400,6 +414,7 @@ class AirwallexController {
 	public function connectionTest() {
 		check_ajax_referer('wc-airwallex-admin-settings-connection-test', 'security');
 
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$env  = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : '';
 		if ($env) {
 			update_option('airwallex_enable_sandbox', 'demo' === $env ? 'yes' : 'no');
@@ -408,7 +423,9 @@ class AirwallexController {
 		try {
 			$apiClient = AdminClient::getInstance();
 			if (isset($_POST['connect_with_api_key'])) {
+				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 				$clientId = isset($_POST['client_id']) ? trim(wc_clean(wp_unslash($_POST['client_id']))) : '';
+				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 				$apiKey = isset($_POST['api_key']) ? trim(wc_clean(wp_unslash($_POST['api_key']))) : '';
 			} else {
 				$clientId = Util::getClientId();
@@ -445,6 +462,7 @@ class AirwallexController {
 	public function connectionClick() {
 		check_ajax_referer('wc-airwallex-admin-settings-connection-click', 'security');
 
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$env  = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : '';
 
 		if (!in_array($env, ['demo', 'prod'], true)) {
@@ -481,6 +499,7 @@ class AirwallexController {
 
 	public function isPaymentMethodEnabled() {
 		check_ajax_referer('wc-airwallex-admin-settings-is-payment-method-enabled', 'security');
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$paymentMethodTypeFromRequest  = isset($_GET['payment_method_type']) ? wc_clean(wp_unslash($_GET['payment_method_type'])) : '';
 
 		try {

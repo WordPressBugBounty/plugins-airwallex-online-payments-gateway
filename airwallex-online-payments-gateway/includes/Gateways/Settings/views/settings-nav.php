@@ -5,10 +5,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 global $current_section;
-$airwallexAdminNavTabs = apply_filters( 'wc_airwallex_settings_nav_tabs', array() );
-$awxTabsCnt            = count( $airwallexAdminNavTabs );
-$awxCurrentIdx         = 0;
-$awxActiveTabExist     = false;
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Hook name is intentionally namespaced with the 'wc_airwallex' prefix.
+$airwallexAdminNavTabs    = apply_filters( 'wc_airwallex_settings_nav_tabs', array() );
+$airwallexTabsCnt         = count( $airwallexAdminNavTabs );
+$airwallexCurrentIdx      = 0;
+$airwallexActiveTabExist  = false;
 ?>
 <div class="wc-airwallex-settings-logo">
 	<img class="airwallex-logo" src="<?php echo esc_attr(AIRWALLEX_PLUGIN_URL . '/assets/images/logo.svg'); ?>"/>
@@ -30,18 +31,18 @@ $awxActiveTabExist     = false;
 </div>
 <div class="airwallex-settings-nav">
 	<?php
-	foreach ( $airwallexAdminNavTabs as $awxTabId => $awxTab ) :
-		++$awxCurrentIdx;
+	foreach ( $airwallexAdminNavTabs as $airwallexTabId => $airwallexTab ) :
+		++$airwallexCurrentIdx;
 		?>
 		<a class="nav-tab 
 		<?php 
-		if ( $current_section === $awxTabId || ( ! $awxActiveTabExist && $awxTabsCnt === $awxCurrentIdx ) ) {
+		if ( $current_section === $airwallexTabId || ( ! $airwallexActiveTabExist && $airwallexTabsCnt === $airwallexCurrentIdx ) ) {
 			echo esc_attr( 'nav-tab-active' );
-			$awxActiveTabExist = true;
+			$airwallexActiveTabExist = true;
 		}
 		?>
 		"
-		   href="<?php echo esc_url(admin_url( 'admin.php?page=wc-settings&tab=checkout&section=' . $awxTabId )); ?>"><?php echo esc_attr( $awxTab ); ?></a>
+		   href="<?php echo esc_url(admin_url( 'admin.php?page=wc-settings&tab=checkout&section=' . $airwallexTabId )); ?>"><?php echo esc_attr( $airwallexTab ); ?></a>
 	<?php endforeach; ?>
 </div>
 <div class="clear"></div>

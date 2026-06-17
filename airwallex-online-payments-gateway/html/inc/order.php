@@ -21,33 +21,33 @@ if (! $order) {
     return;
 }
 
-$awx_order_items = $order->get_items(apply_filters('woocommerce_purchase_order_item_types', 'line_item'));
+$airwallex_order_items = $order->get_items(apply_filters('woocommerce_purchase_order_item_types', 'line_item'));
 ?>
 <table class="cart-contents">
     <tbody>
         <?php
-        foreach ($awx_order_items as $awx_item_id => $awx_item) {
-            $awx_product = $awx_item->get_product();
-            $awx_product_qty = $awx_item->get_quantity();
+        foreach ($airwallex_order_items as $airwallex_item_id => $airwallex_item) {
+            $airwallex_product = $airwallex_item->get_product();
+            $airwallex_product_qty = $airwallex_item->get_quantity();
 
-            if ($awx_product && $awx_product->is_visible() && $awx_product_qty > 0) {
+            if ($airwallex_product && $airwallex_product->is_visible() && $airwallex_product_qty > 0) {
         ?>
                 <tr class="cart-item">
                     <td class="product-image">
                         <?php
-                        $awx_post_thumbnail_id = $awx_product->get_image_id();
-                        if ($awx_post_thumbnail_id) {
-                            $awx_html = wc_get_gallery_image_html($awx_post_thumbnail_id, true);
-                            echo wp_kses_post($awx_html);
+                        $airwallex_post_thumbnail_id = $airwallex_product->get_image_id();
+                        if ($airwallex_post_thumbnail_id) {
+                            $airwallex_html = wc_get_gallery_image_html($airwallex_post_thumbnail_id, true);
+                            echo wp_kses_post($airwallex_html);
                         }
                         ?>
                     </td>
                     <td class="product-info">
-                        <?php echo wp_kses_post(apply_filters('woocommerce_order_item_quantity_html', ' <strong class="product-quantity">' . sprintf('%s&nbsp;&times;', $awx_product_qty) . '</strong>', $awx_item)); ?>
-                        <?php echo wp_kses_post(apply_filters('woocommerce_order_item_name', $awx_item->get_name(), $awx_item, $awx_product->is_visible()) . '&nbsp;'); ?>
+                        <?php echo wp_kses_post(apply_filters('woocommerce_order_item_quantity_html', ' <strong class="product-quantity">' . sprintf('%s&nbsp;&times;', $airwallex_product_qty) . '</strong>', $airwallex_item)); ?>
+                        <?php echo wp_kses_post(apply_filters('woocommerce_order_item_name', $airwallex_item->get_name(), $airwallex_item, $airwallex_product->is_visible()) . '&nbsp;'); ?>
                         <?php
                             if ($isShowOrderDetails) {
-                                wc_display_item_meta( $awx_item, array(
+                                wc_display_item_meta( $airwallex_item, array(
                                         'before'       => '<div class="wc-item-meta"><div>',
                                         'after'        => '</div></div>',
                                         'separator'    => '</div><div>',
@@ -60,7 +60,7 @@ $awx_order_items = $order->get_items(apply_filters('woocommerce_purchase_order_i
                             }
                         ?>
                         <div class="price">
-                            <?php echo wp_kses_post( WC()->cart->get_product_subtotal( $awx_product, $awx_product_qty )); ?>
+                            <?php echo wp_kses_post( WC()->cart->get_product_subtotal( $airwallex_product, $airwallex_product_qty )); ?>
                         </div>
                     </td>
                 </tr>
@@ -73,14 +73,14 @@ $awx_order_items = $order->get_items(apply_filters('woocommerce_purchase_order_i
 <table class="totals-table">
     <tfoot>
         <?php
-        foreach ($order->get_order_item_totals() as $key => $total) {
-            if ('payment_method' === $key  || false !== strpos($key, 'refund_')) {
+        foreach ($order->get_order_item_totals() as $airwallexTotalKey => $airwallexTotal) {
+            if ('payment_method' === $airwallexTotalKey  || false !== strpos($airwallexTotalKey, 'refund_')) {
                 continue;
             }
         ?>
             <tr>
-                <th scope="row"><?php echo esc_html($total['label']); ?></th>
-                <td><?php echo wp_kses_post($total['value']); ?></td>
+                <th scope="row"><?php echo esc_html($airwallexTotal['label']); ?></th>
+                <td><?php echo wp_kses_post($airwallexTotal['value']); ?></td>
             </tr>
         <?php
         }

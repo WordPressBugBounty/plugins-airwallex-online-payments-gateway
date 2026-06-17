@@ -82,7 +82,7 @@ class Main extends WC_Payment_Gateway {
 	}
 
 	public function enqueueScriptsForApm() {
-		if ($this->isCartOrProductPage()) {
+		if (! $this->isCheckoutContextPage()) {
 			return;
 		}
 
@@ -353,6 +353,7 @@ class Main extends WC_Payment_Gateway {
 			$redirectUrl = $this->get_payment_url( 'airwallex_payment_method_all' );
 			$redirectUrl .= ( strpos( $redirectUrl, '?' ) === false ) ? '?' : '&';
 			$redirectUrl .= 'order_id=' . $order_id;
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Called from WooCommerce process_payment(), which is gated by WC's checkout nonce; only checked for presence.
 			if ( isset( $_POST['woocommerce_pay'] ) ) {
 				$redirectUrl .= '&order_pay=1';
 			}
@@ -362,10 +363,6 @@ class Main extends WC_Payment_Gateway {
 			];
 		} catch ( Exception $e ) {
 			$this->logService->error( __METHOD__ . ' - Drop in create intent failed', $e->getMessage(), LogService::CARD_ELEMENT_TYPE );
-			$errorJson = json_decode($e->getMessage(), true);
-			if (json_last_error() === JSON_ERROR_NONE && !empty($errorJson['data']['message'])) {
-				throw new Exception(esc_html__($errorJson['data']['message'], 'airwallex-online-payments-gateway'));
-			}			
 			throw new Exception( esc_html__( 'Airwallex payment error', 'airwallex-online-payments-gateway' ) );
 		}
 	}
@@ -488,6 +485,7 @@ class Main extends WC_Payment_Gateway {
 	}
 
 	public function output( $attrs ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Shortcode landing page reached via redirect; order_id is only checked for presence and validated through getOrderFromRequest() below.
 		if ( is_admin() || empty( WC()->session ) || empty($_GET['order_id']) ) {
 			$this->logService->debug( 'Update all payment methods shortcode.', array(), LogService::DROP_IN_ELEMENT_TYPE );
 			return;

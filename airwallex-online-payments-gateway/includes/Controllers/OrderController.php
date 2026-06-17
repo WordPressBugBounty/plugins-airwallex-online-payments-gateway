@@ -25,6 +25,7 @@ class OrderController {
 
 		$productId   = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
 		$qty         = isset( $_POST['qty'] ) ? absint( $_POST['qty'] ) : 1;
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the array, but the sniff doesn't recognize it.
 		$attributes  = isset( $_POST['attributes'] ) ? wc_clean( wp_unslash( $_POST['attributes'] ) ) : [];
 
 		$data = $this->calculateCartForProduct($productId, $qty, $attributes);
@@ -145,6 +146,7 @@ class OrderController {
 		WC()->cart->empty_cart();
 
 		if ( ( 'variable' === $product_type || 'variable-subscription' === $product_type ) && isset( $_POST['attributes'] ) ) {
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the array, but the sniff doesn't recognize it.
 			$attributes = wc_clean( wp_unslash( $_POST['attributes'] ) );
 
 			$data_store   = WC_Data_Store::load( 'product' );
@@ -356,7 +358,8 @@ class OrderController {
 		// In case the state is required, but is missing, add a more descriptive error notice.
 		$this->validateState();
 
-		$paymentMethod = isset( $_POST['payment_method_type'] ) ? wc_clean(wp_unslash($_POST['payment_method_type'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from express-checkout flow gated by check_ajax_referer() upstream; wc_clean() sanitizes the value but the sniff doesn't recognize it.
+		$paymentMethod = isset( $_POST['payment_method_type'] ) ? wc_clean(wp_unslash($_POST['payment_method_type'])) : '';
 		WC()->session->set( 'airwallex_express_checkout_payment_method', $paymentMethod );
 
 		WC()->checkout()->process_checkout();
@@ -371,11 +374,17 @@ class OrderController {
 		check_ajax_referer( 'wc-airwallex-express-checkout-shipping', 'security' );
 
 		$shippingAddress = [
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 			'address'  => isset($_POST['address']) ? wc_clean(wp_unslash($_POST['address'])) : '',
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 			'address2' => isset($_POST['address2']) ? wc_clean(wp_unslash($_POST['address2'])) : '',
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 			'country'  => isset($_POST['country']) ? wc_clean(wp_unslash($_POST['country'])) : '',
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 			'state'    => isset($_POST['state']) ? wc_clean(wp_unslash($_POST['state'])) : '',
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 			'postcode' => isset($_POST['postcode']) ? wc_clean(wp_unslash($_POST['postcode'])) : '',
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 			'city'     => isset($_POST['city']) ? wc_clean(wp_unslash($_POST['city'])) : '',
 		];
 
@@ -393,7 +402,8 @@ class OrderController {
 			define( 'WOOCOMMERCE_CART', true );
 		}
 
-		$shippingMethods = isset($_POST['shippingMethods']) ? wc_clean($_POST['shippingMethods']) : [];
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the array, but the sniff doesn't recognize it.
+		$shippingMethods = isset($_POST['shippingMethods']) ? wc_clean( wp_unslash( $_POST['shippingMethods'] ) ) : [];
 		$this->updateWCShippingMethod( $shippingMethods );
 
 		WC()->cart->calculate_totals();
@@ -442,10 +452,14 @@ class OrderController {
 	 * Normalizes billing and shipping state fields.
 	 */
 	public function normalizeState() {
-		$billing_country  = ! empty( $_POST['billing_country'] ) ? wc_clean( wp_unslash( $_POST['billing_country'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$shipping_country = ! empty( $_POST['shipping_country'] ) ? wc_clean( wp_unslash( $_POST['shipping_country'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$billing_state    = ! empty( $_POST['billing_state'] ) ? wc_clean( wp_unslash( $_POST['billing_state'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$shipping_state   = ! empty( $_POST['shipping_state'] ) ? wc_clean( wp_unslash( $_POST['shipping_state'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from express-checkout flow gated by check_ajax_referer() upstream; wc_clean() sanitizes the value but the sniff doesn't recognize it.
+		$billing_country  = ! empty( $_POST['billing_country'] ) ? wc_clean( wp_unslash( $_POST['billing_country'] ) ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from express-checkout flow gated by check_ajax_referer() upstream; wc_clean() sanitizes the value but the sniff doesn't recognize it.
+		$shipping_country = ! empty( $_POST['shipping_country'] ) ? wc_clean( wp_unslash( $_POST['shipping_country'] ) ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from express-checkout flow gated by check_ajax_referer() upstream; wc_clean() sanitizes the value but the sniff doesn't recognize it.
+		$billing_state    = ! empty( $_POST['billing_state'] ) ? wc_clean( wp_unslash( $_POST['billing_state'] ) ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from express-checkout flow gated by check_ajax_referer() upstream; wc_clean() sanitizes the value but the sniff doesn't recognize it.
+		$shipping_state   = ! empty( $_POST['shipping_state'] ) ? wc_clean( wp_unslash( $_POST['shipping_state'] ) ) : '';
 
 		// Due to a bug in Apple Pay, the "Region" part of a Hong Kong address is delivered in
 		// `shipping_postcode`, so we need some special case handling for that. According to
@@ -466,7 +480,8 @@ class OrderController {
 		// This HK specific sanitazation *should be removed* once Apple Pay fix
 		if ( 'HK' === $billing_country ) {
 			if ( ! HongKongStates::isValidState( strtolower( $billing_state ) ) ) {
-				$billing_postcode = ! empty( $_POST['billing_postcode'] ) ? wc_clean( wp_unslash( $_POST['billing_postcode'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from express-checkout flow gated by check_ajax_referer() upstream; wc_clean() sanitizes the value but the sniff doesn't recognize it.
+				$billing_postcode = ! empty( $_POST['billing_postcode'] ) ? wc_clean( wp_unslash( $_POST['billing_postcode'] ) ) : '';
 				if ( HongKongStates::isValidState( strtolower( $billing_postcode ) ) ) {
 					$billing_state = $billing_postcode;
 				}
@@ -474,7 +489,8 @@ class OrderController {
 		}
 		if ( 'HK' === $shipping_country ) {
 			if ( ! HongKongStates::isValidState( strtolower( $shipping_state ) ) ) {
-				$shipping_postcode = ! empty( $_POST['shipping_postcode'] ) ? wc_clean( wp_unslash( $_POST['shipping_postcode'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from express-checkout flow gated by check_ajax_referer() upstream; wc_clean() sanitizes the value but the sniff doesn't recognize it.
+				$shipping_postcode = ! empty( $_POST['shipping_postcode'] ) ? wc_clean( wp_unslash( $_POST['shipping_postcode'] ) ) : '';
 				if ( HongKongStates::isValidState( strtolower( $shipping_postcode ) ) ) {
 					$shipping_state = $shipping_postcode;
 				}

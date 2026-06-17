@@ -131,9 +131,9 @@ class Afterpay extends AirwallexGatewayLocalPaymentMethod {
     }
 
     public function renderEntityIneligibleHtml() {
-        $awxAlertAdditionalClass = 'wc-airwallex-lpm-entity-ineligible';
-        $awxAlertType            = 'critical';
-        $awxAlertText            = __('Invalid merchant entity.', 'airwallex-online-payments-gateway');
+        $airwallexAlertAdditionalClass = 'wc-airwallex-lpm-entity-ineligible';
+        $airwallexAlertType            = 'critical';
+        $airwallexAlertText            = __('Invalid merchant entity.', 'airwallex-online-payments-gateway');
 
         include AIRWALLEX_PLUGIN_PATH . 'templates/airwallex-alert-box.php';
     }
@@ -142,7 +142,7 @@ class Afterpay extends AirwallexGatewayLocalPaymentMethod {
     public function process_payment( $order_id ) {
         $owningEntity = $this->getOwningEntity();
         if ( empty( $owningEntity ) || empty( AfterpayConfiguration::SUPPORTED_ENTITY_TO_CURRENCIES[$owningEntity])) {
-            throw new Exception( __('Invalid merchant entity.', 'airwallex-online-payments-gateway') );
+            throw new Exception( esc_html__('Invalid merchant entity.', 'airwallex-online-payments-gateway') );
         }
         return parent::process_payment( $order_id );
     }

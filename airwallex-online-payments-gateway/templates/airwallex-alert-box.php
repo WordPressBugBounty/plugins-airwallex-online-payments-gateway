@@ -1,42 +1,42 @@
 <?php
 /**
- * @var $awxAlertAdditionalClass string
- * @var $awxAlertType            string
- * @var $awxAlertText            string
- * @var $awxAlertTitle           string
- * @var $awxAlterDisplay         string
- * @var $awxAlterShowDismiss     string
+ * @var $airwallexAlertAdditionalClass string
+ * @var $airwallexAlertType            string
+ * @var $airwallexAlertText            string
+ * @var $airwallexAlertTitle           string
+ * @var $airwallexAlterDisplay         string
+ * @var $airwallexAlterShowDismiss     string
  */
 defined( 'ABSPATH' ) || exit();
 
-$awxAlertBoxClass = '';
-$awxAlertBoxIcon  = '';
-switch ($awxAlertType ?? '') {
+$airwallexAlertBoxClass = '';
+$airwallexAlertBoxIcon  = '';
+switch ($airwallexAlertType ?? '') {
     case 'critical':
-        $awxAlertBoxClass = 'wc-airwallex-error';
-        $awxAlertBoxIcon = 'critical_filled.svg';
+        $airwallexAlertBoxClass = 'wc-airwallex-error';
+        $airwallexAlertBoxIcon = 'critical_filled.svg';
         break;
     case 'warning':
-        $awxAlertBoxClass = 'wc-airwallex-warning';
-        $awxAlertBoxIcon = 'warning_filled.svg';
+        $airwallexAlertBoxClass = 'wc-airwallex-warning';
+        $airwallexAlertBoxIcon = 'warning_filled.svg';
         break;
     case 'success':
-        $awxAlertBoxClass = 'wc-airwallex-success';
-        $awxAlertBoxIcon = 'green_tick_filled.svg';
+        $airwallexAlertBoxClass = 'wc-airwallex-success';
+        $airwallexAlertBoxIcon = 'green_tick_filled.svg';
         break;
     default:
-        $awxAlertBoxClass = 'wc-airwallex-info';
-        $awxAlertBoxIcon = 'info_filled.svg';
+        $airwallexAlertBoxClass = 'wc-airwallex-info';
+        $airwallexAlertBoxIcon = 'info_filled.svg';
         break;
 }
 ?>
 
-<div class="<?php echo esc_attr(!empty($awxAlertTitle) ? 'wc-airwallex-alert-box-with-title' : 'wc-airwallex-alert-box') ?> <?php echo esc_attr( $awxAlertBoxClass ); ?> <?php echo esc_attr($awxAlertAdditionalClass ?? ''); ?>" style="display: none;">
-    <div class="wc-airwallex-alert-box-icon"><img src="<?php echo esc_url( AIRWALLEX_PLUGIN_URL . '/assets/images/' . $awxAlertBoxIcon ); ?>"></img></div>
+<div class="<?php echo esc_attr(!empty($airwallexAlertTitle) ? 'wc-airwallex-alert-box-with-title' : 'wc-airwallex-alert-box') ?> <?php echo esc_attr( $airwallexAlertBoxClass ); ?> <?php echo esc_attr($airwallexAlertAdditionalClass ?? ''); ?>" style="display: none;">
+    <div class="wc-airwallex-alert-box-icon"><img src="<?php echo esc_url( AIRWALLEX_PLUGIN_URL . '/assets/images/' . $airwallexAlertBoxIcon ); ?>"></img></div>
     <div class="wc-airwallex-alert-box-content">
-        <?php if (!empty($awxAlertTitle)) : ?>
-            <p style="font-weight: bold;"><?php echo esc_html($awxAlertTitle); ?></p>
+        <?php if (!empty($airwallexAlertTitle)) : ?>
+            <p style="font-weight: bold;"><?php echo esc_html($airwallexAlertTitle); ?></p>
         <?php endif; ?>
-        <p><?php echo wp_kses_post($awxAlertText ?? ''); ?></p>
+        <p><?php echo wp_kses_post($airwallexAlertText ?? ''); ?></p>
     </div>
 </div>

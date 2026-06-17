@@ -2,6 +2,7 @@
 
 namespace Airwallex\Gateways\Blocks;
 
+use Airwallex\Main;
 use Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -11,6 +12,23 @@ abstract class AirwallexWCBlockSupport extends AbstractPaymentMethodType {
 
 	public $enabled = 'yes';
 	protected $gateway;
+
+	/**
+	 * Ensure the plugin scripts that the block integration scripts depend on are registered.
+	 *
+	 * WooCommerce verifies payment method script dependencies on `wp_print_scripts`, which can
+	 * run before our scripts are registered on `wp_enqueue_scripts` when a third-party plugin
+	 * triggers the verification early. In that case the block integration is deactivated and a
+	 * warning is logged. Registering the dependencies here (idempotently) keeps them available
+	 * regardless of when the verification runs.
+	 *
+	 * @return void
+	 */
+	protected function ensureScriptDependenciesRegistered() {
+		if ( ! wp_script_is( 'airwallex-common-js', 'registered' ) ) {
+			Main::getInstance()->registerScripts();
+		}
+	}
 
 	/**
 	 * Returns whether this payment method is active.
@@ -30,6 +48,8 @@ abstract class AirwallexWCBlockSupport extends AbstractPaymentMethodType {
 		if (is_cart() || is_checkout()) {
 			wp_enqueue_style('airwallex-block-css');
 		}
+
+		$this->ensureScriptDependenciesRegistered();
 
 		wp_register_script(
 			'airwallex-wc-blocks-integration',

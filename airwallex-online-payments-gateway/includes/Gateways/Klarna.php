@@ -95,6 +95,7 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
     }
 
     public function getLanguage($countryCode) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from WooCommerce process_payment() which is gated by WC's checkout nonce; sanitized via wc_clean()+wp_unslash().
         $language = isset($_POST['airwallex_browser_language']) ? wc_clean(wp_unslash($_POST['airwallex_browser_language'])) : '';
         $countryCode = strtoupper($countryCode);
         if (isset(KlarnaConfiguration::COUNTRY_LANGUAGE[$countryCode]) && in_array($language, KlarnaConfiguration::COUNTRY_LANGUAGE[$countryCode], true)) {
@@ -117,9 +118,9 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
     }
 
     public function renderCountryIneligibleHtml() {
-        $awxAlertAdditionalClass = 'wc-airwallex-lpm-country-ineligible';
-        $awxAlertType            = 'critical';
-        $awxAlertText            = sprintf(
+        $airwallexAlertAdditionalClass = 'wc-airwallex-lpm-country-ineligible';
+        $airwallexAlertType            = 'critical';
+        $airwallexAlertText            = sprintf(
             /* translators: Placeholder 1: Payment method name. Placeholder 2: Open link tag. Placeholder 3: Close link tag. */
             __('%1$s is not available in your billing country. Please change your billing address to a %2$s compatible country %3$s or choose a different payment method.', 'airwallex-online-payments-gateway'),
             $this->paymentMethodName,
@@ -134,10 +135,11 @@ class Klarna extends AirwallexGatewayLocalPaymentMethod {
         $order = wc_get_order( $order_id );
         if ( empty( $order ) ) {
             LogService::getInstance()->error(__METHOD__ . ' can not find order', [ 'orderId' => $order_id ] );
-            throw new Exception( sprintf( __( 'Order not found: %s', 'airwallex-online-payments-gateway' ), $order_id ) );
+            /* translators: %s: order ID that could not be found. */
+            throw new Exception( esc_html( sprintf( __( 'Order not found: %s', 'airwallex-online-payments-gateway' ), $order_id ) ) );
         }
         if ( empty(KlarnaConfiguration::SUPPORTED_COUNTRY_TO_CURRENCY[$order->get_billing_country()]) ) {
-            throw new Exception( __('Klarna is not available in your billing country. Please use a different payment method.', 'airwallex-online-payments-gateway') );
+            throw new Exception( esc_html__('Klarna is not available in your billing country. Please use a different payment method.', 'airwallex-online-payments-gateway') );
         }
         return parent::process_payment( $order_id );
     }

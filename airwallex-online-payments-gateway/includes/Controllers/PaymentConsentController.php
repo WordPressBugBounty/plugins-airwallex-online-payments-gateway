@@ -29,6 +29,7 @@ class PaymentConsentController {
 			return;
 		}
 
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Long-running consent sync over potentially thousands of subscriptions; needs to bypass the default 30s PHP timeout.
 		set_time_limit(0);
 		$paged = 1;
 		$maxPages = 1000;

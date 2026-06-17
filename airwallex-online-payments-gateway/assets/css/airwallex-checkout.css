@@ -512,6 +512,13 @@ label[for="airwallex-save"] {
 	padding: 12px 16px;
 }
 
+/* Class-based initial hiding. Inline style="display: none" gets stripped
+   by WordPress < 5.3's safecss_filter_attr() (display was added to its
+   allowlist in WP 5.3). Use this class so the rule survives wp_kses(). */
+.awx-hidden {
+	display: none;
+}
+
 .awx-alert .icon {
 	padding: 10px 10px 10px 0;
 	display: flex;

@@ -107,7 +107,7 @@ class WebhookService {
 				$order           = $orderService->getOrderByPaymentIntentId( $paymentIntentId );
 				if ( empty( $order ) ) {
 					$logService->warning( __METHOD__ . ' - no order found for refund', array( 'paymentIntent' => $paymentIntentId ) );
-					throw new Exception( 'no order found for refund on payment_intent ' . $paymentIntentId );
+					throw new Exception( esc_html( 'no order found for refund on payment_intent ' . $paymentIntentId ) );
 				}
 				$order->add_order_note(
 					sprintf(
@@ -155,7 +155,7 @@ class WebhookService {
 
 	public function verifyIntentFromOrder($order, StructPaymentIntent $paymentIntent, $eventType) {
 		if ( empty( $order ) ) {
-			throw new Exception('No order found for the order id in webhook. Payment intent id: ' . $paymentIntent->getId());
+			throw new Exception( esc_html( 'No order found for the order id in webhook. Payment intent id: ' . $paymentIntent->getId() ) );
 		}
 		$paymentIntentIdFromOrder = $order->get_meta( OrderService::META_KEY_INTENT_ID );
 		if ( $paymentIntent->getId() !== $paymentIntentIdFromOrder ) {

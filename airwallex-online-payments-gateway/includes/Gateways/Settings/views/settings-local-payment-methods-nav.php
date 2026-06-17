@@ -2,20 +2,21 @@
 defined('ABSPATH') || exit();
 
 global $current_section;
-$awxLpmTabs = apply_filters( 'wc_airwallex_local_gateways_tab', array() );
-ksort($awxLpmTabs);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Hook name is intentionally namespaced with the 'wc_airwallex' prefix.
+$airwallexLpmTabs = apply_filters( 'wc_airwallex_local_gateways_tab', array() );
+ksort($airwallexLpmTabs);
 ?>
 <div class="airwallex-settings-nav-local-payment-methods">
-	<?php foreach ( $awxLpmTabs as $awxLpmTabId => $awxLpmTab ) : ?>
+	<?php foreach ( $airwallexLpmTabs as $airwallexLpmTabId => $airwallexLpmTab ) : ?>
 		<a
 		class="awx-nav-link 
 		<?php
-		if ( $current_section === $awxLpmTabId ) {
+		if ( $current_section === $airwallexLpmTabId ) {
 			echo esc_html( 'awx-nav-link-active' );
 		}
 		?>
 		"
-		href="<?php echo esc_url( admin_url( 'admin.php?page=wc-settings&tab=checkout&section=' . esc_attr($awxLpmTabId) ) ); ?>"><?php echo esc_attr( $awxLpmTab ); ?></a>
+		href="<?php echo esc_url( admin_url( 'admin.php?page=wc-settings&tab=checkout&section=' . esc_attr($airwallexLpmTabId) ) ); ?>"><?php echo esc_attr( $airwallexLpmTab ); ?></a>
 	<?php endforeach; ?>
 </div>
 <div class="clear"></div>

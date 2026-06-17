@@ -21,7 +21,9 @@ class PaymentSessionController {
 	public function startPaymentSession() {
 		check_ajax_referer('wc-airwallex-express-checkout-start-payment-session', 'security');
 
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$validationURL = isset($_POST['validationURL']) ? wc_clean(wp_unslash($_POST['validationURL'])) : '';
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$origin        = isset($_POST['origin']) ? wc_clean(wp_unslash($_POST['origin'])) : '';
 
 		LogService::getInstance()->debug(__METHOD__ . " - Start payment session for {$origin} with {$validationURL}.");

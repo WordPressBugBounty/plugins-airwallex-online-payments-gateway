@@ -360,7 +360,7 @@ abstract class AbstractClient {
 			return $newPaymentIntent;
 		} catch ( Exception $e ) {
 			RemoteLog::error( 'Create payment intent failed: ' . $e->getMessage(), RemoteLog::ON_PAYMENT_CREATION_ERROR);
-			throw new Exception( 'Create payment intent failed: ' . $e->getMessage() );
+			throw new Exception( esc_html( 'Create payment intent failed: ' . $e->getMessage() ) );
 		}
 	}
 

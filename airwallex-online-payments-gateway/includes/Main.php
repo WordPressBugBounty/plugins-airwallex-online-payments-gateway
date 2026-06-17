@@ -34,6 +34,10 @@ use Airwallex\Gateways\POS;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class Main {
 
 	const ROUTE_SLUG_CONFIRMATION = 'airwallex_payment_confirmation';
@@ -341,7 +345,8 @@ class Main {
 	}
 
 	public function addPaymentGateways( $gateways ) {
-		if (!empty($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/wp-json/wc-admin/settings/payments/providers') !== false) {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only used for a strpos() substring check against a known literal; no sink.
+		if (!empty($_SERVER['REQUEST_URI']) && strpos( wp_unslash( $_SERVER['REQUEST_URI'] ), '/wp-json/wc-admin/settings/payments/providers') !== false) {
 			$gateways[] = AirwallexOnboardingPaymentGateway::class;
 			return $gateways;
 		}
@@ -509,6 +514,7 @@ class Main {
 			'locale' => Util::getLocale(),
 			'isOrderPayPage'  => is_wc_endpoint_url( 'order-pay' ),
 		];
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- WooCommerce-controlled query var on the order-pay endpoint; value is compared against a known literal.
 		if ( isset( $_GET['pay_for_order'] ) && 'true' === $_GET['pay_for_order'] ) {
 			global $wp;
 			$order_id = (int) $wp->query_vars['order-pay'];
@@ -517,6 +523,7 @@ class Main {
 				if ( is_a( $order, 'WC_Order' ) ) {
 					$confirmationUrl .= ( strpos( $confirmationUrl, '?' ) === false ) ? '?' : '&';
 					$confirmationUrl .= 'order_id=' . $order_id;
+					// phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- WooCommerce-controlled query var on the order-pay endpoint; wc_clean() sanitizes the value but the sniff doesn't recognize it.
 					$orderKey = isset($_GET['key']) ? wc_clean(wp_unslash( $_GET['key'] )) : '';
 					$orderPayUrl = WC()->api_request_url('airwallex_process_order_pay');
 					$orderPayUrl .= ( strpos( $orderPayUrl, '?' ) === false ) ? '?' : '&';

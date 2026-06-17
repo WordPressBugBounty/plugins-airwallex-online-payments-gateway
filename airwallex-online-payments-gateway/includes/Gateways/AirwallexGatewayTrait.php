@@ -36,6 +36,8 @@ trait AirwallexGatewayTrait {
 		'card_jcb'        => 4,
 	);
 
+	public $paymentMethodType;
+
 	public static function paymentMethodTypeNames() {
 		return [
 			'wechatpay' => __('WeChat Pay', 'airwallex-online-payments-gateway'),
@@ -214,6 +216,7 @@ trait AirwallexGatewayTrait {
 			if ( ! $order->meta_exists( $metaKey ) ) {
 				$order->add_order_note(
 					sprintf(
+						/* translators: %s: Airwallex refund ID. */
 						__( 'Airwallex refund initiated: %s', 'airwallex-online-payments-gateway' ),
 						$refund->getId()
 					)
@@ -241,7 +244,9 @@ trait AirwallexGatewayTrait {
 	public function getOrderFromRequest($referrer = '') {
 		$orderId = 0;
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Shortcode/redirect-back handler reached via shopper browser after payment provider redirect; order_id is cast to (int) and validated via wc_get_order() below.
 		if (!empty($_GET['order_id'])) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Shortcode/redirect-back handler reached via shopper browser after payment provider redirect; order_id is cast to (int) and validated via wc_get_order() below.
 			$orderId = (int) $_GET['order_id'];
 		}
 
@@ -255,15 +260,22 @@ trait AirwallexGatewayTrait {
 
 		if (empty($orderId)) {
 			$errorMessage = 'Unable to retrieve a valid order ID.';
-			RemoteLog::error( json_encode(['msg' => $errorMessage, '$_GET' => $_GET]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
-			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Diagnostic logging of the redirect-back query string; not used for any state change.
+			$diagnosticParams = [
+				'order_id' => isset( $_GET['order_id'] ) ? (int) $_GET['order_id'] : null,
+			];
+			RemoteLog::error( json_encode(['msg' => $errorMessage, 'params' => $diagnosticParams]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
+			throw new Exception( esc_html__( 'Unable to retrieve a valid order ID.', 'airwallex-online-payments-gateway' ) );
 		}
 
 		$order = wc_get_order( $orderId );
 		if ( empty($order) ) {
 			$errorMessage = 'Unable to retrieve a valid order.';
-			RemoteLog::error( json_encode(['msg' => $errorMessage, '$_GET' => $_GET]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
-			throw new Exception( __( $errorMessage, 'airwallex-online-payments-gateway' ) );
+			$diagnosticParams = [
+				'order_id' => $orderId,
+			];
+			RemoteLog::error( json_encode(['msg' => $errorMessage, 'params' => $diagnosticParams]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
+			throw new Exception( esc_html__( 'Unable to retrieve a valid order.', 'airwallex-online-payments-gateway' ) );
 		}
 		return $order;
 	}
@@ -289,18 +301,18 @@ trait AirwallexGatewayTrait {
 	public function validate_subscription_payment_meta( $paymentMethodId, $paymentMethodData ) {
 		if ( $paymentMethodId === $this->id ) {
 			if ( empty( $paymentMethodData['post_meta'][OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID]['value'] ) ) {
-				throw new Exception( __('"Airwallex Customer ID" is required.', 'airwallex-online-payments-gateway') );
+				throw new Exception( esc_html__('"Airwallex Customer ID" is required.', 'airwallex-online-payments-gateway') );
 			}
 			if ( empty( $paymentMethodData['post_meta'][OrderService::META_KEY_AIRWALLEX_CONSENT_ID]['value'] ) ) {
-				throw new Exception( __('"Airwallex Payment Consent ID" is required.', 'airwallex-online-payments-gateway') );
+				throw new Exception( esc_html__('"Airwallex Payment Consent ID" is required.', 'airwallex-online-payments-gateway') );
 			}
 			/** @var StructPaymentConsent $paymentConsent */
 			$paymentConsent = (new RetrievePaymentConsent())->setPaymentConsentId($paymentMethodData['post_meta'][OrderService::META_KEY_AIRWALLEX_CONSENT_ID]['value'])->send();
 			if ( empty($paymentConsent->getStatus()) || $paymentConsent->getStatus() !== StructPaymentConsent::STATUS_VERIFIED ) {
-				throw new Exception( __("Invalid Airwallex Payment Consent.", 'airwallex-online-payments-gateway') );
+				throw new Exception( esc_html__("Invalid Airwallex Payment Consent.", 'airwallex-online-payments-gateway') );
 			}
 			if ( $paymentConsent->getCustomerId() !== $paymentMethodData['post_meta'][OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID]['value'] ) {
-				throw new Exception( __('The provided "Airwallex Customer ID" does not match the associated "Airwallex Payment Consent ID".', 'airwallex-online-payments-gateway') );
+				throw new Exception( esc_html__('The provided "Airwallex Customer ID" does not match the associated "Airwallex Payment Consent ID".', 'airwallex-online-payments-gateway') );
 			}
 		}
 	}
@@ -430,7 +442,7 @@ trait AirwallexGatewayTrait {
                             <?php echo wp_kses_post($this->paymentMethodNotEnabledMessage(self::paymentMethodTypeNames()[self::PAYMENT_METHOD_TYPE_NAME] ?? '')); ?>
                         </div>
                         <div class="wc-awx-checkbox-error-message awx-request-failed">
-                            <?php echo __('Failed to check payment method status. Please try again.', 'airwallex-online-payments-gateway'); ?>
+                            <?php echo esc_html__('Failed to check payment method status. Please try again.', 'airwallex-online-payments-gateway'); ?>
                         </div>
                     </div>
 				</fieldset>
@@ -444,5 +456,11 @@ trait AirwallexGatewayTrait {
     public function isCartOrProductPage()
     {
         return is_product() || is_cart() || wc_post_content_has_shortcode('product_page');
+    }
+
+    public function isCheckoutContextPage()
+    {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- WooCommerce-controlled query var; only checked for presence.
+        return is_checkout() || is_account_page() || ! empty( $_REQUEST['change_payment_method'] );
     }
 }
