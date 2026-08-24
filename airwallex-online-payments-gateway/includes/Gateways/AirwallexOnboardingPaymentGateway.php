@@ -24,7 +24,7 @@ class AirwallexOnboardingPaymentGateway extends WC_Payment_Gateway {
 	}
 
 	public function is_test_mode() {
-		return Util::getEnvironment() === 'demo';
+		return Util::isSandboxEnvironment();
 	}
 
 	public function is_in_test_mode() {
@@ -40,7 +40,7 @@ class AirwallexOnboardingPaymentGateway extends WC_Payment_Gateway {
 	}
 
 	public function is_test_mode_onboarding() {
-		return Util::getEnvironment() === 'demo';
+		return Util::isSandboxEnvironment();
 	}
 
 	public function is_in_test_mode_onboarding() {

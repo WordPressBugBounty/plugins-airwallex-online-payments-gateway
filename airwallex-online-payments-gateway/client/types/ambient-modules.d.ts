@@ -18,7 +18,7 @@ declare module '@woocommerce/blocks-registry' {
 }
 
 declare module '@woocommerce/blocks-checkout' {
-    type ReactNode = unknown;
+    import type { ReactNode } from 'react';
     export const ExperimentalOrderMeta: (props: { children?: ReactNode }) => ReactNode;
     export const extensionCartUpdate: (...args: unknown[]) => unknown;
     export const registerCheckoutFilters: (...args: unknown[]) => unknown;
@@ -66,7 +66,23 @@ declare module '@wordpress/plugins' {
 declare module '@wordpress/element' {
     // Re-export the React surface; webpack's dependency-extraction
     // plugin maps these to `wp.element` at runtime, which mirrors
-    // React's API.
+    // React's API. Explicit re-exports of the hooks because
+    // `export * from 'react'` doesn't always surface them through
+    // module-augmentation TypeScript resolution.
     export * from 'react';
+    export {
+        useEffect,
+        useState,
+        useRef,
+        useMemo,
+        useCallback,
+        useContext,
+        useReducer,
+        useLayoutEffect,
+        createElement,
+        Fragment,
+        forwardRef,
+        memo,
+    } from 'react';
 }
 

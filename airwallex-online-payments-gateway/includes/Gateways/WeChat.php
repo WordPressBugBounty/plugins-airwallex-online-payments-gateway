@@ -134,6 +134,8 @@ class WeChat extends WC_Payment_Gateway {
 				throw new Exception( 'Order not found: ' . $order_id );
 			}
 
+			$this->recordAirwallexGatewayOnOrder( $order );
+
 			$this->logService->debug( __METHOD__ . ' - before create intent', array( 'orderId' => $order_id ) );
 			$paymentIntent             = CardClient::getInstance()->createPaymentIntent( $order->get_total(), $order->get_id(), $this->is_submit_order_details(), null, static::PAYMENT_METHOD_TYPE_NAME );
 			/** @var StructPaymentIntent $paymentIntent */

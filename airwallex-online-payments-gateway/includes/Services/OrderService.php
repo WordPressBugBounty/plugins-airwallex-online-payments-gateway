@@ -26,7 +26,9 @@ class OrderService {
     const META_KEY_AIRWALLEX_CUSTOMER_ID = 'airwallex_customer_id';
     const META_KEY_AIRWALLEX_CONSENT_ID = 'airwallex_consent_id';
     const META_KEY_AIRWALLEX_PAYMENT_METHOD_TYPE = 'airwallex_payment_method_type';
+    const META_KEY_AIRWALLEX_GATEWAY_ID = 'airwallex_gateway_id';
     const META_KEY_AIRWALLEX_PAYMENT_CLIENT_RATE = '_tmp_airwallex_payment_client_rate';
+    const META_KEY_PPCP_PAYPAL_ORDER_ID = '_ppcp_paypal_order_id';
     const META_REFUND_ID = '_airwallex_refund_id_';
 
     public static function getInstance() {
@@ -511,6 +513,7 @@ class OrderService {
 			$isProcessed = $order->meta_exists( $metaKey );
 			if ( !$isProcessed ) {
 				$this->update_consent( $paymentIntent, $order );
+				$this->syncPaymentMethodOnSuccess( $order );
 				$order->payment_complete( $paymentIntent->getId() );
 				$order->add_meta_data( $metaKey, 'processed' );
 				$order->save_meta_data();
@@ -563,6 +566,7 @@ class OrderService {
 					/** @var StructPaymentIntent $paymentIntentAfterCapture */
 					$paymentIntentAfterCapture = (new CapturePaymentIntent())->setPaymentIntentId($paymentIntent->getId())->setAmount($paymentIntent->getAmount())->send();
 					if ( $paymentIntentAfterCapture->isCaptured() ) {
+						$this->syncPaymentMethodOnSuccess( $order );
 						$order->payment_complete( $paymentIntent->getId() );
 						$order->add_meta_data(  $metaKey, 'processed' );
 						$order->save_meta_data();
@@ -580,6 +584,7 @@ class OrderService {
 					}
 				} else {
 					$logService->debug( $referrer . ': paymentCompleteByAuthorize', array('payment_intent_id' => $paymentIntent->getId()) );
+					$this->syncPaymentMethodOnSuccess( $order );
 					$order->payment_complete( $paymentIntent->getId() );
 					$order->add_meta_data(  $metaKey, 'processed' );
 					$order->save_meta_data();
@@ -622,6 +627,52 @@ class OrderService {
 		} elseif ( $paymentIntent->isAuthorized() ) {
 			$this->paymentCompleteByAuthorize($order, $referrer, $paymentIntent);
 		}
+	}
+
+	/**
+	 * Set the WooCommerce payment method from the gateway recorded when Airwallex payment started.
+	 * Runs at payment success so a later failed attempt via another gateway (e.g. PayPal) cannot
+	 * leave a stale payment method on the order.
+	 *
+	 * @param WC_Order $order
+	 * @return void
+	 */
+	public function syncPaymentMethodOnSuccess( WC_Order $order ) {
+		$gatewayId = (string) $order->get_meta( self::META_KEY_AIRWALLEX_GATEWAY_ID, true );
+		if ( empty( $gatewayId ) ) {
+			return;
+		}
+
+		// Clear PPCP meta before save so WooCommerce PayPal Payments cannot revert the gateway.
+		$this->clearPaypalMeta( $order );
+
+		if ( $order->get_payment_method() === $gatewayId ) {
+			return;
+		}
+
+		if ( ! function_exists( 'WC' ) || ! WC()->payment_gateways() ) {
+			return;
+		}
+
+		$gateways = WC()->payment_gateways()->payment_gateways();
+		if ( ! isset( $gateways[ $gatewayId ] ) ) {
+			return;
+		}
+
+		$order->set_payment_method( $gateways[ $gatewayId ] );
+	}
+
+	/**
+	 * Clear the PayPal order ID meta left by WooCommerce PayPal Payments (PPCP).
+	 *
+	 * PPCP's `woocommerce_before_order_object_save` hook reverts the payment method back to
+	 * PayPal when this meta is present, so it must be removed before the order is saved.
+	 *
+	 * @param WC_Order $order
+	 * @return void
+	 */
+	public function clearPaypalMeta( WC_Order $order ) {
+		$order->delete_meta_data( self::META_KEY_PPCP_PAYPAL_ORDER_ID );
 	}
 
 	/**

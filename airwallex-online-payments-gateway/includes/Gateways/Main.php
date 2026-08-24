@@ -322,6 +322,8 @@ class Main extends WC_Payment_Gateway {
 				throw new Exception( 'Order not found: ' . $order_id );
 			}
 
+			$this->recordAirwallexGatewayOnOrder( $order );
+
 			$airwallexCustomerId = null;
 			$orderService        = new OrderService();
 			$isSubscription      = $orderService->containsSubscription( $order->get_id() );

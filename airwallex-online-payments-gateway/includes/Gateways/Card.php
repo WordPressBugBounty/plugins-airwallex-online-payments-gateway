@@ -680,6 +680,8 @@ class Card extends WC_Payment_Gateway {
 				return $this->change_subscription_payment_method( $order );
 			}
 
+			$this->recordAirwallexGatewayOnOrder( $order );
+
 			$orderService        = new OrderService();
 			$airwallexCustomerId = null;
 			$containsSubscription = $orderService->containsSubscription( $order->get_id() );

@@ -1,0 +1,81 @@
+/**
+ * Get an unique ID
+ *
+ * @returns {String} Unique ID
+ */
+export const generateUId = (): string => {
+	const uniqueId       = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+		const r          = (Math.random() * 16) | 0;
+		const v          = c === 'x' ? r : (r & 0x3) | 0x8;
+		return v.toString(16);
+	});
+	return uniqueId;
+};
+
+export let airTrackerCommonData = {
+	sessionId: generateUId(),
+};
+
+export const getBrowserInfo = (sessionId: string | undefined) => {
+	const { navigator, screen } = window || {};
+	const { language, userAgent } = navigator || {};
+	const { colorDepth, height, width } = screen || {};
+
+	return {
+		device_id: sessionId, // need to pass risk device js session id
+		screen_height: height,
+		screen_width: width,
+		screen_color_depth: colorDepth,
+		language: language,
+		timezone: new Date().getTimezoneOffset(),
+		browser: {
+			java_enabled: navigator?.javaEnabled(),
+			javascript_enabled: true,
+			user_agent: userAgent,
+		},
+	};
+}
+
+export const initAirwallex = (env: string, locale: string, callback: () => void): void => {
+	const initAirwallexInterval = setInterval(() => {
+		if (window.Airwallex) {
+			clearInterval(initAirwallexInterval);
+			Airwallex!.init({
+				env,
+				locale,
+				origin: window.location.origin,
+			} as Parameters<NonNullable<typeof window.Airwallex>['init']>[0]);
+			callback();
+		}
+	}, 1000);
+};
+
+export const getLocaleFromBrowserLanguage = (): string => {
+	const language = navigator.language || navigator.userLanguage || '';
+	const locale   = language.split('-')[0];
+	// if locale is zh-HK or zh-TW, return zh-hk
+	if (locale === 'zh' && (language === 'zh-HK' || language === 'zh-TW')) {
+		return 'zh-HK';
+	}
+
+	return locale;
+}
+
+export const getSessionId = (): string | null | undefined => {
+	return document.getElementById('airwallex-fraud-api')?.getAttribute('data-order-session-id');
+}
+
+export const getOrderAttributionData = (): Record<string, string> => {
+	if (typeof wc_order_attribution === 'undefined' || typeof wc_order_attribution.getAttributionData !== 'function') {
+		return {};
+	}
+
+	const attributionData = wc_order_attribution.getAttributionData();
+	const prefixedData: Record<string, string> = {};
+
+	for (const [key, value] of Object.entries(attributionData)) {
+		prefixedData[`wc_order_attribution_${key}`] = value;
+	}
+
+	return prefixedData;
+};

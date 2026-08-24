@@ -104,6 +104,16 @@ export interface QuoteResponse {
     };
 }
 
+/**
+ * Response from the `wc_ajax_airwallex_get_store_currency` handler.
+ * `Controllers/OrderController::getStoreCurrency()` always returns
+ * `{ success: true, currency: get_woocommerce_currency() }`.
+ */
+export interface StoreCurrencyResponse {
+    success: true;
+    currency: string;
+}
+
 export interface PlaceOrderResponse {
     result: 'success' | 'failure';
     redirect?: string;
@@ -133,5 +143,37 @@ export interface MerchantSession {
 
 export interface UpdateOrderStatusResponse {
     success: boolean;
+    message?: string;
+}
+
+/**
+ * Single terminal row as emitted by
+ * `Gateways/POS::getTerminalData()`. `model` is always present from
+ * PHP, but every consumer in this repo only reads `id`/`nick_name`/
+ * `serial_number`, so it's left optional to stay assignable to the
+ * narrower `boundTerminal` shape declared in `client/types/config.ts`.
+ */
+export interface POSTerminal {
+    id: string;
+    nick_name: string;
+    serial_number: string;
+    model?: string;
+}
+
+/**
+ * Response from the `wc_ajax_airwallex_get_pos_terminals` handler.
+ * `Gateways/POS::getPOSTerminals()` calls `wp_send_json_success(...)`
+ * with a `{ data, page_after, page_before }` payload (the outer
+ * `success: true` / `data:` wrap is added by WP). On the early-return
+ * paths (no session / exception) only `data: []` is set, hence the
+ * `page_*` fields are optional.
+ */
+export interface POSTerminalsResponse {
+    success: boolean;
+    data: {
+        data: POSTerminal[];
+        page_before?: string;
+        page_after?: string;
+    };
     message?: string;
 }

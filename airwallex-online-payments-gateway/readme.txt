@@ -3,7 +3,7 @@ Contributors: airwallex
 Tags: airwallex, payments, credit card, woocommerce, subscriptions
 Requires at least: 4.5
 Tested up to: 7.0
-Stable tag: 1.34.0
+Stable tag: 1.35.0
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -47,7 +47,7 @@ Simple and secure: Reduce chargebacks with our 3DS fraud engine, customizable ri
 
 **Configure and go live:** Please refer to our [installation guide](https://www.airwallex.com/docs/online-payments__plugins__woocommerce__install-the-woocommerce-plugin) for how to install and configure this plugin.
 
-**Get in touch:** Sign up for an account at [www.airwallex.com](https://www.airwallex.com). We provide sandbox testing accounts on an as-needed basis. Once your account is activated, please contact [support@airwallex.com](https://www.airwallex.com/docs/support@airwallex.com) to request a demo account for testing. Provide your Airwallex registered company name and the payment methods you want to test using the demo account.
+**Get in touch:** Sign up for an account at [www.airwallex.com](https://www.airwallex.com). We provide sandbox testing accounts on an as-needed basis. Once your account is activated, please contact [support@airwallex.com](https://www.airwallex.com/docs/support@airwallex.com) to request a sandbox account for testing. Provide your Airwallex registered company name and the payment methods you want to test using the sandbox account.
 If you encounter any unexpected behavior, first check your configuration against the installation guide and retry. Contact [support@airwallex.com](https://www.airwallex.com/docs/support@airwallex.com) if you need any help.
 
 == ABOUT AIRWALLEX ==
@@ -68,6 +68,12 @@ The non-compressed javascript files can be found under the ```assets/js``` folde
 We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) as our build tool.
 
 == Changelog ==
+
+= 1.35.0 =
+* Release Date - 24 Aug 2026*
+
+* Fix - ensure final payment method is accurately reflected on the order detail
+* Patch - update URL for Airwallex sandbox
 
 = 1.34.0 =
 * Release Date - 9 Jun 2026*

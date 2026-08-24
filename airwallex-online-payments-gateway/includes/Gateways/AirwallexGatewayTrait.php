@@ -56,6 +56,23 @@ trait AirwallexGatewayTrait {
 		return get_admin_url( null, 'admin.php?page=wc-settings&tab=checkout&section=airwallex_general' );
 	}
 
+	/**
+	 * Record which Airwallex gateway initiated payment on this order.
+	 * The WooCommerce payment method is applied on payment success, not here, so a
+	 * subsequent failed attempt via another gateway cannot permanently overwrite it.
+	 *
+	 * @param WC_Order $order
+	 * @return void
+	 */
+	protected function recordAirwallexGatewayOnOrder( $order ) {
+		if ( empty( $order ) || empty( $this->id ) ) {
+			return;
+		}
+
+		$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_GATEWAY_ID, $this->id );
+		$order->save();
+	}
+
 	public function getPaymentLogos() {
 		$logos = [];
 		try {

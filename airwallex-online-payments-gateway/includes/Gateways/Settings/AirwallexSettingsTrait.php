@@ -102,7 +102,7 @@ trait AirwallexSettingsTrait {
 	}
 
 	public function isConnected() {
-		return CardClient::getInstance()->testAuth(Util::getEnvironment(), Util::getClientId(), Util::getApiKey());
+		return CardClient::getInstance()->testAuth( Util::getApiEnvironment(), Util::getClientId(), Util::getApiKey() );
 	}
 
 	public function enqueueAdminSettingsScripts() {

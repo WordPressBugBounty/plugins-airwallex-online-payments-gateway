@@ -69,7 +69,7 @@ class POS extends AirwallexGatewayLocalPaymentMethod {
     }
 
     public function getBoundTerminal() {
-        $terminalId = $this->get_option('bind_' . Util::getEnvironment() . '_pos_device');
+        $terminalId = $this->get_option('bind_' . Util::getEnvironmentStorageKey() . '_pos_device');
         if (empty($terminalId)) return [];
         try {
             /** @var StructTerminal $terminal */
@@ -82,7 +82,7 @@ class POS extends AirwallexGatewayLocalPaymentMethod {
     }
 
     public function isAvailable() {
-        return empty($this->get_option('bind_' . Util::getEnvironment() . '_pos_device')) ? 'no' : 'yes';
+        return empty($this->get_option('bind_' . Util::getEnvironmentStorageKey() . '_pos_device')) ? 'no' : 'yes';
     }
 
     public function getTerminalData($terminal) {
@@ -141,12 +141,12 @@ class POS extends AirwallexGatewayLocalPaymentMethod {
                     'default' => __('Pay with POS', 'airwallex-online-payments-gateway'),
                     'desc_tip' => true,
                 ),
-                'bind_' . Util::getEnvironment() . '_pos_device' => array(
+                'bind_' . Util::getEnvironmentStorageKey() . '_pos_device' => array(
                     'title' => __('Bind POS device', 'airwallex-online-payments-gateway'),
                     'label' => '',
                     'type' => 'pos_device_selector',
                     'description' => '',
-                    'default' => get_option('bind_' . Util::getEnvironment() . '_pos_device') ?: '',
+                    'default' => get_option('bind_' . Util::getEnvironmentStorageKey() . '_pos_device') ?: '',
                 ),
             ]
         );
@@ -201,7 +201,9 @@ class POS extends AirwallexGatewayLocalPaymentMethod {
                 throw new Exception('Can not find order');
             }
 
-            $terminalId = $this->get_option('bind_' . Util::getEnvironment() . '_pos_device');
+            $this->recordAirwallexGatewayOnOrder($order);
+
+            $terminalId = $this->get_option('bind_' . Util::getEnvironmentStorageKey() . '_pos_device');
             if (empty($terminalId)) {
                 throw new Exception('POS device id is required');
             }

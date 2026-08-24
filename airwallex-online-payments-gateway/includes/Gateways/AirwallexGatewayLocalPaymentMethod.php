@@ -146,6 +146,8 @@ abstract class AirwallexGatewayLocalPaymentMethod extends AbstractAirwallexGatew
 				throw new Exception( 'Order not found: ' . $order_id );
 			}
 
+            $this->recordAirwallexGatewayOnOrder( $order );
+
             $airwallexCustomerId = null;
 			if ( $order->get_customer_id( '' ) ) {
 				$airwallexCustomerId = $this->orderService->getAirwallexCustomerId( get_current_user_id() );

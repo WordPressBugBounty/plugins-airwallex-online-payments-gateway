@@ -7,6 +7,14 @@ use Exception;
 
 class Util {
 
+	const ENV_SANDBOX = 'sandbox';
+	const ENV_PROD    = 'prod';
+
+	/**
+	 * Legacy sandbox env identifier kept for backward compatibility.
+	 */
+	const ENV_DEMO = 'demo';
+
 	public static function getLocale() {
 		$locale = strtolower( get_bloginfo( 'language' ) );
 		$locale = str_replace( '_', '-', $locale );
@@ -62,7 +70,75 @@ class Util {
 	 * @return string The current environment
 	 */
 	public static function getEnvironment() {
-		return in_array( get_option( 'airwallex_enable_sandbox' ), array( true, 'yes' ), true ) ? 'demo' : 'prod';
+		return self::isSandboxEnabled() ? self::ENV_SANDBOX : self::ENV_PROD;
+	}
+
+	/**
+	 * Whether sandbox mode is enabled in plugin settings.
+	 *
+	 * @return bool
+	 */
+	public static function isSandboxEnabled() {
+		return in_array( get_option( 'airwallex_enable_sandbox' ), array( true, 'yes' ), true );
+	}
+
+	/**
+	 * Whether the given environment identifier refers to sandbox (accepts legacy "demo").
+	 *
+	 * @param string $env
+	 * @return bool
+	 */
+	public static function isSandboxEnvironment( $env = '' ) {
+		$targetEnv = $env ? $env : self::getEnvironment();
+
+		return in_array( $targetEnv, array( self::ENV_SANDBOX, self::ENV_DEMO ), true );
+	}
+
+	/**
+	 * Normalize environment identifiers to sandbox or prod.
+	 *
+	 * @param string $env
+	 * @return string
+	 */
+	public static function normalizeEnvironment( $env ) {
+		return self::isSandboxEnvironment( $env ) ? self::ENV_SANDBOX : self::ENV_PROD;
+	}
+
+	/**
+	 * Environment identifier for Common Library / REST API authentication.
+	 *
+	 * @return string
+	 */
+	public static function getApiEnvironment() {
+		return self::getEnvironment();
+	}
+
+	/**
+	 * Normalize environment identifiers for Common Library / API authentication.
+	 *
+	 * @param string $env
+	 * @return string
+	 */
+	public static function normalizeApiEnvironment( $env ) {
+		return self::normalizeEnvironment( $env );
+	}
+
+	/**
+	 * Legacy storage key segment for wp_options (e.g. bind_demo_pos_device, _demo suffix).
+	 *
+	 * @param string $env
+	 * @return string
+	 */
+	public static function getEnvironmentStorageKey( $env = '' ) {
+		return self::isSandboxEnvironment( $env ) ? self::ENV_DEMO : self::ENV_PROD;
+	}
+
+	/**
+	 * @param string $env
+	 * @return bool
+	 */
+	public static function isValidEnvironment( $env ) {
+		return in_array( $env, array( self::ENV_SANDBOX, self::ENV_DEMO, self::ENV_PROD ), true );
 	}
 
 	/**
@@ -73,7 +149,7 @@ class Util {
 	public static function getApiKey($env = '') {
 		$targetEnv = $env ? $env : Util::getEnvironment();
 		
-		return 'demo' === $targetEnv ? get_option( 'airwallex_api_key_demo', get_option( 'airwallex_api_key' ) ) : get_option( 'airwallex_api_key' );
+		return self::isSandboxEnvironment( $targetEnv ) ? get_option( 'airwallex_api_key_demo', get_option( 'airwallex_api_key' ) ) : get_option( 'airwallex_api_key' );
 	}
 
 	/**
@@ -84,7 +160,7 @@ class Util {
 	public static function getClientId($env = '') {
 		$targetEnv = $env ? $env : Util::getEnvironment();
 
-		return 'demo' === $targetEnv ? get_option( 'airwallex_client_id_demo', get_option( 'airwallex_client_id' ) ) : get_option( 'airwallex_client_id' );
+		return self::isSandboxEnvironment( $targetEnv ) ? get_option( 'airwallex_client_id_demo', get_option( 'airwallex_client_id' ) ) : get_option( 'airwallex_client_id' );
 	}
 
 	/**
@@ -95,7 +171,7 @@ class Util {
 	public static function getWebhookSecret($env = '') {
 		$targetEnv = $env ? $env : Util::getEnvironment();
 
-		return 'demo' === $targetEnv ? get_option( 'airwallex_webhook_secret_demo', get_option( 'airwallex_webhook_secret' ) ) : get_option( 'airwallex_webhook_secret' );
+		return self::isSandboxEnvironment( $targetEnv ) ? get_option( 'airwallex_webhook_secret_demo', get_option( 'airwallex_webhook_secret' ) ) : get_option( 'airwallex_webhook_secret' );
 	}
 
 	/**
@@ -106,7 +182,7 @@ class Util {
 	public static function getAccountId($env = '') {
 		$targetEnv = $env ? $env : Util::getEnvironment();
 
-		return 'demo' === $targetEnv ? get_option( 'airwallex_account_id_demo', '' ) : get_option( 'airwallex_account_id', '' );
+		return self::isSandboxEnvironment( $targetEnv ) ? get_option( 'airwallex_account_id_demo', '' ) : get_option( 'airwallex_account_id', '' );
 	}
 
 	/**
@@ -118,7 +194,7 @@ class Util {
 	public static function getAccountName($env = '') {
 		$targetEnv = $env ? $env : Util::getEnvironment();
 
-		return 'demo' === $targetEnv ? get_option( 'airwallex_account_name_demo', '' ) : get_option( 'airwallex_account_name', '' );
+		return self::isSandboxEnvironment( $targetEnv ) ? get_option( 'airwallex_account_name_demo', '' ) : get_option( 'airwallex_account_name', '' );
 	}
 
 	/**
@@ -227,11 +303,17 @@ class Util {
 	public static function getCheckoutUIEnvHost($env) {
 		$envHosts = [
 			'staging' => 'https://checkout-staging.airwallex.com',
-			'demo' => 'https://checkout-demo.airwallex.com',
-			'prod' => 'https://checkout.airwallex.com',
+			self::ENV_SANDBOX => 'https://checkout.sandbox.airwallex.com',
+			self::ENV_DEMO => 'https://checkout.sandbox.airwallex.com',
+			self::ENV_PROD => 'https://checkout.airwallex.com',
 		];
 
-		return isset($envHosts[$env]) ? $envHosts[$env] : $envHosts['prod'];
+		$normalizedEnv = self::normalizeEnvironment( $env );
+		if ( self::ENV_SANDBOX === $normalizedEnv ) {
+			return $envHosts[ self::ENV_SANDBOX ];
+		}
+
+		return isset( $envHosts[ $env ] ) ? $envHosts[ $env ] : $envHosts[ self::ENV_PROD ];
 	}
 
 	/**
@@ -251,11 +333,18 @@ class Util {
 
 		$domainUrls = [
 			'staging' => 'https://staging.airwallex.com',
-			'demo' => 'https://demo.airwallex.com',
-			'prod' => 'https://www.airwallex.com',
+			self::ENV_SANDBOX => 'https://www.sandbox.airwallex.com',
+			self::ENV_DEMO => 'https://www.sandbox.airwallex.com',
+			self::ENV_PROD => 'https://www.airwallex.com',
 		];
 
-		return $domainUrls[$targetEnv] ?? 'https://staging.airwallex.com';
+		$normalizedEnv = self::normalizeEnvironment( $targetEnv );
+
+		if ( self::ENV_SANDBOX === $normalizedEnv ) {
+			return $domainUrls[ self::ENV_SANDBOX ];
+		}
+
+		return $domainUrls[ $targetEnv ] ?? 'https://staging.airwallex.com';
 	}
 
 	/**

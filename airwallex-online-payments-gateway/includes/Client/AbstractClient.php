@@ -101,12 +101,13 @@ abstract class AbstractClient {
 		if (empty($env) || empty($clientId) || empty($apiKey)) {
 			return false;
 		}
+		$apiEnv = Util::normalizeApiEnvironment( $env );
 		CommonLibraryInit::getInstance()->updateConfig([
-			'env' => $env,
+			'env' => $apiEnv,
 			'client_id' => $clientId,
 			'api_key' => $apiKey,
 		]);
-		$cacheName = 'awxTestAuth_' . md5($env . '-' . $clientId . '-' . $apiKey);
+		$cacheName = 'awxTestAuth_' . md5( $apiEnv . '-' . $clientId . '-' . $apiKey );
 		$token = $this->getCacheService()->get($cacheName);
 		if ($token) return true;
 		$token = '';

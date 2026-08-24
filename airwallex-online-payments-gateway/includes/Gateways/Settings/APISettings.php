@@ -293,7 +293,7 @@ class APISettings extends AbstractAirwallexSettings {
 		parent::init_settings();
 
 		$env = Util::getEnvironment();
-		$envSuffix = 'demo' === $env ? '_demo' : '';
+		$envSuffix = Util::isSandboxEnvironment( $env ) ? '_demo' : '';
 
 		foreach ($this->settings as $key => $value) {
 			if (in_array($key, ['client_id', 'api_key', 'webhook_secret'], true)) {
@@ -308,7 +308,7 @@ class APISettings extends AbstractAirwallexSettings {
 		parent::process_admin_options();
 
 		$env = Util::getEnvironment();
-		$envSuffix = 'demo' === $env ? '_demo' : '';
+		$envSuffix = Util::isSandboxEnvironment( $env ) ? '_demo' : '';
 
 		foreach ($this->settings as $key => $value) {
 			if (in_array($key, ['client_id', 'api_key', 'webhook_secret'], true)) {
@@ -334,7 +334,7 @@ class APISettings extends AbstractAirwallexSettings {
 	}
 
 	public function getSettingsScriptData() {
-		$isForceSetPaymentFormAsWPPage = Util::isNewClient('demo') && Util::isNewClient('prod') && !get_option( 'airwallex_payment_page_template' );
+		$isForceSetPaymentFormAsWPPage = Util::isNewClient( Util::ENV_SANDBOX ) && Util::isNewClient( Util::ENV_PROD ) && !get_option( 'airwallex_payment_page_template' );
 		if ($isForceSetPaymentFormAsWPPage) {
 			update_option( 'airwallex_payment_page_template', 'wordpress_page' );
 		}
@@ -360,8 +360,9 @@ class APISettings extends AbstractAirwallexSettings {
 					'isPaymentMethodEnabled' => WC_AJAX::get_endpoint('airwallex_is_payment_method_enabled'),
 				],
 				'accountName' => [
-					'demo' => Util::getAccountName('demo'),
-					'prod' => Util::getAccountName('prod'),
+					'sandbox' => Util::getAccountName( Util::ENV_SANDBOX ),
+					'demo' => Util::getAccountName( Util::ENV_DEMO ),
+					'prod' => Util::getAccountName( Util::ENV_PROD ),
 				],
 				'connectButtonText' => [
 					'connect' => __('Connect Account', 'airwallex-online-payments-gateway'),
@@ -371,19 +372,25 @@ class APISettings extends AbstractAirwallexSettings {
 				'connectedViaConnectionFlow' => Util::isConnectedViaConnectionFlow(),
 				'connectedViaApiKey' => Util::isConnectedViaApiKey(),
 				'useApiKey' => [
+					'sandbox' => get_option('airwallex_connection_type_demo') === 'connection_flow' ? 'no' : 'yes',
 					'demo' => get_option('airwallex_connection_type_demo') === 'connection_flow' ? 'no' : 'yes',
 					'prod' => get_option('airwallex_connection_type') === 'connection_flow' ? 'no' : 'yes',
 				],
 				'credentials' => [
+					'sandbox' => [
+						'client_id' => Util::getClientId( Util::ENV_SANDBOX ),
+						'api_key' => Util::getApiKey( Util::ENV_SANDBOX ),
+						'webhook_secret' => Util::getWebhookSecret( Util::ENV_SANDBOX ),
+					],
 					'demo' => [
-						'client_id' => Util::getClientId('demo'),
-						'api_key' => Util::getApiKey('demo'),
-						'webhook_secret' => Util::getWebhookSecret('demo'),
+						'client_id' => Util::getClientId( Util::ENV_DEMO ),
+						'api_key' => Util::getApiKey( Util::ENV_DEMO ),
+						'webhook_secret' => Util::getWebhookSecret( Util::ENV_DEMO ),
 					],
 					'prod' => [
-						'client_id' => Util::getClientId('prod'),
-						'api_key' => Util::getApiKey('prod'),
-						'webhook_secret' => Util::getWebhookSecret('prod'),
+						'client_id' => Util::getClientId( Util::ENV_PROD ),
+						'api_key' => Util::getApiKey( Util::ENV_PROD ),
+						'webhook_secret' => Util::getWebhookSecret( Util::ENV_PROD ),
 					],
 				],
 				'i18n' => [

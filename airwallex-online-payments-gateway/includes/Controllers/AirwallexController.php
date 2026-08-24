@@ -417,7 +417,7 @@ class AirwallexController {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$env  = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : '';
 		if ($env) {
-			update_option('airwallex_enable_sandbox', 'demo' === $env ? 'yes' : 'no');
+			update_option('airwallex_enable_sandbox', Util::isSandboxEnvironment( $env ) ? 'yes' : 'no');
 		}
 
 		try {
@@ -432,9 +432,9 @@ class AirwallexController {
 				$apiKey = Util::getApiKey();
 			}
 
-			if ( $apiClient->testAuth($env, $clientId, $apiKey) ) {
+			if ( $apiClient->testAuth( Util::normalizeApiEnvironment( $env ), $clientId, $apiKey ) ) {
 				if (isset($_POST['connect_with_api_key'])) {
-					if ('prod' === $env) {
+					if ( Util::ENV_PROD === Util::normalizeEnvironment( $env ) ) {
 						update_option('airwallex_connection_type', 'api_key');
 					} else {
 						update_option('airwallex_connection_type_demo', 'api_key');
@@ -465,7 +465,7 @@ class AirwallexController {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$env  = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : '';
 
-		if (!in_array($env, ['demo', 'prod'], true)) {
+		if (!Util::isValidEnvironment( $env )) {
 			wp_send_json([
 				'success' => false,
 				'message' => __('Invalid request.', 'airwallex-online-payments-gateway'),

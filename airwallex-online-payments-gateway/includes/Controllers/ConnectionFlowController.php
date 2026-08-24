@@ -107,7 +107,7 @@ class ConnectionFlowController {
             }
             wp_safe_redirect(admin_url('admin.php?page=wc-settings&tab=checkout&section=airwallex_general'));
         } catch (Exception $e) {
-            if (Util::getEnvironment() === "demo") {
+            if (Util::isSandboxEnvironment()) {
                 update_option('airwallex_connection_type_demo', 'api_key');
             } else {
                 update_option('airwallex_connection_type', 'api_key');
@@ -135,14 +135,14 @@ class ConnectionFlowController {
             $this->verifySignature($headers, $content, $cachedToken);
 
             foreach (['client_id', 'api_key', 'webhook_secret', 'account_id', 'account_name'] as $key) {
-                $optionKey = 'airwallex_' . $key . ($cachedRequestData['env'] === 'demo' ? '_demo' : '');
+                $optionKey = 'airwallex_' . $key . ( Util::isSandboxEnvironment( $cachedRequestData['env'] ) ? '_demo' : '' );
                 if (empty($postData[$key])) {
                     throw new Exception(__('Invalid request. Missing required fields.', 'airwallex-online-payments-gateway'));
                 }
                 update_option($optionKey, $postData[$key]);
             }
-            update_option('airwallex_enable_sandbox', 'demo' === $cachedRequestData['env'] ? 'yes' : 'no');
-            if ('prod' === $cachedRequestData['env']) {
+            update_option('airwallex_enable_sandbox', Util::isSandboxEnvironment( $cachedRequestData['env'] ) ? 'yes' : 'no');
+            if ( Util::ENV_PROD === Util::normalizeEnvironment( $cachedRequestData['env'] ) ) {
                 update_option('airwallex_connection_type', 'connection_flow');
             } else {
                 update_option('airwallex_connection_type_demo', 'connection_flow');

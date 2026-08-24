@@ -14,7 +14,7 @@ export interface AjaxEndpoint {
 }
 
 export interface AwxCommonData {
-    env: 'demo' | 'prod';
+    env: 'sandbox' | 'prod';
     locale: string;
     confirmationUrl: string;
     isOrderPayPage: boolean;
@@ -104,7 +104,7 @@ export interface ExpressCheckoutCheckout {
 }
 
 export interface ExpressCheckoutSettings {
-    env: 'demo' | 'prod';
+    env: 'sandbox' | 'prod';
     locale: string;
     ajaxUrl: string;
     transactionId: string;
@@ -143,11 +143,12 @@ export interface AdminGeneralSettings {
     apiSettings: {
         connected: boolean;
         connectionFailed?: boolean;
-        accountName: { prod: string; demo: string };
+        accountName: { prod: string; sandbox: string; demo?: string };
         connectButtonText: { connect: string; manage: string };
-        useApiKey: { prod: 'yes' | 'no'; demo: 'yes' | 'no' };
+        useApiKey: { prod: 'yes' | 'no'; sandbox: 'yes' | 'no'; demo?: 'yes' | 'no' };
         credentials: {
             prod?: { client_id?: string; api_key?: string; webhook_secret?: string };
+            sandbox?: { client_id?: string; api_key?: string; webhook_secret?: string };
             demo?: { client_id?: string; api_key?: string; webhook_secret?: string };
         };
         nonce: {

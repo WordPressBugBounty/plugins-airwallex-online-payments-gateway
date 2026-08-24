@@ -941,7 +941,7 @@ class ExpressCheckout extends WC_Payment_Gateway {
 		try {
 			$data = [
 				'ajaxUrl' => WC_AJAX::get_endpoint('%%endpoint%%'),
-				'env' => $this->is_sandbox() ? 'demo' : 'prod',
+				'env' => $this->is_sandbox() ? Util::ENV_SANDBOX : Util::ENV_PROD,
 				'locale' => Util::getLocale(),
 				'login_confirmation' => $this->getLoginConfirmationSettings(),
 				'googlePayEnabled' => $this->isMethodEnabled('google_pay'),
@@ -1009,6 +1009,8 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				LogService::getInstance()->debug(__METHOD__ . ' can not find order', array( 'orderId' => $order_id ) );
 				throw new Exception( 'Order not found: ' . $order_id );
 			}
+
+			$this->recordAirwallexGatewayOnOrder( $order );
 
 			$orderContainsSubscription = $this->orderService->containsSubscription( $order->get_id() );
 
