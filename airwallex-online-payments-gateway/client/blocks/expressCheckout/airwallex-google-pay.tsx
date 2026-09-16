@@ -91,6 +91,7 @@ interface GooglePaySettings {
 	locale?: string;
 	env?: string;
 	googlePayEnabled?: boolean;
+	isCheckout?: boolean;
 	supports?: string[];
 	[extra: string]: unknown;
 }
@@ -99,6 +100,7 @@ const settings: GooglePaySettings = getSetting<GooglePaySettings>('airwallex_exp
 settings.checkout = awxCommonData.getExpressCheckoutData.checkout as GooglePaySettings['checkout'];
 
 const paymentMode = awxCommonData.getExpressCheckoutData.hasSubscriptionProduct ? 'recurring' : 'oneoff';
+const isCheckoutPage = Boolean(settings.isCheckout ?? awxCommonData.getExpressCheckoutData?.isCheckout);
 
 interface CartDetails {
 	orderInfo: {
@@ -381,7 +383,9 @@ const AWXGooglePayButton = (props: GooglePayProps) => {
 
 		destroyElement(ELEMENT_TYPE);
 		createGooglePayButton();
-	}, [billing.cartTotal]);
+		// Checkout: rebuild only when the numeric total/currency changes.
+		// Cart (and other pages) keep the previous object-identity behaviour.
+	}, [isCheckoutPage ? `${billing.cartTotal.value}::${billing.currency.code}` : billing.cartTotal]);
 
 	return (
 		<div

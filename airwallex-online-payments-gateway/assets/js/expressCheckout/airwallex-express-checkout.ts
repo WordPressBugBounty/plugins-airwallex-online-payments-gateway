@@ -89,8 +89,16 @@ jQuery(function ($) {
 	let googlepay: Payment.GooglePayButtonElementType | undefined;
 	let applePay: ApplePayElement | undefined;
 	let isExpressCheckoutRendering = false;
+	let lastRenderedTotalKey = '';
 
-	const renderExpressCheckoutByEvent = function (): void {
+	const getCartTotalKey = function (cartDetails: CartDetailsResponse): string {
+		const raw = cartDetails?.orderInfo?.total?.amount;
+		const amount = Number.isFinite(Number(raw)) ? String(Number(raw)) : '';
+		const currency = cartDetails?.currencyCode || '';
+		return `${amount}::${currency}`;
+	};
+
+	const renderExpressCheckoutByEvent = function (force = false): void {
 		if (isExpressCheckoutRendering) {
 			return;
 		}
@@ -98,11 +106,11 @@ jQuery(function ($) {
 		setTimeout(function () {
 			isExpressCheckoutRendering = false;
 		}, 1000)
-		airwallexExpressCheckout.init();
+		airwallexExpressCheckout.init(force);
 	};
 
 	const airwallexExpressCheckout = {
-		init: async function (): Promise<void> {
+		init: async function (force = false): Promise<void> {
 			// if settings are not available, do not proceed
 			if (!('awxExpressCheckoutSettings' in window) || Object.keys(awxExpressCheckoutSettings).length === 0) {
 				return;
@@ -110,6 +118,15 @@ jQuery(function ($) {
 
 			// get cart details
 			globalCartDetails = awxCommonData.getExpressCheckoutData.isVirtualProductPage ? await getEstimatedCartDetails() : await getCartDetails();
+
+			const totalKey = getCartTotalKey(globalCartDetails);
+			// Checkout `updated_checkout` omits force so we can skip a
+			// destroy/remount when the total did not change. Cart, product
+			// page, and mini cart always pass force=true.
+			if (!force && totalKey === lastRenderedTotalKey && (applePay || googlepay)) {
+				return;
+			}
+			lastRenderedTotalKey = totalKey;
 
 			const { checkout } = awxExpressCheckoutSettings;
 
@@ -593,16 +610,16 @@ jQuery(function ($) {
 
 		// refresh payment data when total is updated.
 		$(document.body).on('updated_cart_totals', function () {
-			renderExpressCheckoutByEvent();
+			renderExpressCheckoutByEvent(true);
 		});
 
-		// refresh payment data when total is updated.
+		// Checkout page only: skip rebuild when the order total is unchanged.
 		$(document.body).on('updated_checkout', function () {
 			renderExpressCheckoutByEvent();
 		});
 
 		$(document.body).on('change', '[name="quantity"]', function () {
-			renderExpressCheckoutByEvent();
+			renderExpressCheckoutByEvent(true);
 		});
 
 		if (typeof window.awxMiniCartEnabled !== "undefined" && awxMiniCartEnabled === true) {
@@ -634,12 +651,12 @@ jQuery(function ($) {
 					$footerActions.append($template);
 					$footerActions.find('.awx-mini-cart-buttons-row').append($buttons);
 
-					renderExpressCheckoutByEvent();
+					renderExpressCheckoutByEvent(true);
 				});
 			};
 
 			$(document.body).on('wc_fragments_refreshed added_to_cart removed_from_cart wc-blocks_removed_from_cart wc-blocks_added_to_cart', function () {
-				renderExpressCheckoutByEvent();
+				renderExpressCheckoutByEvent(true);
 			});
 			renderExpressCheckoutInBlockMiniCart();
 		}

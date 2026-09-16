@@ -37,6 +37,7 @@ export interface AwxCommonData {
     getExpressCheckoutData: AjaxEndpoint & {
         hasSubscriptionProduct?: boolean;
         isProductPage?: boolean;
+        isCheckout?: boolean;
         isVirtualProductPage?: boolean;
         allowedCardNetworks?: AllowedCardNetworks;
         checkout?: ExpressCheckoutCheckout;

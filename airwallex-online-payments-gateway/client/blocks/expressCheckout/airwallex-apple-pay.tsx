@@ -45,6 +45,7 @@ interface ApplePaySettings {
 	};
 	button?: { theme?: string; buttonType?: string; height?: string };
 	isProductPage?: boolean;
+	isCheckout?: boolean;
 	applePayEnabled?: boolean;
 	supports?: string[];
 	[extra: string]: unknown;
@@ -101,6 +102,7 @@ const settings: ApplePaySettings = getSetting<ApplePaySettings>('airwallex_expre
 settings.checkout = awxCommonData.getExpressCheckoutData.checkout as ApplePaySettings['checkout'];
 
 const paymentMode = awxCommonData.getExpressCheckoutData.hasSubscriptionProduct ? 'recurring' : 'oneoff';
+const isCheckoutPage = Boolean(settings.isCheckout ?? awxCommonData.getExpressCheckoutData?.isCheckout);
 
 interface CartTotalItem { label: string; value: number }
 
@@ -398,7 +400,9 @@ const AWXApplePayButton = (props: ApplePayProps) => {
 
 		destroyElement(ELEMENT_TYPE);
 		createApplePayButton();
-	}, [billing.cartTotal]);
+		// Checkout: rebuild only when the numeric total/currency changes.
+		// Cart (and other pages) keep the previous object-identity behaviour.
+	}, [isCheckoutPage ? `${billing.cartTotal.value}::${billing.currency.code}` : billing.cartTotal]);
 
 	return (<div id='awxApplePayButton' />);
 };

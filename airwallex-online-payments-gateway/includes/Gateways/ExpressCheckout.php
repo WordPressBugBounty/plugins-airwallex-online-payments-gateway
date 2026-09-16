@@ -971,7 +971,8 @@ class ExpressCheckout extends WC_Payment_Gateway {
 				],
 				'transactionId' => Util::generateUuidV4(),
 				'supports' => $this->supports,
-				'isShowButtonOnProductPage' => $this->shouldShowButtonOnPage('product_detail')
+				'isShowButtonOnProductPage' => $this->shouldShowButtonOnPage('product_detail'),
+				'isCheckout' => is_checkout(),
 			];
 
 			return $data;

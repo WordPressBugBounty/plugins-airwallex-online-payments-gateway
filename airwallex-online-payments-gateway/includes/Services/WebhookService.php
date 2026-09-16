@@ -55,7 +55,8 @@ class WebhookService {
 				$this->verifyIntentFromOrder($order, $paymentIntent, $eventType);
 				switch ( $eventType ) {
 					case 'payment_intent.cancelled':
-						$order->update_status( 'failed', 'Airwallex Webhook' );
+					case 'payment_intent.payment_failed':
+						$logService->debug( 'skip failed/cancelled webhook to avoid long pending orders being marked failed', $eventType );
 						break;
 					case 'payment_intent.succeeded':
 					case 'payment_intent.capture_required':
