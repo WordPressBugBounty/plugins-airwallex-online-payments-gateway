@@ -1,5 +1,10 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2026-09-21 - version 1.35.2
+
+* Add - Send merchant website URL on Payment Intent create
+* Fix - Fixed an issue where the shipping phone number was missing during Express Checkout order creation
+
 2026-09-15 - version 1.35.1
 
 * Fix - Optimized Express Checkout rendering to prevent duplicate reloads

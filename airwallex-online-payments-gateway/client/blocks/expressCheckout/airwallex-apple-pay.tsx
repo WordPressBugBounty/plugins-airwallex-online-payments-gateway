@@ -17,6 +17,7 @@ import {
 	getFormattedValueFromBlockAmount,
 	processError,
 	getAllowedCardNetworks,
+	abortExpressCheckoutPayment,
 } from './utils';
 import {
 	getSupportedNetworksForApplePay,
@@ -273,57 +274,57 @@ const AWXApplePayButton = (props: ApplePayProps) => {
 	};
 
 	const onAuthorized = async (event: Event) => {
-		const detail = (event as CustomEvent<AuthorizedDetail>).detail;
-		const payment = (detail?.paymentData || {}) as ApplePayJS.ApplePayPayment & {
-			shippingMethods?: typeof shippingMethods;
-		};
-		payment.shippingMethods = shippingMethods;
-		const order = (await createOrder(payment, 'applepay')) as unknown as PlaceOrderResponse;
-		if (order.redirect_url) {
-			location.href = order.redirect_url;
-			return;
-		}
-		maskPageWhileLoading(50000);
-		if (order.result === 'success') {
-			const {
-				createConsent,
-				clientSecret,
-				confirmationUrl,
-			} = order.payload!;
-
-			if (createConsent) {
-				elementRef.current?.confirmIntent({
-					client_secret: clientSecret,
-					payment_consent: {
-						'next_triggered_by': 'merchant',
-						'merchant_trigger_reason': 'scheduled',
-					}
-				}).then(() => {
-					location.href = confirmationUrl;
-				}).catch((error: unknown) => {
-					processError(order, error as { message?: string }, removePageMask, onError);
-				});
-			} else {
-				elementRef.current?.confirmIntent({
-					client_secret: clientSecret,
-				}).then(() => {
-					location.href = confirmationUrl;
-				}).catch((error: unknown) => {
-					processError(order, error as { message?: string }, removePageMask, onError);
-				});
+		try {
+			const detail = (event as CustomEvent<AuthorizedDetail>).detail;
+			const payment = (detail?.paymentData || {}) as ApplePayJS.ApplePayPayment & {
+				shippingMethods?: typeof shippingMethods;
+			};
+			payment.shippingMethods = shippingMethods;
+			const order = (await createOrder(payment, 'applepay')) as unknown as PlaceOrderResponse;
+			if (order.redirect_url) {
+				location.href = order.redirect_url;
+				return;
 			}
-		} else {
-			onError(order.messages ?? '');
-			console.warn(order.messages);
+			maskPageWhileLoading(50000);
+			if (order.result === 'success' && order.payload?.clientSecret) {
+				const {
+					createConsent,
+					clientSecret,
+					confirmationUrl,
+				} = order.payload;
+
+				if (createConsent) {
+					elementRef.current?.confirmIntent({
+						client_secret: clientSecret,
+						payment_consent: {
+							'next_triggered_by': 'merchant',
+							'merchant_trigger_reason': 'scheduled',
+						}
+					}).then(() => {
+						location.href = confirmationUrl;
+					}).catch((error: unknown) => {
+						processError(order, error as { message?: string }, removePageMask, onError);
+					});
+				} else {
+					elementRef.current?.confirmIntent({
+						client_secret: clientSecret,
+					}).then(() => {
+						location.href = confirmationUrl;
+					}).catch((error: unknown) => {
+						processError(order, error as { message?: string }, removePageMask, onError);
+					});
+				}
+			} else {
+				abortExpressCheckoutPayment(elementRef.current, 'applepay');
+				onError(order.messages ?? '');
+				console.warn(order.messages);
+				removePageMask();
+			}
+		} catch (error) {
+			abortExpressCheckoutPayment(elementRef.current, 'applepay');
+			onError((error as PlaceOrderResponse)?.messages ?? '');
+			console.warn(error);
 			removePageMask();
-			// temporary solution here to stop the developer error
-			elementRef.current?.confirmIntent({
-				client_secret: '',
-			}).then(() => {
-				// do nothing here
-			}).catch((error: unknown) => {
-				console.warn(error);
-			});
 		}
 	};
 

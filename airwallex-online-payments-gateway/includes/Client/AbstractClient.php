@@ -233,6 +233,11 @@ abstract class AbstractClient {
 					if ( ! empty( $product ) ) {
 						$itemDetail['sku'] = Util::truncateString( $product->get_sku(), 117, '...' );
 						$itemDetail['type'] = $product->is_virtual() ? 'virtual' : 'physical';
+						// Include the product page URL in the order so it is reported to Airwallex.
+						$productUrl = $product->get_permalink();
+						if ( ! empty( $productUrl ) ) {
+							$itemDetail['url'] = $productUrl;
+						}
 					}
 					if ( $itemDetail['quantity'] > 0 ) {
 						$itemDetail['unit_price'] /= $itemDetail['quantity'];
@@ -297,6 +302,10 @@ abstract class AbstractClient {
 		}
 
 		$data['order'] = $orderData;
+		// Report the store origin where the customer completes the transaction as
+		// the root-level merchant_website_url (Mastercard AN 6022). Empty when a
+		// valid origin cannot be resolved, in which case the field is omitted.
+		$data['merchant_website_url'] = Util::getMerchantWebsiteUrl();
 		$data['metadata'] +=  $this->getMetaData();
 
 		$data += $this->getReferrer($paymentMethodType);
@@ -346,6 +355,9 @@ abstract class AbstractClient {
 				->setMerchantOrderId($data['merchant_order_id'])
 				->setReturnUrl($data['return_url'])
 				->setOrder($data['order']);
+			if (!empty($data['merchant_website_url'])) {
+				$newPaymentIntentRequest = $newPaymentIntentRequest->setMerchantWebsiteUrl($data['merchant_website_url']);
+			}
 			if ($customerId) {
 				$newPaymentIntentRequest = $newPaymentIntentRequest->setCustomerId($customerId);
 			} else {

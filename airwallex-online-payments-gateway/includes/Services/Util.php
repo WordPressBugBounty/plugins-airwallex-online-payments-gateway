@@ -3,6 +3,7 @@
 namespace Airwallex\Services;
 
 use Airwallex\Client\CardClient;
+use Airwallex\PayappsPlugin\CommonLibrary\Util\UrlHelper;
 use Exception;
 
 class Util {
@@ -381,6 +382,21 @@ class Util {
 		}
 
 		return $origin;
+	}
+
+	/**
+	 * Resolve the merchant_website_url reported for Mastercard AN 6022.
+	 *
+	 * Returns the store origin (scheme + host, with a trailing slash) where the
+	 * customer completes the transaction, derived from the WooCommerce store
+	 * home URL. Returns an empty string when a valid http(s) origin cannot be
+	 * determined so the optional field is simply omitted rather than breaking
+	 * checkout.
+	 *
+	 * @return string
+	 */
+	public static function getMerchantWebsiteUrl() {
+		return UrlHelper::toOrigin(home_url('/'));
 	}
 
 	/**

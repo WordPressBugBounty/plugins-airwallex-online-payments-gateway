@@ -294,7 +294,7 @@ const getOrderDataForGooglePay = (paymentData: any) => {
 		billing_last_name:         billing ? billing.name.split( ' ' ).slice( 1 ).join( ' ' ) : '',
 		billing_company:           '',
 		billing_email:             paymentData.email ? paymentData.email : '',
-		billing_phone:             billing ? billing.phoneNumber : '',
+		billing_phone:             billing?.phoneNumber || shipping?.phoneNumber || '',
 		billing_country:           billing ? billing.countryCode : '',
 		billing_address_1:         billing ? billing.address1 : '',
 		billing_address_2:         billing ? billing.address2.concat(' ', billing.address3).trim() : '',
@@ -312,6 +312,7 @@ const getOrderDataForGooglePay = (paymentData: any) => {
 		shipping_city:             shipping ? shipping.locality : '',
 		shipping_state:            shipping ? shipping.administrativeArea : '',
 		shipping_postcode:         shipping ? shipping.postalCode : '',
+		shipping_phone:            shipping?.phoneNumber || billing?.phoneNumber || '',
 		shipping_method:           [ paymentData.shippingOptionData ? paymentData.shippingOptionData.id : null ],
 	};
 
@@ -341,7 +342,7 @@ const getOrderDataForApplePay = (paymentData: any) => {
 		billing_last_name:         billing ? billing.familyName : '',
 		billing_company:           '',
 		billing_email:             billing && billing.emailAddress ? billing.emailAddress : (shipping ? shipping.emailAddress : ''),
-		billing_phone:             billing && billing.phoneNumber ? billing.phoneNumber : (shipping ? shipping.phoneNumber : ''),
+		billing_phone:             billing?.phoneNumber || shipping?.phoneNumber || '',
 		billing_country:           billing ? billing.countryCode : '',
 		billing_address_1:         billing && billing.addressLines && billing.addressLines.length > 0 ? billing.addressLines.shift() : '',
 		billing_address_2:         billing && billing.addressLines ? billing.addressLines.join(' ') : '',
@@ -359,6 +360,7 @@ const getOrderDataForApplePay = (paymentData: any) => {
 		shipping_city:             shipping ? (shipping.locality ? shipping.locality : shipping.administrativeArea ) : '',
 		shipping_state:            shipping ? shipping.administrativeArea : '',
 		shipping_postcode:         shipping ? shipping.postalCode : '',
+		shipping_phone:            shipping?.phoneNumber || billing?.phoneNumber || '',
 		shipping_method:           paymentData.shippingMethods ? paymentData.shippingMethods : [ null ],
 	};
 

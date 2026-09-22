@@ -16,6 +16,7 @@ import {
 	getGoogleFormattedShippingOptions,
 	processError,
 	getAllowedCardNetworks,
+	abortExpressCheckoutPayment,
 } from './utils';
 import {
 	getSupportedNetworksForGooglePay,
@@ -265,53 +266,53 @@ const AWXGooglePayButton = (props: GooglePayProps) => {
 	};
 
 	const onAuthorized = async (event: Event) => {
-		const { paymentData } = (event as CustomEvent<GoogleAuthorizedDetail>).detail;
-		const orderResponse = (await createOrder(paymentData, 'googlepay')) as unknown as PlaceOrderResponse;
-		if (orderResponse.redirect_url) {
-			location.href = orderResponse.redirect_url;
-			return;
-		}
-		maskPageWhileLoading(50000);
-		if (orderResponse.result === 'success') {
-			const {
-				createConsent,
-				clientSecret,
-				confirmationUrl,
-			} = orderResponse.payload!;
-
-			if (createConsent) {
-				elementRef.current?.confirmIntent({
-					client_secret: clientSecret,
-					payment_consent: {
-						'next_triggered_by': 'merchant',
-						'merchant_trigger_reason': 'scheduled',
-					}
-				}).then(() => {
-					location.href = confirmationUrl;
-				}).catch((error: unknown) => {
-					processError(orderResponse, error as { message?: string }, removePageMask, onError);
-				});
-			} else {
-				elementRef.current?.confirmIntent({
-					client_secret: clientSecret,
-				}).then(() => {
-					location.href = confirmationUrl;
-				}).catch((error: unknown) => {
-					processError(orderResponse, error as { message?: string }, removePageMask, onError);
-				});
+		try {
+			const { paymentData } = (event as CustomEvent<GoogleAuthorizedDetail>).detail;
+			const orderResponse = (await createOrder(paymentData, 'googlepay')) as unknown as PlaceOrderResponse;
+			if (orderResponse.redirect_url) {
+				location.href = orderResponse.redirect_url;
+				return;
 			}
-		} else {
-			onError(orderResponse.messages ?? '');
-			console.warn(orderResponse.messages);
+			maskPageWhileLoading(50000);
+			if (orderResponse.result === 'success' && orderResponse.payload?.clientSecret) {
+				const {
+					createConsent,
+					clientSecret,
+					confirmationUrl,
+				} = orderResponse.payload;
+
+				if (createConsent) {
+					elementRef.current?.confirmIntent({
+						client_secret: clientSecret,
+						payment_consent: {
+							'next_triggered_by': 'merchant',
+							'merchant_trigger_reason': 'scheduled',
+						}
+					}).then(() => {
+						location.href = confirmationUrl;
+					}).catch((error: unknown) => {
+						processError(orderResponse, error as { message?: string }, removePageMask, onError);
+					});
+				} else {
+					elementRef.current?.confirmIntent({
+						client_secret: clientSecret,
+					}).then(() => {
+						location.href = confirmationUrl;
+					}).catch((error: unknown) => {
+						processError(orderResponse, error as { message?: string }, removePageMask, onError);
+					});
+				}
+			} else {
+				abortExpressCheckoutPayment(elementRef.current, 'googlepay');
+				onError(orderResponse.messages ?? '');
+				console.warn(orderResponse.messages);
+				removePageMask();
+			}
+		} catch (error) {
+			abortExpressCheckoutPayment(elementRef.current, 'googlepay');
+			onError((error as PlaceOrderResponse)?.messages ?? '');
+			console.warn(error);
 			removePageMask();
-			// temporary solution here to stop the developer error
-			elementRef.current?.confirmIntent({
-				client_secret: '',
-			}).then(() => {
-				// do nothing here
-			}).catch((error: unknown) => {
-				console.warn(error);
-			});
 		}
 	};
 

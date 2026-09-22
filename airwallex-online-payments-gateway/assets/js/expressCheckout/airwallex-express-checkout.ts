@@ -54,13 +54,39 @@ interface OrderResponse {
 	result?: 'success' | 'failure' | string;
 	redirect_url?: string;
 	messages?: string;
+	message?: string;
 	order_id?: string | number;
 	payload?: {
 		createConsent?: boolean;
 		clientSecret?: string;
 		confirmationUrl?: string;
 	};
+	responseJSON?: {
+		messages?: string;
+		message?: string;
+	};
 }
+
+type ExpressCheckoutWallet = 'googlepay' | 'applepay';
+
+type ExpressCheckoutPaymentElement = {
+	update?(options?: Record<string, unknown>): void;
+};
+
+const abortExpressCheckoutPayment = (
+	element: ExpressCheckoutPaymentElement | undefined,
+	wallet: ExpressCheckoutWallet,
+): void => {
+	if (wallet === 'googlepay' && element && typeof element.update === 'function') {
+		element.update({
+			error: {
+				reason: 'PAYMENT_DATA_INVALID',
+				message: 'Unable to place the order. Please try again.',
+				intent: 'PAYMENT_AUTHORIZATION',
+			},
+		});
+	}
+};
 
 /* global awxExpressCheckoutSettings, Airwallex, awxMiniCartEnabled */
 jQuery(function ($) {
@@ -238,13 +264,20 @@ jQuery(function ($) {
 			});
 
 			googlepay!.on('authorized', async (event) => {
-				if (awxCommonData.getExpressCheckoutData.isProductPage && awxExpressCheckoutSettings.isShowButtonOnProductPage) await addToCart();
-				const order = await createOrder(event.detail.paymentData, 'googlepay') as OrderResponse;
-				if (order.redirect_url) {
-					location.href = order.redirect_url;
-					return;
+				try {
+					if (awxCommonData.getExpressCheckoutData.isProductPage && awxExpressCheckoutSettings.isShowButtonOnProductPage) await addToCart();
+					const order = await createOrder(event.detail.paymentData, 'googlepay') as OrderResponse;
+					if (order.redirect_url) {
+						location.href = order.redirect_url;
+						return;
+					}
+					airwallexExpressCheckout.processPayment(googlepay!, order, 'googlepay');
+				} catch (error) {
+					removePageMask();
+					abortExpressCheckoutPayment(googlepay, 'googlepay');
+					$('.awx-express-checkout-error').html((error as OrderResponse)?.messages || '').show();
+					console.warn(error);
 				}
-				airwallexExpressCheckout.processPayment(googlepay!, order);
 			});
 
 			googlepay!.on('error', (event) => {
@@ -432,14 +465,21 @@ jQuery(function ($) {
 			});
 
 			applePay!.on('authorized', async (event) => {
-				const payment = (event.detail.paymentData ?? {}) as Record<string, unknown>;
-				payment['shippingMethods'] = shippingMethods;
-				const order = await createOrder(payment, 'applepay') as OrderResponse;
-				if (order.redirect_url) {
-					location.href = order.redirect_url;
-					return;
+				try {
+					const payment = (event.detail.paymentData ?? {}) as Record<string, unknown>;
+					payment['shippingMethods'] = shippingMethods;
+					const order = await createOrder(payment, 'applepay') as OrderResponse;
+					if (order.redirect_url) {
+						location.href = order.redirect_url;
+						return;
+					}
+					airwallexExpressCheckout.processPayment(applePay!, order, 'applepay');
+				} catch (error) {
+					removePageMask();
+					abortExpressCheckoutPayment(applePay, 'applepay');
+					$('.awx-express-checkout-error').html((error as OrderResponse)?.messages || '').show();
+					console.warn(error);
 				}
-				airwallexExpressCheckout.processPayment(applePay!, order);
 			});
 
 			applePay!.on('error', (event) => {
@@ -526,9 +566,9 @@ jQuery(function ($) {
 		},
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		processPayment: (element: any, data: OrderResponse): void => {
+		processPayment: (element: any, data: OrderResponse, wallet: ExpressCheckoutWallet): void => {
 			maskPageWhileLoading(50000);
-			if (data.result === 'success' && data.payload) {
+			if (data.result === 'success' && data.payload?.clientSecret) {
 				const {
 					createConsent,
 					clientSecret,
@@ -557,17 +597,10 @@ jQuery(function ($) {
 					});
 				}
 			} else {
+				abortExpressCheckoutPayment(element, wallet);
 				removePageMask();
 				$('.awx-express-checkout-error').html(data?.messages as string).show();
 				console.warn(data);
-				// temporary solution here to stop the developer error
-				element.confirmIntent({
-					client_secret: '',
-				}).then(() => {
-					// do nothing here
-				}).catch((error: unknown) => {
-					console.warn(error);
-				});
 			}
 		},
 

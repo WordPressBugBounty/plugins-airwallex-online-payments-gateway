@@ -149,6 +149,23 @@ export const processError = (
 	});
 };
 
+export const abortExpressCheckoutPayment = (
+	element: {
+		update?(options?: Record<string, unknown>): void;
+	} | undefined | null,
+	wallet: 'googlepay' | 'applepay' = 'googlepay',
+): void => {
+	if (wallet === 'googlepay' && element && typeof element.update === 'function') {
+		element.update({
+			error: {
+				reason: 'PAYMENT_DATA_INVALID',
+				message: 'Unable to place the order. Please try again.',
+				intent: 'PAYMENT_AUTHORIZATION',
+			},
+		});
+	}
+};
+
 /**
  * Response shape from the `wc_ajax_airwallex_get_express_checkout_data`
  * handler. Only the field this function reads

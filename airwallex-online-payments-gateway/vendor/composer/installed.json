@@ -2,17 +2,17 @@
     "packages": [
         {
             "name": "airwallex/payapps-plugin-php-common-lib",
-            "version": "1.31.0",
-            "version_normalized": "1.31.0.0",
+            "version": "1.33.0",
+            "version_normalized": "1.33.0.0",
             "source": {
                 "type": "git",
                 "url": "git@gitlab.awx.im:payapps/payapps-plugin-php-common-lib.git",
-                "reference": "a687a320808405b58bd66ae488ec691ad1809396"
+                "reference": "3b47d99d464adee5c935ed29d3132d7ab17c1637"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://gitlab.awx.im/api/v4/projects/5765/packages/composer/archives/airwallex/payapps-plugin-php-common-lib.zip?sha=a687a320808405b58bd66ae488ec691ad1809396",
-                "reference": "a687a320808405b58bd66ae488ec691ad1809396",
+                "url": "https://gitlab.awx.im/api/v4/projects/5765/packages/composer/archives/airwallex/payapps-plugin-php-common-lib.zip?sha=3b47d99d464adee5c935ed29d3132d7ab17c1637",
+                "reference": "3b47d99d464adee5c935ed29d3132d7ab17c1637",
                 "shasum": ""
             },
             "require": {

@@ -5,6 +5,7 @@ namespace Airwallex\Gateways;
 use Airwallex\Gateways\Settings\AirwallexSettingsTrait;
 use Airwallex\Services\LogService;
 use Airwallex\Services\OrderService;
+use Airwallex\Services\Util;
 use WC_Order;
 use WFOCU_Gateway;
 use WFOCU_AJAX_Controller;
@@ -167,26 +168,36 @@ if ( class_exists( 'WFOCU_Gateway' ) ) {
                         $hasSubscription = true;
                     }
                     $item = $productData['data'];
-                    $products[] = [
+                    $product = [
                         'name'       => ( mb_strlen( $item->get_name() ) <= 120 ? $item->get_name() : mb_substr( $item->get_name(), 0, 117 ) . '...' ),
                         'quantity'   => $productData['qty'],
                         'sku'        => $item->get_sku(),
                         'type'       => $item->get_type(),
                         'unit_price' => $productData['price'],
                     ];
+                    $productUrl = $item->get_permalink();
+                    if ( ! empty( $productUrl ) ) {
+                        $product['url'] = $productUrl;
+                    }
+                    $products[] = $product;
                 }
             }
 
             try {
-                $paymentIntent = (new CreatePaymentIntent())
+                $createPaymentIntent = (new CreatePaymentIntent())
                     ->setAmount($upsellPackage['total'])
                     ->setCurrency($parentOrder->get_currency())
                     ->setMerchantOrderId($parentOrder->get_id())
                     ->setOrder(['products' => $products])
                     ->setReferrerDataType(Card::CARD_REFERRER_DATA_TYPE)
                     ->setCustomerId($airwallexCustomerId)
-                    ->setMetadata(['is_funnelkit' => 'yes'])
-                    ->send();
+                    ->setMetadata(['is_funnelkit' => 'yes']);
+                // Report the store origin as merchant_website_url (Mastercard AN 6022).
+                $merchantWebsiteUrl = Util::getMerchantWebsiteUrl();
+                if (!empty($merchantWebsiteUrl)) {
+                    $createPaymentIntent = $createPaymentIntent->setMerchantWebsiteUrl($merchantWebsiteUrl);
+                }
+                $paymentIntent = $createPaymentIntent->send();
                 LogService::getInstance()->debug('Upsell payment intent created: ' . $paymentIntent->getId());
                 if ($paymentIntent->getId()) {
                     $paymentIntentIds = $this->getUpsellPaymentIntentIds($parentOrder);
