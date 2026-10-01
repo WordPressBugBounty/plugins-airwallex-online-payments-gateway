@@ -220,40 +220,77 @@ trait AirwallexGatewayTrait {
 	}
 
 	public function process_refund( $order_id, $amount = null, $reason = '' ) {
-		$order           = wc_get_order( $order_id );
-		$paymentIntentId = $order->get_transaction_id();
-		if (empty($paymentIntentId)) {
-			$paymentIntentId = $order->get_meta(OrderService::META_KEY_INTENT_ID);
+		$orderService = OrderService::getInstance();
+		if ( ! $orderService->acquireOrderRefundLock( $order_id ) ) {
+			return new \WP_Error( 'error', __( 'Unable to lock the order for refund.', 'airwallex-online-payments-gateway' ) );
 		}
-		try {
-			/** @var StructRefund $refund */
-			$refund = (new CreateRefund())->setPaymentIntentId($paymentIntentId)->setAmount($amount)->setReason($reason)->send();
 
-			$metaKey = OrderService::META_REFUND_ID . $refund->getId();
-			if ( ! $order->meta_exists( $metaKey ) ) {
-				$order->add_order_note(
-					sprintf(
-						/* translators: %s: Airwallex refund ID. */
-						__( 'Airwallex refund initiated: %s', 'airwallex-online-payments-gateway' ),
-						$refund->getId()
-					)
-				);
-				$order->add_meta_data( $metaKey, array( 'status' => StructRefund::STATUS_RECEIVED ) );
-				$order->save();
-			} else {
-				throw new Exception( "refund {$refund->getId()} already exist.", '1' );
-			}
-			LogService::getInstance()->debug( __METHOD__ . " - Order: {$order_id}, refund initiated, {$refund->getId()}" );
+		try {
+			return $this->processRefundWithOrderLock( $order_id, $amount, $reason );
 		} catch ( RequestException $e ) {
 			$error = json_decode( $e->getMessage(), true );
-			if (is_array( $error ) && isset( $error['message'] ) ) {
+			if ( is_array( $error ) && isset( $error['message'] ) ) {
 				LogService::getInstance()->debug( __METHOD__ . " - Order: {$order_id}, refund failed, {$e->getMessage()}" );
 				return new \WP_Error( 'error', 'Refund failed: ' . $error['message'] );
 			}
+			return new \WP_Error( 'error', 'Refund failed: ' . $e->getMessage() );
 		} catch ( \Exception $e ) {
 			LogService::getInstance()->debug( __METHOD__ . " - Order: {$order_id}, refund failed, {$e->getMessage()}" );
 			return new \WP_Error( 'error', 'Refund failed: ' . $e->getMessage() );
+		} finally {
+			$orderService->releaseOrderRefundLock( $order_id );
 		}
+	}
+
+	private function processRefundWithOrderLock( $order_id, $amount, $reason ) {
+		$orderService = OrderService::getInstance();
+		$order        = $orderService->reloadOrder( $order_id );
+		if ( ! $order ) {
+			return new \WP_Error( 'error', __( 'Order not found.', 'airwallex-online-payments-gateway' ) );
+		}
+
+		$paymentIntentId = $order->get_transaction_id();
+		if ( empty( $paymentIntentId ) ) {
+			$paymentIntentId = $order->get_meta( OrderService::META_KEY_INTENT_ID );
+		}
+		if ( empty( $paymentIntentId ) ) {
+			return new \WP_Error( 'error', __( 'Airwallex payment intent was not found for this order.', 'airwallex-online-payments-gateway' ) );
+		}
+
+		$requestId = $orderService->getRefundRequestId( $order, $amount, $reason );
+
+		$refund = ( new CreateRefund() )
+			->setPaymentIntentId( $paymentIntentId )
+			->setAmount( $amount )
+			->setCurrency( $order->get_currency() )
+			->setReason( $reason )
+			->setRequestId( $requestId )
+			->send();
+
+		$metaKey = OrderService::META_REFUND_ID . $refund->getId();
+		if ( $order->meta_exists( $metaKey ) ) {
+			throw new Exception( "refund {$refund->getId()} already exist.", '1' );
+		}
+
+		$order->add_order_note(
+			sprintf(
+				/* translators: %s: Airwallex refund ID. */
+				__( 'Airwallex refund initiated: %s', 'airwallex-online-payments-gateway' ),
+				$refund->getId()
+			)
+		);
+		$order->add_meta_data(
+			$metaKey,
+			array(
+				'status'     => StructRefund::STATUS_RECEIVED,
+				'amount'     => $amount,
+				'reason'     => (string) $reason,
+				'request_id' => $requestId,
+				'created_at' => time(),
+			)
+		);
+		$order->save();
+		LogService::getInstance()->debug( __METHOD__ . " - Order: {$order_id}, refund initiated, {$refund->getId()}" );
 
 		return true;
 	}

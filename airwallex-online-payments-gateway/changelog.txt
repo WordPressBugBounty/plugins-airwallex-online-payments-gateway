@@ -1,5 +1,8 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2026-10-01 - version 1.36.0
+* Fix - Security and stability improvements for payment notification handling. Thanks to Pedro Pinho for the responsible disclosure.
+
 2026-09-21 - version 1.35.2
 
 * Add - Send merchant website URL on Payment Intent create

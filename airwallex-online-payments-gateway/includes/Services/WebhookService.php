@@ -7,6 +7,8 @@ use WC_Order;
 use WC_Order_Refund;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\Refund as StructRefund;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Configuration\Webhook;
+use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
 
 class WebhookService {
 
@@ -19,7 +21,7 @@ class WebhookService {
 	 */
 	public function process( $headers, $msg ) {
 		$logService = LogService::getInstance();
-		$orderService = new OrderService();
+		$orderService = $this->getOrderService();
 		try {
 			$this->verifySignature( $headers, $msg );
 		} catch ( Exception $e ) {
@@ -54,15 +56,22 @@ class WebhookService {
 				}
 				$this->verifyIntentFromOrder($order, $paymentIntent, $eventType);
 				switch ( $eventType ) {
-					case 'payment_intent.cancelled':
-					case 'payment_intent.payment_failed':
-						$logService->debug( 'skip failed/cancelled webhook to avoid long pending orders being marked failed', $eventType );
+					case Webhook::STATUS_PAYMENT_INTENT_CANCELLED:
+						$logService->debug( 'skip cancelled webhook to avoid long pending orders being marked failed', $eventType );
 						break;
-					case 'payment_intent.succeeded':
-					case 'payment_intent.capture_required':
-					case 'payment_intent.requires_capture':
+					case Webhook::STATUS_PAYMENT_INTENT_PAYMENT_FAILED:
+						$logService->debug( '🖧 payment failed webhook, marking order declined', $eventType );
+						$orderService->setTemporaryOrderStateAfterDecline( $order );
+						break;
+					case Webhook::STATUS_PAYMENT_INTENT_SUCCEEDED:
+					case Webhook::STATUS_PAYMENT_INTENT_CAPTURE_REQUIRED:
+					case Webhook::STATUS_PAYMENT_INTENT_REQUIRES_CAPTURE:
 						if ($order instanceof WC_Order) {
-							$orderService->setPaymentSuccess( $order, $paymentIntent, __METHOD__ );
+							// Never complete an order from the webhook body alone. Re-fetch the
+							// payment intent from the Airwallex API and complete the order based on
+							// the trusted intent's status, amount and currency instead.
+							$trustedPaymentIntent = $this->getTrustedPaymentIntent( $paymentIntent );
+							$orderService->setPaymentSuccess( $order, $trustedPaymentIntent, __METHOD__ );
 						}
 						break;
 					default:
@@ -154,9 +163,40 @@ class WebhookService {
 		}
 	}
 
+	/**
+	 * Get the OrderService instance.
+	 *
+	 * Wrapped in its own method so it can be overridden in tests.
+	 *
+	 * @return OrderService
+	 */
+	protected function getOrderService() {
+		return new OrderService();
+	}
+
+	/**
+	 * Retrieve the payment intent from the Airwallex API so an order is only ever completed
+	 * from a trusted source, not from the (unauthenticated-reachable) webhook body.
+	 *
+	 * Wrapped in its own method so it can be overridden in tests.
+	 *
+	 * @param StructPaymentIntent $paymentIntentFromWebhook
+	 * @return StructPaymentIntent
+	 * @throws Exception when the intent cannot be retrieved.
+	 */
+	protected function getTrustedPaymentIntent( StructPaymentIntent $paymentIntentFromWebhook ) {
+		return ( new RetrievePaymentIntent() )->setPaymentIntentId( $paymentIntentFromWebhook->getId() )->send();
+	}
+
 	public function verifyIntentFromOrder($order, StructPaymentIntent $paymentIntent, $eventType) {
 		if ( empty( $order ) ) {
 			throw new Exception( esc_html( 'No order found for the order id in webhook. Payment intent id: ' . $paymentIntent->getId() ) );
+		}
+		// A genuine payment_intent webhook always carries an intent id. Reject an empty id so it
+		// cannot match an order that has no intent id yet (empty === empty), which would otherwise
+		// let an attacker target any pending order.
+		if ( '' === (string) $paymentIntent->getId() ) {
+			throw new Exception( 'Missing payment intent id in webhook event ' . esc_html( $eventType ) );
 		}
 		$paymentIntentIdFromOrder = $order->get_meta( OrderService::META_KEY_INTENT_ID );
 		if ( $paymentIntent->getId() !== $paymentIntentIdFromOrder ) {
@@ -180,12 +220,23 @@ class WebhookService {
 	 */
 	private function verifySignature( $headers, $msg ) {
 
-		$timestamp           = $headers['x-timestamp'];
-		$secret              = Util::getWebhookSecret();
-		$signature           = $headers['x-signature'];
-		$calculatedSignature = hash_hmac( 'sha256', $timestamp . $msg, $secret );
+		$timestamp = isset( $headers['x-timestamp'] ) ? $headers['x-timestamp'] : '';
+		$secret    = Util::getWebhookSecret();
+		$signature = isset( $headers['x-signature'] ) ? $headers['x-signature'] : '';
 
-		if ( $calculatedSignature !== $signature ) {
+		// A webhook must never be accepted unless it is authenticated with a secret that is
+		// actually configured. Refuse to verify when the secret, timestamp or signature is
+		// empty rather than computing an HMAC with an empty key, which an attacker can
+		// trivially reproduce on a store that never set a webhook secret.
+		if ( '' === (string) $secret ) {
+			throw new Exception( 'Webhook secret is not configured; refusing to process the webhook.' );
+		}
+		if ( '' === (string) $timestamp || '' === (string) $signature ) {
+			throw new Exception( 'Missing webhook timestamp or signature.' );
+		}
+
+		$calculatedSignature = hash_hmac( 'sha256', $timestamp . $msg, $secret );
+		if ( ! hash_equals( $calculatedSignature, (string) $signature ) ) {
 			throw new Exception(
 				sprintf(
 					'Invalid signature: %1$s vs. %2$s',

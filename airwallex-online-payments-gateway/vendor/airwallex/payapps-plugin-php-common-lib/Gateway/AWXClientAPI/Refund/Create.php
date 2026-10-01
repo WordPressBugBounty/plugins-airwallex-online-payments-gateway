@@ -19,6 +19,15 @@ class Create extends AbstractApi
     private $currency;
 
     /**
+     * Caller-supplied idempotency key. When set, it is sent as the request_id
+     * so the Airwallex API deduplicates a retried/duplicate refund server-side
+     * instead of creating a second refund.
+     *
+     * @var string|null
+     */
+    private $requestId = null;
+
+    /**
      * @inheritDoc
      */
     protected function getUri(): string
@@ -69,6 +78,22 @@ class Create extends AbstractApi
     }
 
     /**
+     * Set a deterministic idempotency key for this refund. Passing the same
+     * request_id for a logically identical refund lets the Airwallex API
+     * deduplicate it server-side, preventing a double refund on retry or
+     * concurrent submission.
+     *
+     * @param string $requestId
+     *
+     * @return self
+     */
+    public function setRequestId(string $requestId): self
+    {
+        $this->requestId = $requestId;
+        return $this;
+    }
+
+    /**
      * @return void
      * @throws \Exception
      */
@@ -80,6 +105,13 @@ class Create extends AbstractApi
         }
 
         parent::initializePostParams();
+
+        // Override the randomly generated request_id with the caller-supplied
+        // idempotency key when one is provided, so duplicate refunds are
+        // deduplicated by the Airwallex API.
+        if ($this->requestId !== null && $this->requestId !== '') {
+            $this->setParam('request_id', $this->requestId);
+        }
     }
 
     /**

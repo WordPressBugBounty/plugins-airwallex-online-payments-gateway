@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit97eb5420dc01f158e2bb4c30053923c5
+class ComposerStaticInit5d90e83245aa356a4598e1a6a39d6306
 {
     public static $prefixLengthsPsr4 = array (
         'A' =>
@@ -106,6 +106,11 @@ class ComposerStaticInit97eb5420dc01f158e2bb4c30053923c5
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Terminal\\GetList' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Terminal/GetList.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Terminal\\ProcessPaymentIntent' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Terminal/ProcessPaymentIntent.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Terminal\\Retrieve' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Terminal/Retrieve.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Webhook\\Create' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Webhook/Create.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Webhook\\Delete' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Webhook/Delete.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Webhook\\GetList' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Webhook/GetList.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Webhook\\Retrieve' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Webhook/Retrieve.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\AWXClientAPI\\Webhook\\Update' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/AWXClientAPI/Webhook/Update.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\PluginService\\Account' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/PluginService/Account.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\PluginService\\ConnectionFinalize' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/PluginService/ConnectionFinalize.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Gateway\\PluginService\\ConversionQuote' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Gateway/PluginService/ConversionQuote.php',
@@ -130,12 +135,14 @@ class ComposerStaticInit97eb5420dc01f158e2bb4c30053923c5
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Struct\\Refund' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Struct/Refund.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Struct\\Response' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Struct/Response.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Struct\\Terminal' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Struct/Terminal.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\Struct\\Webhook' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Struct/Webhook.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\Config\\CurrencySwitcherAvailableCurrencies' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/Config/CurrencySwitcherAvailableCurrencies.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\ConversionQuote' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/ConversionQuote.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\CurrencySwitcher' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/CurrencySwitcher.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\PaymentConsent\\All' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/PaymentConsent/All.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\PaymentIntent\\ConfirmAfterpay' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/PaymentIntent/ConfirmAfterpay.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\PaymentMethodType\\GetList' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/PaymentMethodType/GetList.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\UseCase\\Webhook\\All' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/UseCase/Webhook/All.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Util\\AmountHelper' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Util/AmountHelper.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Util\\CurrencyHelper' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Util/CurrencyHelper.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\Util\\PaymentMethodSchemeHelper' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/Util/PaymentMethodSchemeHelper.php',
@@ -153,6 +160,8 @@ class ComposerStaticInit97eb5420dc01f158e2bb4c30053923c5
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentIntent\\CreateDeviceDataTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentIntent/CreateDeviceDataTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentIntent\\PaymentIntentCreateGatewayTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentIntent/PaymentIntentCreateGatewayTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\PaymentIntent\\PaymentIntentTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/PaymentIntent/PaymentIntentTest.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\Webhook\\LifecycleTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/Webhook/LifecycleTest.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\AWXClientAPI\\Webhook\\WebhookTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/AWXClientAPI/Webhook/WebhookTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\PluginService\\AccountTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/PluginService/AccountTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\PluginService\\ConnectionFinalizeTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/PluginService/ConnectionFinalizeTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Gateway\\PluginService\\ConversionQuoteRetrieveTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Gateway/PluginService/ConversionQuoteRetrieveTest.php',
@@ -170,6 +179,7 @@ class ComposerStaticInit97eb5420dc01f158e2bb4c30053923c5
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\UseCase\\PaymentConsent\\AllTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/UseCase/PaymentConsent/AllTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\UseCase\\PaymentIntent\\ConfirmAfterpayTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/UseCase/PaymentIntent/ConfirmAfterpayTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\UseCase\\PaymentMethodType\\GetListTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/UseCase/PaymentMethodType/GetListTest.php',
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\UseCase\\Webhook\\AllTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/UseCase/Webhook/AllTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Util\\AmountHelperTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Util/AmountHelperTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Util\\PaymentMethodSchemeHelperTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Util/PaymentMethodSchemeHelperTest.php',
         'Airwallex\\PayappsPlugin\\CommonLibrary\\tests\\Util\\StringHelperTest' => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib/tests/Util/StringHelperTest.php',
@@ -191,9 +201,9 @@ class ComposerStaticInit97eb5420dc01f158e2bb4c30053923c5
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit97eb5420dc01f158e2bb4c30053923c5::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit97eb5420dc01f158e2bb4c30053923c5::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit97eb5420dc01f158e2bb4c30053923c5::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit5d90e83245aa356a4598e1a6a39d6306::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit5d90e83245aa356a4598e1a6a39d6306::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit5d90e83245aa356a4598e1a6a39d6306::$classMap;
 
         }, null, ClassLoader::class);
     }

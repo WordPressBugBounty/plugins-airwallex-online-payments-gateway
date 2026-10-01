@@ -11,6 +11,7 @@ use Exception;
 use WC_Order;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Retrieve as RetrievePaymentIntent;
 use Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent as StructPaymentIntent;
+use Airwallex\PayappsPlugin\CommonLibrary\Util\AmountHelper;
 use Automattic\WooCommerce\Enums\OrderStatus;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\PaymentIntent\Capture as CapturePaymentIntent;
 use Airwallex\PayappsPlugin\CommonLibrary\Gateway\AWXClientAPI\Customer\Create as CreateAirwallexCustomer;
@@ -55,6 +56,118 @@ class OrderService {
 
 	public static function getRefundOrderMetaKey($refundId) {
 		return self::META_REFUND_ID . $refundId;
+	}
+
+	public function getRefundRequestId( $order, $amount, $reason = '' ) {
+		$currency        = $order->get_currency();
+		$decimalPlaces   = StructPaymentIntent::CURRENCY_TO_DECIMAL[ strtoupper( (string) $currency ) ] ?? 2;
+		$formattedAmount = AmountHelper::formatAmount( (float) $amount, $currency );
+
+		$fingerprint = implode(
+			'|',
+			array(
+				$order->get_id(),
+				number_format( $formattedAmount, $decimalPlaces, '.', '' ),
+				(string) $reason,
+				$this->countMatchingRefunds( $order, $amount, $reason ),
+			)
+		);
+
+		return 'awx_wc_refund_' . md5( $fingerprint );
+	}
+
+	public function getOrderRefundLockName( $orderId ) {
+		return 'awx_refund_order_' . (int) $orderId;
+	}
+
+	public function acquireOrderRefundLock( $orderId ) {
+		global $wpdb;
+
+		$orderId = (int) $orderId;
+		if ( $orderId <= 0 ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Connection-scoped advisory lock; must not be cached.
+		$acquired = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT GET_LOCK(%s, %d)',
+				$this->getOrderRefundLockName( $orderId ),
+				0
+			)
+		);
+
+		return '1' === (string) $acquired;
+	}
+
+	public function releaseOrderRefundLock( $orderId ) {
+		global $wpdb;
+
+		$orderId = (int) $orderId;
+		if ( $orderId <= 0 ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Releases the connection-scoped advisory lock.
+		$wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT RELEASE_LOCK(%s)',
+				$this->getOrderRefundLockName( $orderId )
+			)
+		);
+	}
+
+	public function reloadOrder( $orderId ) {
+		$orderId = (int) $orderId;
+
+		if ( function_exists( 'clean_post_cache' ) ) {
+			clean_post_cache( $orderId );
+		}
+
+		if ( function_exists( 'wc_get_container' ) && class_exists( \Automattic\WooCommerce\Caches\OrderCache::class ) ) {
+			try {
+				wc_get_container()->get( \Automattic\WooCommerce\Caches\OrderCache::class )->remove( $orderId );
+			} catch ( \Throwable $e ) {
+				LogService::getInstance()->debug( 'Order cache clear skipped: ' . $e->getMessage() );
+			}
+		}
+
+		$order = wc_get_order( $orderId );
+		if ( $order && method_exists( $order, 'read_meta_data' ) ) {
+			$order->read_meta_data( true );
+		}
+
+		return $order;
+	}
+
+	public function countMatchingRefunds( $order, $amount, $reason = '' ) {
+		return count( $this->matchingRefundValues( $order, $amount, $reason ) );
+	}
+
+	private function matchingRefundValues( $order, $amount, $reason ) {
+		$currency        = (string) $order->get_currency();
+		$formattedAmount = AmountHelper::formatAmount( (float) $amount, $currency );
+		$reason          = (string) $reason;
+		$matches         = array();
+
+		foreach ( $order->get_meta_data() as $meta ) {
+			$key   = is_object( $meta ) ? ( $meta->key ?? '' ) : ( $meta['key'] ?? '' );
+			$value = is_object( $meta ) ? ( $meta->value ?? null ) : ( $meta['value'] ?? null );
+			if ( 0 !== strpos( (string) $key, self::META_REFUND_ID ) || ! is_array( $value ) ) {
+				continue;
+			}
+			if ( ! isset( $value['amount'] ) ) {
+				continue;
+			}
+			if ( (string) ( $value['reason'] ?? '' ) !== $reason ) {
+				continue;
+			}
+			if ( AmountHelper::amountEquals( (float) $value['amount'], $formattedAmount, $currency ) ) {
+				$matches[] = $value;
+			}
+		}
+
+		return $matches;
 	}
 
 	/**

@@ -3,7 +3,7 @@ Contributors: airwallex
 Tags: airwallex, payments, credit card, woocommerce, subscriptions
 Requires at least: 4.5
 Tested up to: 7.0
-Stable tag: 1.35.2
+Stable tag: 1.36.0
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -68,6 +68,10 @@ The non-compressed javascript files can be found under the ```assets/js``` folde
 We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) as our build tool.
 
 == Changelog ==
+
+= 1.36.0 =
+* Release Date - 1 Oct 2026 *
+* Fix - Security and stability improvements for payment notification handling. Thanks to Pedro Pinho for the responsible disclosure.
 
 = 1.35.2 =
 * Release Date - 21 Sep 2026*
