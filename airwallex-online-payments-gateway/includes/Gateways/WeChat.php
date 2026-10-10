@@ -160,7 +160,7 @@ class WeChat extends WC_Payment_Gateway {
 
 			$redirectUrl = $this->get_payment_url( 'airwallex_payment_method_wechat' );
 			$redirectUrl .= ( strpos( $redirectUrl, '?' ) === false ) ? '?' : '&';
-			$redirectUrl .= 'order_id=' . $order_id;
+			$redirectUrl .= 'order_id=' . $order_id . '&key=' . rawurlencode( $order->get_order_key() );
 			return [
 				'result'   => 'success',
 				'redirect' => $redirectUrl,

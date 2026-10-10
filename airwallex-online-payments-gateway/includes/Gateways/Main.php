@@ -354,7 +354,7 @@ class Main extends WC_Payment_Gateway {
 
 			$redirectUrl = $this->get_payment_url( 'airwallex_payment_method_all' );
 			$redirectUrl .= ( strpos( $redirectUrl, '?' ) === false ) ? '?' : '&';
-			$redirectUrl .= 'order_id=' . $order_id;
+			$redirectUrl .= 'order_id=' . $order_id . '&key=' . rawurlencode( $order->get_order_key() );
 			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Called from WooCommerce process_payment(), which is gated by WC's checkout nonce; only checked for presence.
 			if ( isset( $_POST['woocommerce_pay'] ) ) {
 				$redirectUrl .= '&order_pay=1';

@@ -25,7 +25,13 @@ class WebhookService {
 		try {
 			$this->verifySignature( $headers, $msg );
 		} catch ( Exception $e ) {
-			$logService->debug( 'unable to verify webhook signature: ' . $e->getMessage() );
+			$logService->debug(
+				'unable to verify webhook signature',
+				array(
+					'reason'         => $e->getMessage(),
+					'correlation_id' => $this->correlationIdFromPayload( $msg ),
+				)
+			);
 			wp_send_json( array( 'success' => 0 ), 401 );
 			die;
 		}
@@ -52,9 +58,29 @@ class WebhookService {
 					$upsellPaymentIntentIds = \Airwallex\Gateways\FunnelKitUpsell::getInstance()->getUpsellPaymentIntentIds($order);
 				}
 				if ( in_array( $paymentIntent->getId(), $upsellPaymentIntentIds, true ) ) {
+					// An upsell intent must not complete the parent checkout order. When the
+					// browser never recorded the offer, the trusted succeeded intent can.
+					if ( Webhook::STATUS_PAYMENT_INTENT_SUCCEEDED === $eventType ) {
+						try {
+							$trustedPaymentIntent = $this->getTrustedPaymentIntent( $paymentIntent );
+							\Airwallex\Gateways\FunnelKitUpsell::getInstance()->recordChargedUpsellFromWebhook( $order, $trustedPaymentIntent );
+						} catch ( Exception $e ) {
+							$logService->error( 'Upsell webhook could not record the charged offer: ' . $e->getMessage() );
+							// 500 asks Airwallex to retry. The controller maps every other exception to 401.
+							wp_send_json( array( 'success' => 0 ), 500 );
+							die;
+						}
+					}
 					return;
 				}
-				$this->verifyIntentFromOrder($order, $paymentIntent, $eventType);
+
+				if (in_array($paymentIntent->getStatus(), [StructPaymentIntent::STATUS_CREATED, StructPaymentIntent::STATUS_REQUIRES_PAYMENT_METHOD], true)) {
+					if (method_exists($order, 'add_order_note')) {
+						$order->add_order_note( 'Airwallex Webhook notification: ' . $eventType . "\n\n" . 'Amount: ' . $paymentIntent->getAmount() . $paymentIntent->getCurrency() );
+					}
+					return;
+				}
+				$this->verifyIntentFromOrder( $order, $paymentIntent, $eventType );
 				switch ( $eventType ) {
 					case Webhook::STATUS_PAYMENT_INTENT_CANCELLED:
 						$logService->debug( 'skip cancelled webhook to avoid long pending orders being marked failed', $eventType );
@@ -77,7 +103,12 @@ class WebhookService {
 					default:
 						if ( $paymentIntent->getStatus() === StructPaymentIntent::STATUS_REQUIRES_CUSTOMER_ACTION ) {
 							$logService->debug( '🖧 detected pending status from webhook', $eventType );
-							$orderService->setPendingStatus( $order );
+							$trustedPaymentIntent = $this->getTrustedPaymentIntent( $paymentIntent );
+							$this->verifyIntentFromOrder( $order, $trustedPaymentIntent, $eventType );
+							$orderService->setPaymentSuccess( $order, $trustedPaymentIntent, __METHOD__ );
+							if ( StructPaymentIntent::STATUS_REQUIRES_CUSTOMER_ACTION === $trustedPaymentIntent->getStatus() ) {
+								$orderService->setPendingStatus( $order, $trustedPaymentIntent );
+							}
 						}
 				}
 
@@ -200,9 +231,6 @@ class WebhookService {
 		}
 		$paymentIntentIdFromOrder = $order->get_meta( OrderService::META_KEY_INTENT_ID );
 		if ( $paymentIntent->getId() !== $paymentIntentIdFromOrder ) {
-			if (in_array($paymentIntent->getStatus(), [StructPaymentIntent::STATUS_CREATED, StructPaymentIntent::STATUS_REQUIRES_PAYMENT_METHOD], true)) {
-				return;
-			}
 			throw new Exception('Mismatch in payment intent ID from webhook and order. Debug info: ' . wp_json_encode([
 				'payment_intent_id_from_order' => $paymentIntentIdFromOrder,
 				'payment_intent_id_from_webhook' => $paymentIntent->getId(),
@@ -219,32 +247,28 @@ class WebhookService {
 	 * @throws Exception
 	 */
 	private function verifySignature( $headers, $msg ) {
-
-		$timestamp = isset( $headers['x-timestamp'] ) ? $headers['x-timestamp'] : '';
-		$secret    = Util::getWebhookSecret();
-		$signature = isset( $headers['x-signature'] ) ? $headers['x-signature'] : '';
+		$secret = Util::getWebhookSecret();
 
 		// A webhook must never be accepted unless it is authenticated with a secret that is
 		// actually configured. Refuse to verify when the secret, timestamp or signature is
 		// empty rather than computing an HMAC with an empty key, which an attacker can
 		// trivially reproduce on a store that never set a webhook secret.
-		if ( '' === (string) $secret ) {
+		if ( empty($secret) || '' === (string) $secret ) {
 			throw new Exception( 'Webhook secret is not configured; refusing to process the webhook.' );
 		}
-		if ( '' === (string) $timestamp || '' === (string) $signature ) {
-			throw new Exception( 'Missing webhook timestamp or signature.' );
-		}
 
-		$calculatedSignature = hash_hmac( 'sha256', $timestamp . $msg, $secret );
-		if ( ! hash_equals( $calculatedSignature, (string) $signature ) ) {
-			throw new Exception(
-				sprintf(
-					'Invalid signature: %1$s vs. %2$s',
-					esc_html( $signature ),
-					esc_html( $calculatedSignature )
-				)
-			);
-		}
+		Util::verifySignature( $headers, $msg, $secret );
+	}
+
+	/**
+	 * @param string $msg
+	 * @return string
+	 */
+	private function correlationIdFromPayload( $msg ) {
+		$decoded = json_decode( (string) $msg, true );
+		$id      = is_array( $decoded ) && isset( $decoded['id'] ) ? $decoded['id'] : '';
+
+		return Util::correlationId( $id );
 	}
 
 	/**
@@ -257,8 +281,7 @@ class WebhookService {
 		$metaData = $paymentIntent->getMetadata();
 		if ( ! empty( $metaData['wp_order_id'] ) ) {
 			return (int) $metaData['wp_order_id'];
-		} else {
-			return (int) $paymentIntent->getMerchantOrderId();
 		}
+		return (int) $paymentIntent->getMerchantOrderId();
 	}
 }

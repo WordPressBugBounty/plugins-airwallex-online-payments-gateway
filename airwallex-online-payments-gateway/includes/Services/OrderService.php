@@ -63,6 +63,8 @@ class OrderService {
 		$decimalPlaces   = StructPaymentIntent::CURRENCY_TO_DECIMAL[ strtoupper( (string) $currency ) ] ?? 2;
 		$formattedAmount = AmountHelper::formatAmount( (float) $amount, $currency );
 
+		// Client ID and UTC date keep this id from matching another platform that
+		// hashes the same order, amount and reason. Same-day retries stay idempotent.
 		$fingerprint = implode(
 			'|',
 			array(
@@ -70,6 +72,8 @@ class OrderService {
 				number_format( $formattedAmount, $decimalPlaces, '.', '' ),
 				(string) $reason,
 				$this->countMatchingRefunds( $order, $amount, $reason ),
+				(string) Util::getClientId(),
+				gmdate( 'Y-m-d' ),
 			)
 		);
 
@@ -162,7 +166,7 @@ class OrderService {
 			if ( (string) ( $value['reason'] ?? '' ) !== $reason ) {
 				continue;
 			}
-			if ( AmountHelper::amountEquals( (float) $value['amount'], $formattedAmount, $currency ) ) {
+			if ( Util::amountsEqualAtCurrencyPrecision( (float) $value['amount'], $formattedAmount, $currency ) ) {
 				$matches[] = $value;
 			}
 		}
@@ -735,11 +739,60 @@ class OrderService {
 			);
 		}
 
+		if ( $paymentIntent->isCaptured() || $paymentIntent->isAuthorized() ) {
+			$this->assertPaymentMatchesOrder( $order, $paymentIntent );
+		}
+
 		if ( $paymentIntent->isCaptured() ) {
 			$this->paymentCompleteByCapture($order, $referrer, $paymentIntent);
 		} elseif ( $paymentIntent->isAuthorized() ) {
 			$this->paymentCompleteByAuthorize($order, $referrer, $paymentIntent);
 		}
+	}
+
+	/**
+	 * Reject a captured or authorized intent that does not pay the checkout amount.
+	 *
+	 * The amount due is the total stored when the checkout intent was created. The live
+	 * order total can include a later upsell, so it is not the amount of the original payment.
+	 * A currency-switcher payment matches on the intent base amount and base currency.
+	 *
+	 * @param WC_Order            $order
+	 * @param StructPaymentIntent $paymentIntent
+	 * @return void
+	 * @throws Exception
+	 */
+	private function assertPaymentMatchesOrder( $order, StructPaymentIntent $paymentIntent ) {
+		list( $expectedAmount, $expectedCurrency ) = $this->checkoutAmountDue( $order );
+		$intentCurrency = strtoupper( (string) $paymentIntent->getCurrency() );
+		$baseCurrency   = strtoupper( (string) $paymentIntent->getBaseCurrency() );
+
+		if ( '' !== $intentCurrency && $intentCurrency === $expectedCurrency ) {
+			$paidAmount = (float) $paymentIntent->getAmount();
+		} elseif ( '' !== $baseCurrency && $baseCurrency === $expectedCurrency ) {
+			$paidAmount = (float) $paymentIntent->getBaseAmount();
+		} else {
+			throw new Exception( esc_html__( 'Payment currency does not match the order.', 'airwallex-online-payments-gateway' ) );
+		}
+
+		if ( ! Util::amountsEqualAtCurrencyPrecision( $paidAmount, $expectedAmount, $expectedCurrency ) ) {
+			throw new Exception( esc_html__( 'Payment amount does not match the order.', 'airwallex-online-payments-gateway' ) );
+		}
+	}
+
+	/**
+	 * Checkout total stored with the intent, before any upsell is added to the order.
+	 *
+	 * @param WC_Order $order
+	 * @return array
+	 */
+	private function checkoutAmountDue( $order ) {
+		$amount   = $order->get_meta( self::META_KEY_ORDER_ORIGINAL_AMOUNT, true );
+		$currency = strtoupper( (string) $order->get_meta( self::META_KEY_ORDER_ORIGINAL_CURRENCY, true ) );
+		if ( is_numeric( $amount ) && '' !== $currency ) {
+			return array( (float) $amount, $currency );
+		}
+		return array( (float) $order->get_total(), strtoupper( (string) $order->get_currency() ) );
 	}
 
 	/**
@@ -830,10 +883,42 @@ class OrderService {
 	 * @param WC_Order $order
 	 * @return void
 	 */
-	public function setPendingStatus( $order ) {
+	public function setPendingStatus( $order, StructPaymentIntent $paymentIntent ) {
 		$orderStatus = get_option( 'airwallex_order_status_pending' );
-		if ( $orderStatus ) {
-			$order->update_status( $orderStatus, 'Airwallex status update (pending)' );
+		if ( ! $orderStatus || StructPaymentIntent::STATUS_REQUIRES_CUSTOMER_ACTION !== $paymentIntent->getStatus() ) {
+			return;
+		}
+		global $wpdb;
+		$orderId = $order->get_id();
+		$tableName = esc_sql( $this->getOrderMetaTableName() );
+		$orderIdColumnName = esc_sql( $this->getOrderIdColumnNameFromMetaTable() );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			throw new Exception( 'Unable to start pending payment transaction.' );
+		}
+		try {
+			$lockedRow = $wpdb->get_row( $wpdb->prepare(
+				"SELECT * FROM {$tableName} WHERE {$orderIdColumnName} = %d AND meta_key = %s FOR UPDATE",
+				$orderId,
+				self::META_KEY_INTENT_ID
+			) );
+			if ( ! $lockedRow ) {
+				throw new Exception( 'Unable to lock the pending payment order.' );
+			}
+			$freshOrder = $this->reloadOrder( $orderId );
+			if ( $freshOrder
+				&& (string) $freshOrder->get_meta( self::META_KEY_INTENT_ID ) === (string) $paymentIntent->getId()
+				&& ! $freshOrder->is_paid()
+				&& ! $freshOrder->has_status( array( 'completed', 'processing', 'refunded', 'cancelled' ) )
+				&& ! $freshOrder->meta_exists( self::META_KEY_PREFIX_PAYMENT_PROCESSED . $orderId )
+			) {
+				$freshOrder->update_status( $orderStatus, 'Airwallex status update (pending)' );
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				throw new Exception( 'Unable to commit pending payment transaction.' );
+			}
+		} catch ( \Exception $exception ) {
+			$wpdb->query( 'ROLLBACK' );
+			throw $exception;
 		}
 	}
 

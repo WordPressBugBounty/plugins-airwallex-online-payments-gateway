@@ -318,6 +318,7 @@ const getOrderDataForGooglePay = (paymentData: any) => {
 
 	const data = Object.assign(
 		{
+			security: awxExpressCheckoutSettings.nonce.payment,
 			_wpnonce: awxExpressCheckoutSettings.nonce.checkout,
 			order_comments:            '',
 			payment_method:            'airwallex_express_checkout',
@@ -366,6 +367,7 @@ const getOrderDataForApplePay = (paymentData: any) => {
 
 	const data = Object.assign(
 		{
+			security: awxExpressCheckoutSettings.nonce.payment,
 			_wpnonce: awxExpressCheckoutSettings.nonce.checkout,
 			order_comments:            '',
 			payment_method:            'airwallex_express_checkout',

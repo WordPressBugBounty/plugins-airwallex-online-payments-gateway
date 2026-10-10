@@ -156,7 +156,12 @@ trait AirwallexGatewayTrait {
 			return $url;
 		}
 		$url .= strpos($url, '?') !== false ? '&' : '?';
-		return $url . "order_id=$orderId&intent_id=$intentId";
+		$url .= 'order_id=' . rawurlencode( (string) $orderId ) . '&intent_id=' . rawurlencode( (string) $intentId );
+		$order = wc_get_order( $orderId );
+		if ( $order ) {
+			$url .= '&key=' . rawurlencode( $order->get_order_key() );
+		}
+		return $url;
 	}
 
 	public function init_settings() {
@@ -298,9 +303,9 @@ trait AirwallexGatewayTrait {
 	public function getOrderFromRequest($referrer = '') {
 		$orderId = 0;
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Shortcode/redirect-back handler reached via shopper browser after payment provider redirect; order_id is cast to (int) and validated via wc_get_order() below.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Redirect-back and payment page handler. order_id is cast to (int); access is authorized by hash_equals() against the order key below, not by a nonce.
 		if (!empty($_GET['order_id'])) {
-			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Shortcode/redirect-back handler reached via shopper browser after payment provider redirect; order_id is cast to (int) and validated via wc_get_order() below.
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Redirect-back and payment page handler. order_id is cast to (int); access is authorized by hash_equals() against the order key below, not by a nonce.
 			$orderId = (int) $_GET['order_id'];
 		}
 
@@ -331,6 +336,16 @@ trait AirwallexGatewayTrait {
 			RemoteLog::error( json_encode(['msg' => $errorMessage, 'params' => $diagnosticParams]), RemoteLog::ON_PAYMENT_CONFIRMATION_ERROR);
 			throw new Exception( esc_html__( 'Unable to retrieve a valid order.', 'airwallex-online-payments-gateway' ) );
 		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Order key is the authorization secret for this order; wc_clean() sanitizes the value.
+		$orderKey = isset( $_GET['key'] ) ? wc_clean( wp_unslash( $_GET['key'] ) ) : '';
+		if ( ! is_string( $orderKey ) ) {
+			$orderKey = '';
+		}
+		if ( ! hash_equals( $orderKey, (string) $order->get_order_key() ) ) {
+			throw new Exception( esc_html__( 'You are not authorized to view this order.', 'airwallex-online-payments-gateway' ) );
+		}
+
 		return $order;
 	}
 

@@ -18,6 +18,7 @@ class LogService {
 	const SEVERITY_WARN = 'warn';
 	const SEVERITY_ERROR = 'error';
 
+	const LOG_FILE_HEADER = "<?php http_response_code(403); exit; ?>\n";
 	private $logDir;
 	private static $instance;
 
@@ -34,18 +35,53 @@ class LogService {
 		} else {
 			$uploadDir = wp_upload_dir();
 			$this->logDir = $uploadDir['basedir'] . '/airwallex-logs/';
-			if ( ! is_dir( $this->logDir ) ) {
-				wp_mkdir_p( $this->logDir );
+		}
+		$this->logDir = rtrim( $this->logDir, '/\\' ) . '/';
+		$this->prepareLogDirectory();
+	}
+
+	private function prepareLogDirectory() {
+		if ( ! is_dir( $this->logDir ) && ! wp_mkdir_p( $this->logDir ) ) {
+			return;
+		}
+		$protectionFiles = array(
+			'.htaccess' => "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n",
+			'index.php' => "<?php http_response_code(403); exit;\n",
+			'index.html' => '',
+		);
+		foreach ( $protectionFiles as $name => $content ) {
+			$handle = @fopen( $this->logDir . $name, 'xb' );
+			if ( false !== $handle ) {
+				fwrite( $handle, $content );
+				fclose( $handle );
 			}
 		}
 	}
 
 	private function getLogFile( $level ) {
-		return $this->logDir . 'airwallex-' . $level . '-' . gmdate( 'Y-m-d' ) . '_' . md5( Util::getApiKey() ) . '.log';
+		$suffix = hash_hmac( 'sha256', 'airwallex_log', wp_salt() );
+		return $this->logDir . 'airwallex-' . $level . '-' . gmdate( 'Y-m-d' ) . '_' . $suffix . '.log.php';
 	}
 
 	public function log( $message, $level = 'debug', $data = null ) {
-		file_put_contents( $this->getLogFile( $level ), '[' . gmdate( 'Y-m-d H:i:s' ) . '] ' . $message . ' | ' . wp_json_encode( $data ) . "\n", 8 ); // @codingStandardsIgnoreLine.
+		$path = $this->getLogFile( $level );
+		$handle = @fopen( $path, 'a+b' );
+		if ( false === $handle ) {
+			return;
+		}
+		if ( flock( $handle, LOCK_EX ) ) {
+			rewind( $handle );
+			$stat = fstat( $handle );
+			$ready = 0 === $stat['size']
+				? strlen( self::LOG_FILE_HEADER ) === fwrite( $handle, self::LOG_FILE_HEADER )
+				: self::LOG_FILE_HEADER === fread( $handle, strlen( self::LOG_FILE_HEADER ) );
+			if ( $ready ) {
+				fwrite( $handle, '[' . gmdate( 'Y-m-d H:i:s' ) . '] ' . $message . ' | ' . wp_json_encode( $data ) . "\n" );
+			}
+			flock( $handle, LOCK_UN );
+		}
+		fclose( $handle );
+		@chmod( $path, 0600 );
 	}
 
 	public function debug( $message, $data = null, $type = 'unknown' ) {

@@ -34,9 +34,10 @@ jQuery(function ($) {
         }
 
         const urlParams = new URLSearchParams(window.location.search);
+        const orderKey = urlParams.get('key') || '';
 
         const redirectData: RedirectDataResponse = await $.ajax({
-            url: getRedirectDataUrl + '&security=' + security + '&order_id=' + urlParams.get('order_id'),
+            url: getRedirectDataUrl + '&security=' + security + '&order_id=' + urlParams.get('order_id') + '&key=' + encodeURIComponent(orderKey),
             method: 'GET',
             dataType: 'json',
         });
@@ -80,16 +81,23 @@ jQuery(function ($) {
                 successMessage.style.display = 'block';
             }
             confirmationUrl += confirmationUrl.indexOf('?') !== -1 ? '&' : '?';
-            location.href = `${confirmationUrl}order_id=${orderId}&intent_id=${paymentIntentId}&is_airwallex_save_checked=true`;
+            location.href = `${confirmationUrl}order_id=${orderId}&intent_id=${paymentIntentId}&key=${encodeURIComponent(orderKey)}&is_airwallex_save_checked=true`;
         });
 
-        window.addEventListener('onError', () => {
+        window.addEventListener('onError', (event: Event) => {
+            const detail = (event as CustomEvent<{ error?: { code?: string } }>).detail;
+            const errorEl = document.getElementById('airwallex-error-message');
+            if (errorEl && detail?.error?.code === 'no_payment_methods') {
+                errorEl.textContent = 'No available payment methods.';
+            }
             $.ajax({
                 url: awxCommonData.updateOrderStatusAfterPaymentDecline.url + '&security=' + awxCommonData.updateOrderStatusAfterPaymentDecline.nonce + "&order_id=" + orderId,
                 method: 'GET',
                 dataType: 'json',
             });
-            (document.getElementById('airwallex-error-message') as HTMLElement).style.display = 'block';
+            if (errorEl) {
+                errorEl.style.display = 'block';
+            }
         });
     };
 

@@ -2,8 +2,8 @@
 Contributors: airwallex
 Tags: airwallex, payments, credit card, woocommerce, subscriptions
 Requires at least: 4.5
-Tested up to: 7.0
-Stable tag: 1.36.0
+Tested up to: 7.1.3
+Stable tag: 1.37.0
 Requires PHP: 7.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -68,6 +68,10 @@ The non-compressed javascript files can be found under the ```assets/js``` folde
 We use the [@wordpress/scripts](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/) as our build tool.
 
 == Changelog ==
+
+= 1.37.0 =
+* Release Date - 8 Oct 2026 *
+* Fix - Resolved card payment issue when billing email was entered after selecting "Card" as preferred payment method
 
 = 1.36.0 =
 * Release Date - 1 Oct 2026 *

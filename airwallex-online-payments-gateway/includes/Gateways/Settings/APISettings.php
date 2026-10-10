@@ -15,6 +15,7 @@ if (!defined('ABSPATH')) {
 class APISettings extends AbstractAirwallexSettings {
 	const ID = 'airwallex_general';
 	const CONNECTION_FAILED_HELP_LINK = 'https://www.airwallex.com/docs/payments__plugins__woocommerce__install-the-woocommerce-plugin#configure-api-settings-and-webhooks';
+	const SECRET_MASK = '********';
 
 	public function __construct() {
 		$this->id          = self::ID;
@@ -119,17 +120,17 @@ class APISettings extends AbstractAirwallexSettings {
 				'title' => __('API Key', 'airwallex-online-payments-gateway'),
 				'type' => 'password',
 				'description' => '',
-				'default' => Util::getApiKey(),
+				'default' => '',
 				'id' => 'airwallex_api_key',
-				'value' => Util::getApiKey(),
+				'value' => '',
 			),
 			'webhook_secret' => array(
 				'title' => __('Webhook Secret', 'airwallex-online-payments-gateway'),
 				'type' => 'password',
 				'description' => __('Webhook URL:', 'airwallex-online-payments-gateway') . WC()->api_request_url( Main::ROUTE_SLUG_WEBHOOK ),
-				'default' => Util::getWebhookSecret(),
+				'default' => '',
 				'id' => 'airwallex_webhook_secret',
-				'value' => Util::getWebhookSecret(),
+				'value' => '',
 			),
 			'connect_via_api_key' => array(
 				'title' => '',
@@ -302,6 +303,12 @@ class APISettings extends AbstractAirwallexSettings {
 				$this->settings[$key] = get_option('airwallex_' . $key, $value);
 			}
 		}
+
+		foreach ( array( 'api_key', 'webhook_secret' ) as $secretKey ) {
+			if ( ! empty( $this->settings[ $secretKey ] ) ) {
+				$this->settings[ $secretKey ] = self::SECRET_MASK;
+			}
+		}
 	}
 
 	public function process_admin_options() {
@@ -311,6 +318,11 @@ class APISettings extends AbstractAirwallexSettings {
 		$envSuffix = Util::isSandboxEnvironment( $env ) ? '_demo' : '';
 
 		foreach ($this->settings as $key => $value) {
+			if ( in_array( $key, array( 'api_key', 'webhook_secret' ), true ) && self::isMaskedSecret( $value ) ) {
+				$value = 'webhook_secret' === $key ? Util::getWebhookSecret( $env ) : Util::getApiKey( $env );
+				$value = is_string( $value ) ? $value : '';
+				$this->settings[ $key ] = $value;
+			}
 			if (in_array($key, ['client_id', 'api_key', 'webhook_secret'], true)) {
 				update_option('airwallex_' . $key . $envSuffix, $value, 'yes');
 			} else {
@@ -319,11 +331,42 @@ class APISettings extends AbstractAirwallexSettings {
 		}
 	}
 
+	/**
+	 * @param mixed $value
+	 * @return bool
+	 */
+	public static function isMaskedSecret( $value ) {
+		return self::SECRET_MASK === $value;
+	}
+
 	public function enqueueAdminScripts() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			return;
+		}
+
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'woocommerce_page_wc-settings' !== $screen->id ) {
+			return;
+		}
+
 		$this->enqueueAdminSettingsScripts();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin screen routing; value is compared against known section ids.
+		$section = isset( $_GET['section'] ) ? wc_clean( wp_unslash( $_GET['section'] ) ) : '';
+		if ( self::ID === $section ) {
+			$scriptData = $this->getSettingsScriptData( $this->maybeForcePaymentPageTemplate() );
+		} else {
+			$scriptData = array(
+				'paymentMethodStatus' => $this->getPaymentMethodStatusScriptData(),
+				'apiSettings'         => array(
+					'connected' => false,
+				),
+			);
+		}
+
 		wp_add_inline_script(
 			'airwallex-admin-settings',
-			'var awxAdminSettings = ' . wp_json_encode($this->getSettingsScriptData()),
+			'var awxAdminSettings = ' . wp_json_encode( $scriptData ),
 			'before'
 		);
 		wp_add_inline_script(
@@ -333,17 +376,48 @@ class APISettings extends AbstractAirwallexSettings {
 		);
 	}
 
-	public function getSettingsScriptData() {
-		$isForceSetPaymentFormAsWPPage = Util::isNewClient( Util::ENV_SANDBOX ) && Util::isNewClient( Util::ENV_PROD ) && !get_option( 'airwallex_payment_page_template' );
-		if ($isForceSetPaymentFormAsWPPage) {
+	/**
+	 * @return bool
+	 */
+	private function maybeForcePaymentPageTemplate() {
+		$force = Util::isNewClient( Util::ENV_SANDBOX ) && Util::isNewClient( Util::ENV_PROD ) && ! get_option( 'airwallex_payment_page_template' );
+		if ( $force ) {
 			update_option( 'airwallex_payment_page_template', 'wordpress_page' );
 		}
+
+		return $force;
+	}
+
+	/**
+	 * @return array
+	 */
+	private function getPaymentMethodStatusScriptData() {
+		return array(
+			'nonce' => wp_create_nonce( 'wc-airwallex-admin-settings-is-payment-method-enabled' ),
+			'url'   => WC_AJAX::get_endpoint( 'airwallex_is_payment_method_enabled' ),
+		);
+	}
+
+	/**
+	 * @param string $env
+	 * @return array
+	 */
+	private function getCredentialFlags( $env ) {
+		return array(
+			'client_id'            => (string) Util::getClientId( $env ),
+			'api_key_set'          => '' !== (string) Util::getApiKey( $env ),
+			'webhook_secret_set'   => '' !== (string) Util::getWebhookSecret( $env ),
+		);
+	}
+
+	/**
+	 * @param bool $isForceSetPaymentFormAsWPPage
+	 * @return array
+	 */
+	public function getSettingsScriptData( $isForceSetPaymentFormAsWPPage = false ) {
 		return [
 			'pluginUrl' => esc_attr(AIRWALLEX_PLUGIN_URL),
-			'paymentMethodStatus' => [
-				'nonce' => wp_create_nonce('wc-airwallex-admin-settings-is-payment-method-enabled'),
-				'url' => WC_AJAX::get_endpoint('airwallex_is_payment_method_enabled'),
-			],
+			'paymentMethodStatus' => $this->getPaymentMethodStatusScriptData(),
 			'apiSettings' => [
 				'env' => Util::getEnvironment(),
 				'connected' => $this->isConnected(),
@@ -376,22 +450,11 @@ class APISettings extends AbstractAirwallexSettings {
 					'demo' => get_option('airwallex_connection_type_demo') === 'connection_flow' ? 'no' : 'yes',
 					'prod' => get_option('airwallex_connection_type') === 'connection_flow' ? 'no' : 'yes',
 				],
+				'secretMask' => self::SECRET_MASK,
 				'credentials' => [
-					'sandbox' => [
-						'client_id' => Util::getClientId( Util::ENV_SANDBOX ),
-						'api_key' => Util::getApiKey( Util::ENV_SANDBOX ),
-						'webhook_secret' => Util::getWebhookSecret( Util::ENV_SANDBOX ),
-					],
-					'demo' => [
-						'client_id' => Util::getClientId( Util::ENV_DEMO ),
-						'api_key' => Util::getApiKey( Util::ENV_DEMO ),
-						'webhook_secret' => Util::getWebhookSecret( Util::ENV_DEMO ),
-					],
-					'prod' => [
-						'client_id' => Util::getClientId( Util::ENV_PROD ),
-						'api_key' => Util::getApiKey( Util::ENV_PROD ),
-						'webhook_secret' => Util::getWebhookSecret( Util::ENV_PROD ),
-					],
+					'sandbox' => $this->getCredentialFlags( Util::ENV_SANDBOX ),
+					'demo' => $this->getCredentialFlags( Util::ENV_DEMO ),
+					'prod' => $this->getCredentialFlags( Util::ENV_PROD ),
 				],
 				'i18n' => [
 					'connectionTest' => [

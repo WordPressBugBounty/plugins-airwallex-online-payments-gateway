@@ -1,5 +1,8 @@
 *** WooCommerce Airwallex Online Payments Gateway Changelog ***
 
+2026-10-08 - version 1.37.0
+* Fix - Resolved card payment issue when billing email was entered after selecting "Card" as preferred payment method
+
 2026-10-01 - version 1.36.0
 * Fix - Security and stability improvements for payment notification handling. Thanks to Pedro Pinho for the responsible disclosure.
 

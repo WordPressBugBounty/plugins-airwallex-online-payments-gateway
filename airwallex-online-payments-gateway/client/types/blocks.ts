@@ -56,6 +56,22 @@ export interface PaymentMethodComponentProps {
         };
     };
     billing?: {
+        /**
+         * WooCommerce's billing object is flat (email is top-level, not
+         * nested under `address`). `billingData` is the deprecated alias
+         * of `billingAddress`; prefer `billingAddress` in new code.
+         */
+        billingAddress: {
+            first_name: string;
+            last_name: string;
+            email: string;
+            city: string;
+            country: string;
+            postcode: string;
+            state: string;
+            address_1: string;
+            address_2: string;
+        };
         billingData: {
             first_name: string;
             last_name: string;

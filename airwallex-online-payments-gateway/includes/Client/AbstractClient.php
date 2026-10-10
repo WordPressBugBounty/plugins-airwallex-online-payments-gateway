@@ -142,7 +142,7 @@ abstract class AbstractClient {
 
 		$url = WC()->api_request_url( Main::ROUTE_SLUG_CONFIRMATION );
 		$url .= strpos($url, '?') !== false ? '&' : '?';
-		$url .= "order_id=$orderId";		
+		$url .= 'order_id=' . rawurlencode( (string) $orderId ) . '&key=' . rawurlencode( $order->get_order_key() );
 		$data        = array(
 			'amount'            => $amount,
 			'currency'          => $order->get_currency(),

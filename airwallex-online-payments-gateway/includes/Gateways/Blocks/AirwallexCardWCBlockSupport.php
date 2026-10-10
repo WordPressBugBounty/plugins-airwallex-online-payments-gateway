@@ -139,7 +139,11 @@ class AirwallexCardWCBlockSupport extends AirwallexWCBlockSupport {
 		if ( $this->name === $context->payment_method && 'redirect' === $this->getCheckoutFormType() ) {
 			$paymentDetails = $result->payment_details;
 			if ( isset( $paymentDetails['messages'] ) && false !== strpos( $paymentDetails['messages'], '<!--Airwallex payment processing-->' ) ) {
-				$result->set_redirect_url( $this->gateway->get_payment_url( 'airwallex_payment_method_card' ) );
+				$order       = $context->order;
+				$redirectUrl = $this->gateway->get_payment_url( 'airwallex_payment_method_card' );
+				$redirectUrl .= ( strpos( $redirectUrl, '?' ) === false ) ? '?' : '&';
+				$redirectUrl .= 'order_id=' . $order->get_id() . '&key=' . rawurlencode( $order->get_order_key() );
+				$result->set_redirect_url( $redirectUrl );
 			}
 		}
 	}

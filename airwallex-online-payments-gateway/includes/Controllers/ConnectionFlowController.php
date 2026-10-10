@@ -26,14 +26,19 @@ class ConnectionFlowController {
     public function startConnection() {
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
         $env = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : 'prod';
-        LogService::getInstance()->debug('Start connection for ' . $env . ' environment');
 
         try {
             check_ajax_referer('wc-airwallex-admin-settings-start-connection-flow', 'security');
 
-            if (!Util::currentUserHasRole('administrator')) {
+            if ( ! current_user_can( 'manage_woocommerce' ) ) {
                 throw new Exception(__('You do not have permission to perform this action.', 'airwallex-online-payments-gateway'));
             }
+
+            if ( ! is_string( $env ) || ! Util::isValidEnvironment( $env ) ) {
+                throw new Exception(__('Invalid request.', 'airwallex-online-payments-gateway'));
+            }
+
+            LogService::getInstance()->debug('Start connection for ' . $env . ' environment');
 
             $requestId = Util::generateUuidV4();
             $this->cacheService->set(self::CACHE_KEY_PREFIX_CONNECTION_REQUEST_ID . $requestId, ['requestId' => $requestId, 'env'=>$env], MINUTE_IN_SECONDS * 30);
@@ -47,7 +52,7 @@ class ConnectionFlowController {
             ];
             $startConnectionUrl = $domainUrl . '/payment_app/plugin/api/v1/connection/start/?' . http_build_query($startConnectionParams);
 
-            LogService::getInstance()->debug('Connection url generated ', $startConnectionUrl);
+            LogService::getInstance()->debug('Connection url generated');
 
             wp_send_json([
                 'success' => true,
@@ -63,15 +68,16 @@ class ConnectionFlowController {
     }
 
     public function connectionCallback() {
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_safe_redirect( home_url() );
+            return;
+        }
+
         try {
             LogService::getInstance()->debug('Connection flow callback', [
-                // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- OAuth-style callback reached via redirect from Airwallex; admin capability is verified below.
+                // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- OAuth-style callback reached via redirect from Airwallex; admin capability is verified above.
                 'requestId' => isset( $_GET['requestId'] ) ? sanitize_text_field( wp_unslash( $_GET['requestId'] ) ) : null,
             ]);
-
-            if (!Util::currentUserHasRole('administrator')) {
-                throw new Exception(__('You do not have permission to perform this action.', 'airwallex-online-payments-gateway'));
-            }
 
             // phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- OAuth-style callback reached via redirect from Airwallex; admin capability is verified above; wc_clean() sanitizes the value, but the sniff doesn't recognize it.
             $code = isset($_GET['code']) ? wc_clean(wp_unslash($_GET['code'])) : '';
@@ -87,7 +93,9 @@ class ConnectionFlowController {
             $accessToken = gzdecode(base64_decode($code)); // decode the based64 encoded and gzipped code
             $baseUrl = home_url();
             $validationToken = Util::generateUuidV4();
-            $this->cacheService->set(self::CACHE_KEY_PREFIX_CONNECTION_FINALIZE . $requestId, $validationToken, MINUTE_IN_SECONDS * 5);
+            $connectionTtl = MINUTE_IN_SECONDS * 5;
+            $this->cacheService->set(self::CACHE_KEY_PREFIX_CONNECTION_FINALIZE . $requestId, $validationToken, $connectionTtl);
+            $this->cacheService->set(self::CACHE_KEY_PREFIX_CONNECTION_REQUEST_ID . $requestId, $cachedRequestData, $connectionTtl);
 
             
             /** @var ConnectionFinalizeResponse $connectionFinalizeResponse */
@@ -107,6 +115,8 @@ class ConnectionFlowController {
             }
             wp_safe_redirect(admin_url('admin.php?page=wc-settings&tab=checkout&section=airwallex_general'));
         } catch (Exception $e) {
+            // Connection flow failed. Switch the active mode to API key so the settings
+            // screen shows the API key inputs, which are the fallback after this flow fails.
             if (Util::isSandboxEnvironment()) {
                 update_option('airwallex_connection_type_demo', 'api_key');
             } else {
@@ -119,27 +129,28 @@ class ConnectionFlowController {
 	}
 
 	public function saveAccountSetting() {
+        $requestId = '';
         try {
             LogService::getInstance()->debug('Save Account Setting');
 
             $headers = Util::getRequestHeaders();
             $content = file_get_contents( 'php://input' );
             $postData = json_decode($content, true);
+            if ( ! is_array( $postData ) ) {
+                $postData = array();
+            }
             $requestId = isset($postData['request_id']) ? wc_clean(wp_unslash($postData['request_id'])) : '';
 
             $cachedRequestData = $this->cacheService->get(self::CACHE_KEY_PREFIX_CONNECTION_REQUEST_ID . $requestId);
-            if (empty($cachedRequestData['env'])) {
+            if ( ! is_array( $cachedRequestData ) || empty( $cachedRequestData['env'] ) || ! is_string( $cachedRequestData['env'] ) ) {
                 throw new Exception(__('Invalid request.', 'airwallex-online-payments-gateway'));
             }
             $cachedToken = $this->cacheService->get(self::CACHE_KEY_PREFIX_CONNECTION_FINALIZE . $requestId);
             $this->verifySignature($headers, $content, $cachedToken);
 
+            $optionSuffix = Util::isSandboxEnvironment( $cachedRequestData['env'] ) ? '_demo' : '';
             foreach (['client_id', 'api_key', 'webhook_secret', 'account_id', 'account_name'] as $key) {
-                $optionKey = 'airwallex_' . $key . ( Util::isSandboxEnvironment( $cachedRequestData['env'] ) ? '_demo' : '' );
-                if (empty($postData[$key])) {
-                    throw new Exception(__('Invalid request. Missing required fields.', 'airwallex-online-payments-gateway'));
-                }
-                update_option($optionKey, $postData[$key]);
+                update_option( 'airwallex_' . $key . $optionSuffix, $this->accountSettingValue( $postData, $key ) );
             }
             update_option('airwallex_enable_sandbox', Util::isSandboxEnvironment( $cachedRequestData['env'] ) ? 'yes' : 'no');
             if ( Util::ENV_PROD === Util::normalizeEnvironment( $cachedRequestData['env'] ) ) {
@@ -153,7 +164,13 @@ class ConnectionFlowController {
                 'message' => __('Settings saved.', 'airwallex-online-payments-gateway'),
             ]);
         } catch (Exception $e) {
-            LogService::getInstance()->error('Failed to save settings', $e->getMessage());
+            LogService::getInstance()->error(
+                'Failed to save settings',
+                array(
+                    'reason'         => $e->getMessage(),
+                    'correlation_id' => Util::correlationId( $requestId ),
+                )
+            );
             wp_send_json([
                 'success' => false,
                 'message' => __('Failed to save settings.', 'airwallex-online-payments-gateway'),
@@ -162,18 +179,33 @@ class ConnectionFlowController {
 	}
 
     private function verifySignature( $headers, $msg, $secret ) {
-        $timestamp           = $headers['x-timestamp'];
-        $signature           = $headers['x-signature'];
-        $calculatedSignature = hash_hmac( 'sha256', $timestamp . $msg, $secret );
-        
-        if ( $calculatedSignature !== $signature ) {
-            throw new Exception(
-                sprintf(
-                    'Invalid signature: %1$s vs. %2$s',
-                    esc_html( $signature ),
-                    esc_html( $calculatedSignature )
-                )
-            );
+        if ( ! is_string( $secret ) || '' === $secret ) {
+            throw new Exception( 'Connection signature secret is not configured; refusing to process the request.' );
         }
+
+        Util::verifySignature( $headers, $msg, $secret );
+    }
+
+    /**
+     * @param array  $postData
+     * @param string $key
+     * @return string
+     * @throws Exception
+     */
+    private function accountSettingValue( $postData, $key ) {
+        if ( ! isset( $postData[ $key ] ) || ! is_string( $postData[ $key ] ) ) {
+            throw new Exception( __( 'Invalid request. Missing required fields.', 'airwallex-online-payments-gateway' ) );
+        }
+
+        $value = trim( $postData[ $key ] );
+        if ( '' === $value ) {
+            throw new Exception( __( 'Invalid request. Missing required fields.', 'airwallex-online-payments-gateway' ) );
+        }
+
+        if ( strlen( $value ) > 2048 ) {
+            throw new Exception( __( 'Invalid request.', 'airwallex-online-payments-gateway' ) );
+        }
+
+        return $value;
     }
 }

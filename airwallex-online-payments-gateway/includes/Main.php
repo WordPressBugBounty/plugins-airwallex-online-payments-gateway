@@ -97,7 +97,19 @@ class Main {
 		add_action('wc_ajax_airwallex_update_order_status_after_payment_decline', [ControllerFactory::createOrderController(), 'updateOrderStatusAfterPaymentDecline']);
 	}
 
+	public function initializeExpressCheckoutGuestSession() {
+		if ( is_user_logged_in() || ! WC()->session ) {
+			return;
+		}
+		$gateway = ExpressCheckout::getInstance();
+		if ( 'yes' === $gateway->enabled && ( $gateway->isProduct() || is_cart() || is_checkout() || $gateway->isMiniCartEnabled() ) ) {
+			WC()->session->set_customer_session_cookie( true );
+		}
+	}
+
 	public function registerEvents() {
+		add_filter( 'nonce_user_logged_out', array( Util::class, 'guestNonceUserId' ), 20, 2 );
+		add_action( 'template_redirect', array( $this, 'initializeExpressCheckoutGuestSession' ), 1 );
 		add_filter( 'woocommerce_payment_gateways', array( $this, 'addPaymentGateways' ) );
 		add_action( 'woocommerce_order_status_changed', array( $this, 'handleStatusChange' ), 10, 4 );
 		add_action( 'woocommerce_api_' . Card::ROUTE_SLUG, array( new AirwallexController(), 'cardPayment' ) );
@@ -522,7 +534,7 @@ class Main {
 				$order = wc_get_order( $order_id );
 				if ( is_a( $order, 'WC_Order' ) ) {
 					$confirmationUrl .= ( strpos( $confirmationUrl, '?' ) === false ) ? '?' : '&';
-					$confirmationUrl .= 'order_id=' . $order_id;
+					$confirmationUrl .= 'order_id=' . $order_id . '&key=' . rawurlencode( $order->get_order_key() );
 					// phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- WooCommerce-controlled query var on the order-pay endpoint; wc_clean() sanitizes the value but the sniff doesn't recognize it.
 					$orderKey = isset($_GET['key']) ? wc_clean(wp_unslash( $_GET['key'] )) : '';
 					$orderPayUrl = WC()->api_request_url('airwallex_process_order_pay');

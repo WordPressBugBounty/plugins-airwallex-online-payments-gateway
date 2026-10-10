@@ -24,6 +24,8 @@ class PaymentConsentController {
 	}
 
 	public function syncAllConsents() {
+		check_ajax_referer( 'wc-airwallex-sync-all-consents', 'security' );
+
 		if ( ! is_user_logged_in() || ! current_user_can('administrator') || !function_exists('wcs_get_subscriptions') ) {
 			wp_send_json_error(['message' => 'Access denied.']);
 			return;

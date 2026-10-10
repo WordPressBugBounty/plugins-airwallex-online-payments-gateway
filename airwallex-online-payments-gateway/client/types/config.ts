@@ -57,7 +57,9 @@ export interface EmbeddedCardData {
     currency?: string;
     getCheckoutAjaxUrl: string;
     getTokensAjaxUrl: string;
+    getTokensNonce?: string;
     getCustomerClientSecretAjaxUrl: string;
+    getCustomerClientSecretNonce?: string;
     [extra: string]: unknown;
 }
 
@@ -147,10 +149,11 @@ export interface AdminGeneralSettings {
         accountName: { prod: string; sandbox: string; demo?: string };
         connectButtonText: { connect: string; manage: string };
         useApiKey: { prod: 'yes' | 'no'; sandbox: 'yes' | 'no'; demo?: 'yes' | 'no' };
+        secretMask?: string;
         credentials: {
-            prod?: { client_id?: string; api_key?: string; webhook_secret?: string };
-            sandbox?: { client_id?: string; api_key?: string; webhook_secret?: string };
-            demo?: { client_id?: string; api_key?: string; webhook_secret?: string };
+            prod?: { client_id?: string; api_key_set?: boolean; webhook_secret_set?: boolean };
+            sandbox?: { client_id?: string; api_key_set?: boolean; webhook_secret_set?: boolean };
+            demo?: { client_id?: string; api_key_set?: boolean; webhook_secret_set?: boolean };
         };
         nonce: {
             startConnectionFlow: string;

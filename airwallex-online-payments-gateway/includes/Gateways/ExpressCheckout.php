@@ -936,6 +936,9 @@ class ExpressCheckout extends WC_Payment_Gateway {
 	}
 
 	public function getExpressCheckoutScriptData($isBlock) {
+		if ( ! is_user_logged_in() && WC()->session ) {
+			WC()->session->set_customer_session_cookie( true );
+		}
 		$data = [];
 		$countryCode = wc_get_base_location()['country'] ?? '';
 		try {

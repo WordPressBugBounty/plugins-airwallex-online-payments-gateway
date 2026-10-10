@@ -234,7 +234,7 @@ jQuery(function ($) {
 		});
 	});
 
-    if (awxAdminSettings && awxAdminSettings.apiSettings.connected) {
+    if (awxAdminSettings?.apiSettings?.connected) {
         $('.wc-airwallex-connection-test').closest('tr').hide();
         $('#awx-account-not-connected').hide();
 		$('#awx-account-connected').show();
@@ -533,11 +533,12 @@ jQuery(function ($) {
 		updateCredentialFields: function() {
 			const env = airwallexConnectionFlow.getEnv();
 			const credentials = awxAdminSettings.apiSettings.credentials[env];
+			const mask = awxAdminSettings.apiSettings.secretMask || '';
 
 			if (credentials) {
 				$('#airwallex-online-payments-gatewayairwallex_general_client_id').val(credentials.client_id || '');
-				$('#airwallex-online-payments-gatewayairwallex_general_api_key').val(credentials.api_key || '');
-				$('#airwallex-online-payments-gatewayairwallex_general_webhook_secret').val(credentials.webhook_secret || '');
+				$('#airwallex-online-payments-gatewayairwallex_general_api_key').val(credentials.api_key_set ? mask : '');
+				$('#airwallex-online-payments-gatewayairwallex_general_webhook_secret').val(credentials.webhook_secret_set ? mask : '');
 			}
 		}
 	};

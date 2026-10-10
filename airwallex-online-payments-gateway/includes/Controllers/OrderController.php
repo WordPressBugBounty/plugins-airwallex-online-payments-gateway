@@ -16,6 +16,13 @@ use WC_Validation;
 use Airwallex\Services\OrderService;
 
 class OrderController {
+	private function requirePostRequest() {
+		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || 'POST' !== $_SERVER['REQUEST_METHOD'] ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid request method.', 'airwallex-online-payments-gateway' ) ), 405 );
+			exit;
+		}
+	}
+
 
 	/**
 	 * Get estimated cart details without adding the product to the cart
@@ -42,7 +49,7 @@ class OrderController {
 	 */
 	public function calculateCartForProduct($productId, $qty, $attributes) {
 		$product = wc_get_product( $productId );
-		if ( ! $product ) {
+		if ( ! $this->isEstimateProductReadable( $product ) ) {
 			return [
 				'success' => false,
 				'message' => __( 'Invalid product.', 'airwallex-online-payments-gateway' ),
@@ -60,6 +67,9 @@ class OrderController {
 			}
 		}
 
+		if ( ! $this->isEstimateProductReadable( $product ) ) {
+			return [ 'success' => false, 'message' => __( 'Invalid product.', 'airwallex-online-payments-gateway' ) ];
+		}
 		$price = $this->getProductPrice( $product ) * $qty;
 		$decimals = wc_get_price_decimals();
 
@@ -100,6 +110,16 @@ class OrderController {
 		return $data;
 	}
 
+	private function isEstimateProductReadable( $product ) {
+		if ( ! $product || post_password_required( $product->get_id() ) ) {
+			return false;
+		}
+		$parentId = $product->get_parent_id();
+		if ( $parentId && ! $this->isEstimateProductReadable( wc_get_product( $parentId ) ) ) {
+			return false;
+		}
+		return 'publish' === $product->get_status() || current_user_can( 'edit_post', $product->get_id() );
+	}
 	private function getProductPrice( $product ) {
 		if ( $this->cartPricesIncludeTax() ) {
 			$product_price = wc_get_price_including_tax( $product );
@@ -129,18 +149,25 @@ class OrderController {
 	 * Add product to cart action. Used on product detail page to add the current product into the cart.
 	 */
 	public function addToCart() {
+		$this->requirePostRequest();
 		check_ajax_referer( 'wc-airwallex-express-checkout-add-to-cart', 'security' );
+
+		$product_id = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
+		$qty        = ! isset( $_POST['qty'] ) ? 1 : absint( $_POST['qty'] );
+		$product    = wc_get_product( $product_id );
+		if ( ! $product ) {
+			wp_send_json( array(
+				'success' => false,
+				'message' => __( 'Unable to add this product to the cart.', 'airwallex-online-payments-gateway' ),
+			) );
+		}
+		$product_type = $product->get_type();
 
 		if ( ! defined( 'WOOCOMMERCE_CART' ) ) {
 			define( 'WOOCOMMERCE_CART', true );
 		}
 
 		WC()->shipping->reset_shipping();
-
-		$product_id   = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
-		$qty          = ! isset( $_POST['qty'] ) ? 1 : absint( $_POST['qty'] );
-		$product      = wc_get_product( $product_id );
-		$product_type = $product->get_type();
 
 		// First empty the cart to prevent wrong calculation.
 		WC()->cart->empty_cart();
@@ -338,9 +365,16 @@ class OrderController {
 	}
 
 	/**
-	 * Create order from cart action. Security is handled by WC.
+	 * Create an order from the express-checkout cart.
+	 *
+	 * Require the express-checkout nonce before touching the cart. Leave the
+	 * posted WooCommerce checkout nonce in place so process_checkout() can
+	 * verify it. Do not mint a replacement.
 	 */
 	public function createOrderFromCart() {
+		$this->requirePostRequest();
+		check_ajax_referer( 'wc-airwallex-express-checkout', 'security' );
+
 		if ( WC()->cart->is_empty() ) {
 			wp_send_json_error( __( 'Empty cart', 'airwallex-online-payments-gateway' ) );
 		}
@@ -349,16 +383,13 @@ class OrderController {
 			define( 'WOOCOMMERCE_CHECKOUT', true );
 		}
 
-		// set the checkout nonce so no exceptions are thrown.
-		$_REQUEST['_wpnonce'] = $_POST['_wpnonce'] = wp_create_nonce( 'woocommerce-process_checkout' );
-
 		// Normalizes billing and shipping state values.
 		$this->normalizeState();
 
 		// In case the state is required, but is missing, add a more descriptive error notice.
 		$this->validateState();
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Called from express-checkout flow gated by check_ajax_referer() upstream; wc_clean() sanitizes the value but the sniff doesn't recognize it.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() sanitizes the value, but the sniff doesn't recognize it.
 		$paymentMethod = isset( $_POST['payment_method_type'] ) ? wc_clean(wp_unslash($_POST['payment_method_type'])) : '';
 		WC()->session->set( 'airwallex_express_checkout_payment_method', $paymentMethod );
 
@@ -371,6 +402,7 @@ class OrderController {
 	 * Get shipping options action
 	 */
 	public function getShippingOptions() {
+		$this->requirePostRequest();
 		check_ajax_referer( 'wc-airwallex-express-checkout-shipping', 'security' );
 
 		$shippingAddress = [
@@ -388,6 +420,10 @@ class OrderController {
 			'city'     => isset($_POST['city']) ? wc_clean(wp_unslash($_POST['city'])) : '',
 		];
 
+		if ( '' === $shippingAddress['country'] || ! WC()->cart || WC()->cart->is_empty() ) {
+			wp_send_json_error( array( 'message' => __( 'A valid shipping address and active cart are required.', 'airwallex-online-payments-gateway' ) ), 400 );
+			return;
+		}
 		$data = $this->getAvailableShippingOptions( $shippingAddress );
 		wp_send_json($data);
 	}
@@ -396,6 +432,7 @@ class OrderController {
 	 * Update shipping method action
 	 */
 	public function updateShippingMethod() {
+		$this->requirePostRequest();
 		check_ajax_referer( 'wc-airwallex-express-checkout-update-shipping-method', 'security' );
 
 		if ( ! defined( 'WOOCOMMERCE_CART' ) ) {

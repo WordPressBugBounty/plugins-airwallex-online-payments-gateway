@@ -7,7 +7,7 @@ namespace Composer\Autoload;
 class ComposerStaticInit5d90e83245aa356a4598e1a6a39d6306
 {
     public static $prefixLengthsPsr4 = array (
-        'A' =>
+        'A' => 
         array (
             'Airwallex\\PayappsPlugin\\CommonLibrary\\' => 38,
             'Airwallex\\' => 10,
@@ -15,12 +15,12 @@ class ComposerStaticInit5d90e83245aa356a4598e1a6a39d6306
     );
 
     public static $prefixDirsPsr4 = array (
-        'Airwallex\\PayappsPlugin\\CommonLibrary\\' =>
+        'Airwallex\\PayappsPlugin\\CommonLibrary\\' => 
         array (
             0 => __DIR__ . '/../..' . '/payapps-plugin-php-common-lib',
             1 => __DIR__ . '/..' . '/airwallex/payapps-plugin-php-common-lib',
         ),
-        'Airwallex\\' =>
+        'Airwallex\\' => 
         array (
             0 => __DIR__ . '/../..' . '/includes',
         ),
@@ -30,6 +30,8 @@ class ComposerStaticInit5d90e83245aa356a4598e1a6a39d6306
         'Airwallex\\Client\\AbstractClient' => __DIR__ . '/../..' . '/includes/Client/AbstractClient.php',
         'Airwallex\\Client\\AdminClient' => __DIR__ . '/../..' . '/includes/Client/AdminClient.php',
         'Airwallex\\Client\\CardClient' => __DIR__ . '/../..' . '/includes/Client/CardClient.php',
+        'Airwallex\\Client\\UpsellConfirmPaymentIntent' => __DIR__ . '/../..' . '/includes/Client/UpsellConfirmPaymentIntent.php',
+        'Airwallex\\Client\\UpsellCreatePaymentIntent' => __DIR__ . '/../..' . '/includes/Client/UpsellCreatePaymentIntent.php',
         'Airwallex\\Constants\\ExpressCheckoutStates' => __DIR__ . '/../..' . '/includes/Constants/ExpressCheckoutStates.php',
         'Airwallex\\Constants\\HongKongStates' => __DIR__ . '/../..' . '/includes/Constants/HongKongStates.php',
         'Airwallex\\Controllers\\AirwallexController' => __DIR__ . '/../..' . '/includes/Controllers/AirwallexController.php',
@@ -55,6 +57,9 @@ class ComposerStaticInit5d90e83245aa356a4598e1a6a39d6306
         'Airwallex\\Gateways\\Blocks\\AirwallexWeChatWCBlockSupport' => __DIR__ . '/../..' . '/includes/Gateways/Blocks/AirwallexWeChatWCBlockSupport.php',
         'Airwallex\\Gateways\\Card' => __DIR__ . '/../..' . '/includes/Gateways/Card.php',
         'Airwallex\\Gateways\\ExpressCheckout' => __DIR__ . '/../..' . '/includes/Gateways/ExpressCheckout.php',
+        'Airwallex\\Gateways\\FunnelKitIntentTrait' => __DIR__ . '/../..' . '/includes/Gateways/FunnelKitIntentTrait.php',
+        'Airwallex\\Gateways\\FunnelKitPricingTrait' => __DIR__ . '/../..' . '/includes/Gateways/FunnelKitPricingTrait.php',
+        'Airwallex\\Gateways\\FunnelKitSnapshotTrait' => __DIR__ . '/../..' . '/includes/Gateways/FunnelKitSnapshotTrait.php',
         'Airwallex\\Gateways\\FunnelKitUpsell' => __DIR__ . '/../..' . '/includes/Gateways/FunnelKitUpsell.php',
         'Airwallex\\Gateways\\GatewayFactory' => __DIR__ . '/../..' . '/includes/Gateways/GatewayFactory.php',
         'Airwallex\\Gateways\\Klarna' => __DIR__ . '/../..' . '/includes/Gateways/Klarna.php',

@@ -50,6 +50,7 @@ interface CardSettings {
 
 interface PaymentDetails {
 	orderId?: string | number;
+	orderKey?: string;
 	paymentIntent?: string;
 	clientSecret?: string;
 	customerId?: string;
@@ -111,7 +112,8 @@ const confirmPayment      = ({
 	const airwallexSaveChecked = (document.getElementById('airwallex-save') as HTMLInputElement | null)?.checked;
 	const confirmUrlBase = settings.confirm_url as string;
 	const separator = confirmUrlBase.includes('?') ? '&' : '?';
-	const confirmUrl = `${confirmUrlBase}${separator}order_id=${paymentDetails.orderId}&intent_id=${paymentDetails.paymentIntent}&is_airwallex_save_checked=${airwallexSaveChecked}`;
+	const orderKeyQuery = paymentDetails.orderKey ? `&key=${encodeURIComponent(paymentDetails.orderKey)}` : '';
+	const confirmUrl = `${confirmUrlBase}${separator}order_id=${paymentDetails.orderId}&intent_id=${paymentDetails.paymentIntent}${orderKeyQuery}&is_airwallex_save_checked=${airwallexSaveChecked}`;
 
 	const card            = getAirwallexElement('card');
 	const paymentResponse: PaymentResponse = { type: successType };
@@ -366,7 +368,7 @@ export const InlineCard                             = ({
 			const response = await confirmPayment({
 				settings,
 				paymentDetails,
-				billingData: billing.billingData,
+				billingData: billing.billingAddress,
 				successType: emitResponse.responseTypes.SUCCESS,
 				errorType: emitResponse.responseTypes.ERROR,
 				errorContext: emitResponse.noticeContexts.PAYMENTS,
@@ -400,6 +402,7 @@ export const InlineCard                             = ({
 		emitResponse.noticeContexts.PAYMENTS,
 		emitResponse.responseTypes.SUCCESS,
 		emitResponse.responseTypes.ERROR,
+		billing,
 	]);
 
 	return (
@@ -507,7 +510,7 @@ export const AirwallexSaveCard = (props: AirwallexSaveCardProps) => {
 				settings,
 				paymentDetails,
 				cvcElementRef,
-				billingData: billing.billingData,
+				billingData: billing.billingAddress,
 				successType: emitResponse.responseTypes.SUCCESS,
 				errorType: emitResponse.responseTypes.ERROR,
 				errorContext: emitResponse.noticeContexts.PAYMENTS,
@@ -539,6 +542,7 @@ export const AirwallexSaveCard = (props: AirwallexSaveCardProps) => {
 		emitResponse?.responseTypes.ERROR,
 		isCVCCompleted,
 		token,
+		billing,
 	]);
 
 	return (

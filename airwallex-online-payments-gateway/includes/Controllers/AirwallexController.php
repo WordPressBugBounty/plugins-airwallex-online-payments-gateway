@@ -11,6 +11,7 @@ use Airwallex\Services\OrderService;
 use Airwallex\Services\WebhookService;
 use Airwallex\Gateways\AirwallexGatewayTrait;
 use Airwallex\PayappsPlugin\CommonLibrary\Exception\UnauthorizedException;
+use Airwallex\Gateways\Settings\APISettings;
 use Airwallex\Services\Util;
 use Exception;
 use Error;
@@ -292,7 +293,7 @@ class AirwallexController {
 
 			if ( $paymentIntent->getStatus() === StructPaymentIntent::STATUS_REQUIRES_CUSTOMER_ACTION ) {
 				$this->logService->debug( 'paymentConfirmation() pending status: ' . $paymentIntentId );
-				$orderService->setPendingStatus( $order );
+				$orderService->setPendingStatus( $order, $paymentIntent );
 			} else if (!$paymentIntent->isAuthorized() && !$paymentIntent->isCaptured()) {
 				$this->logService->warning( 'paymentConfirmation() invalid status: ' . $paymentIntentId );
 				OrderService::getInstance()->setTemporaryOrderStateAfterDecline( $order );
@@ -413,6 +414,12 @@ class AirwallexController {
 
 	public function connectionTest() {
 		check_ajax_referer('wc-airwallex-admin-settings-connection-test', 'security');
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json( array(
+				'success' => false,
+				'message' => __( 'You do not have permission to perform this action.', 'airwallex-online-payments-gateway' ),
+			) );
+		}
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$env  = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : '';
@@ -427,6 +434,10 @@ class AirwallexController {
 				$clientId = isset($_POST['client_id']) ? trim(wc_clean(wp_unslash($_POST['client_id']))) : '';
 				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 				$apiKey = isset($_POST['api_key']) ? trim(wc_clean(wp_unslash($_POST['api_key']))) : '';
+				if ( APISettings::isMaskedSecret( $apiKey ) ) {
+					$apiKey = Util::getApiKey( $env );
+					$apiKey = is_string( $apiKey ) ? $apiKey : '';
+				}
 			} else {
 				$clientId = Util::getClientId();
 				$apiKey = Util::getApiKey();
@@ -461,6 +472,12 @@ class AirwallexController {
 
 	public function connectionClick() {
 		check_ajax_referer('wc-airwallex-admin-settings-connection-click', 'security');
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json( array(
+				'success' => false,
+				'message' => __( 'You do not have permission to perform this action.', 'airwallex-online-payments-gateway' ),
+			) );
+		}
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$env  = isset($_POST['env']) ? wc_clean(wp_unslash($_POST['env'])) : '';

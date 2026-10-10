@@ -16,6 +16,25 @@ class Util {
 	 */
 	const ENV_DEMO = 'demo';
 
+	const SIGNATURE_MAX_AGE_MS = 300000;
+
+	public static function guestNonceUserId( $userId, $action ) {
+		if ( $userId || ! is_string( $action ) || 0 !== strpos( $action, 'wc-airwallex-express-checkout' ) ) {
+			return $userId;
+		}
+		if ( function_exists( 'WC' ) && WC()->session && WC()->session->has_session() ) {
+			return WC()->session->get_customer_id();
+		}
+		return $userId;
+	}
+
+	public static function amountsEqualAtCurrencyPrecision( $amountA, $amountB, $currency ) {
+		if ( ! is_numeric( $amountA ) || ! is_numeric( $amountB ) || ! is_finite( (float) $amountA ) || ! is_finite( (float) $amountB ) ) {
+			return false;
+		}
+		$decimalPlaces = \Airwallex\PayappsPlugin\CommonLibrary\Struct\PaymentIntent::CURRENCY_TO_DECIMAL[ strtoupper( (string) $currency ) ] ?? 2;
+		return number_format( (float) $amountA, $decimalPlaces, '.', '' ) === number_format( (float) $amountB, $decimalPlaces, '.', '' );
+	}
 	public static function getLocale() {
 		$locale = strtolower( get_bloginfo( 'language' ) );
 		$locale = str_replace( '_', '-', $locale );
@@ -173,6 +192,64 @@ class Util {
 		$targetEnv = $env ? $env : Util::getEnvironment();
 
 		return self::isSandboxEnvironment( $targetEnv ) ? get_option( 'airwallex_webhook_secret_demo', get_option( 'airwallex_webhook_secret' ) ) : get_option( 'airwallex_webhook_secret' );
+	}
+
+	/**
+	 * Verify Airwallex x-timestamp and x-signature.
+	 *
+	 * @param array  $headers
+	 * @param string $msg
+	 * @param string $secret
+	 * @throws Exception
+	 */
+	public static function verifySignature( $headers, $msg, $secret ) {
+		$timestamp = isset( $headers['x-timestamp'] ) && is_string( $headers['x-timestamp'] ) ? $headers['x-timestamp'] : '';
+		$signature = isset( $headers['x-signature'] ) && is_string( $headers['x-signature'] ) ? $headers['x-signature'] : '';
+
+		if ( ! is_string( $secret ) || '' === $secret ) {
+			throw new Exception( 'Signature secret is not configured; refusing to process the request.' );
+		}
+		if ( '' === $timestamp || '' === $signature ) {
+			throw new Exception( 'Missing webhook timestamp or signature.' );
+		}
+
+		self::assertTimestampFresh( $timestamp );
+
+		$calculatedSignature = hash_hmac( 'sha256', $timestamp . $msg, $secret );
+		if ( ! hash_equals( $calculatedSignature, $signature ) ) {
+			throw new Exception( 'Invalid signature.' );
+		}
+	}
+
+	/**
+	 * @param string $timestamp
+	 * @throws Exception
+	 */
+	private static function assertTimestampFresh( $timestamp ) {
+		if ( ! preg_match( '/^\d{13}$/', $timestamp ) ) {
+			throw new Exception( 'Invalid webhook timestamp.' );
+		}
+
+		$nowMs = (int) round( microtime( true ) * 1000 );
+		if ( abs( $nowMs - (int) $timestamp ) > self::SIGNATURE_MAX_AGE_MS ) {
+			throw new Exception( 'Webhook timestamp is outside the allowed window.' );
+		}
+	}
+
+	/**
+	 * @param mixed $candidate
+	 * @return string
+	 */
+	public static function correlationId( $candidate ) {
+		if ( is_string( $candidate ) && preg_match( '/^[A-Za-z0-9_-]{1,64}$/', $candidate ) ) {
+			return $candidate;
+		}
+
+		try {
+			return bin2hex( random_bytes( 8 ) );
+		} catch ( Exception $e ) {
+			return 'unavailable';
+		}
 	}
 
 	/**
@@ -349,20 +426,6 @@ class Util {
 	}
 
 	/**
-	 * Check whether the current user has a specific role
-	 * 
-	 * @return boolean
-	 */
-	public static function currentUserHasRole($role) {
-		$user = wp_get_current_user();
-		if (empty($user)) {
-			return false;
-		}
-
-		return in_array($role, $user->roles, true);
-	}
-
-	/**
 	 * Get the origin from the URL
 	 * 
 	 * @param string $url
@@ -382,6 +445,61 @@ class Util {
 		}
 
 		return $origin;
+	}
+
+	/**
+	 * Whether $host is this store's host, as sent by window.location.host.
+	 *
+	 * @param string $host
+	 * @return bool
+	 */
+	public static function isStoreHost( $host ) {
+		if ( ! is_string( $host ) || '' === $host || false !== strpbrk( $host, " \t\r\n/\\@?#" ) ) {
+			return false;
+		}
+
+		$parts = wp_parse_url( self::getOriginFromUrl( home_url() ) );
+		if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+			return false;
+		}
+
+		$storeHost = strtolower( $parts['host'] );
+		$host      = strtolower( $host );
+		if ( $host === $storeHost ) {
+			return true;
+		}
+
+		return ! empty( $parts['port'] ) && $host === $storeHost . ':' . $parts['port'];
+	}
+
+	/**
+	 * Whether $url is an https Apple Pay merchant validation URL.
+	 *
+	 * @param string $url
+	 * @return bool
+	 */
+	public static function isApplePayValidationUrl( $url ) {
+		if ( ! is_string( $url ) || '' === $url || false !== strpbrk( $url, " \t\r\n\\" ) ) {
+			return false;
+		}
+
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+			return false;
+		}
+		if ( isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
+			return false;
+		}
+		if ( 'https' !== strtolower( (string) $parts['scheme'] ) ) {
+			return false;
+		}
+		if ( isset( $parts['port'] ) && 443 !== (int) $parts['port'] ) {
+			return false;
+		}
+
+		$host = strtolower( $parts['host'] );
+
+		return 1 === preg_match( '/^(?:[a-z0-9]+-)*apple-pay-gateway(?:-[a-z0-9]+)*\.apple\.com$/', $host );
 	}
 
 	/**

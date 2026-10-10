@@ -29,6 +29,14 @@ class GatewaySettingsController {
 
 	public function activatePaymentMethod() {
 		check_ajax_referer('wc-airwallex-admin-settings-activate-payment-method', 'security');
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json( array(
+				'success' => false,
+				'error'   => array(
+					'message' => __( 'You do not have permission to perform this action.', 'airwallex-online-payments-gateway' ),
+				),
+			) );
+		}
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean() recursively sanitizes the value, but the sniff doesn't recognize it.
 		$paymentMethodType = isset($_POST['payment_method_type']) ? wc_clean(wp_unslash($_POST['payment_method_type'])) : '';

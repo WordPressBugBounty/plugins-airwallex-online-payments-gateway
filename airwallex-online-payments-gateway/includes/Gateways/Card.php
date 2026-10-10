@@ -376,6 +376,8 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function getCustomerClientSecret() {
+		check_ajax_referer( 'wc-airwallex-get-customer-client-secret', 'security' );
+
 		$id = get_current_user_id();
 		if (empty($id)) {
 			wp_send_json([
@@ -420,8 +422,10 @@ class Card extends WC_Payment_Gateway {
 		$cardScriptData = [
  			'autoCapture' => $this->is_capture_immediately() ? 'true' : 'false',
 			'getCustomerClientSecretAjaxUrl' => WC_AJAX::get_endpoint('airwallex_get_customer_client_secret'),
+			'getCustomerClientSecretNonce' => wp_create_nonce( 'wc-airwallex-get-customer-client-secret' ),
 			'getCheckoutAjaxUrl' => WC_AJAX::get_endpoint( 'checkout' ),
 			'getTokensAjaxUrl' => WC_AJAX::get_endpoint('airwallex_get_tokens'),
+			'getTokensNonce' => wp_create_nonce( 'wc-airwallex-get-tokens' ),
 			'isLoggedIn' => is_user_logged_in(),
 			'isAccountPage' => is_account_page(),
 			/* translators: %s: detailed error message returned from the payment provider. */
@@ -652,19 +656,48 @@ class Card extends WC_Payment_Gateway {
 			throw new Exception( esc_html__( 'You are not allowed to change payment method for this order.', 'airwallex-online-payments-gateway' ) );
 		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from process_payment(), which is gated by WooCommerce's own checkout nonce.
-		if (empty($_REQUEST['awx_customer_id'])) {
+		$submittedCustomerId = isset( $_REQUEST['awx_customer_id'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['awx_customer_id'] ) ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from process_payment(), which is gated by WooCommerce's own checkout nonce.
+		$consentId = isset( $_REQUEST['awx_consent_id'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['awx_consent_id'] ) ) : '';
+		if ( '' === $submittedCustomerId ) {
 			throw new Exception( esc_html__( 'Customer ID is required.', 'airwallex-online-payments-gateway' ) );
 		}
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from process_payment(), which is gated by WooCommerce's own checkout nonce.
-		if (empty($_REQUEST['awx_consent_id'])) {
+		if ( '' === $consentId ) {
 			throw new Exception( esc_html__( 'Consent ID is required.', 'airwallex-online-payments-gateway' ) );
 		}
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from process_payment(), which is gated by WooCommerce's own checkout nonce.
-		$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, sanitize_text_field( wp_unslash( $_REQUEST['awx_consent_id'] ) ) );
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Called from process_payment(), which is gated by WooCommerce's own checkout nonce.
-		$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, sanitize_text_field( wp_unslash( $_REQUEST['awx_customer_id'] ) ) );
+
+		/** @var StructPaymentConsent $paymentConsent */
+		$paymentConsent = $this->retrievePaymentConsent( $consentId );
+		if ( StructPaymentConsent::STATUS_VERIFIED !== $paymentConsent->getStatus() ) {
+			throw new Exception( esc_html__( 'Invalid Airwallex Payment Consent.', 'airwallex-online-payments-gateway' ) );
+		}
+		$consentCustomerId = (string) $paymentConsent->getCustomerId();
+		$currentCustomerId = (string) $this->getAirwallexCustomerIdForUser( $currentUserId );
+		if ( '' === $consentCustomerId || $consentCustomerId !== $currentCustomerId || $submittedCustomerId !== $currentCustomerId ) {
+			$this->logService->debug( 'Payment consent does not belong to the current user.', array( 'orderId' => $order->get_id() ) );
+			throw new Exception( esc_html__( "This payment consent doesn't belong to the current user.", 'airwallex-online-payments-gateway' ) );
+		}
+
+		$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CONSENT_ID, $paymentConsent->getId() );
+		$order->update_meta_data( OrderService::META_KEY_AIRWALLEX_CUSTOMER_ID, $consentCustomerId );
 		$order->save();
 		return array( 'result' => 'success', 'redirect' => $order->get_view_order_url());
+	}
+
+	/**
+	 * @param string $consentId
+	 * @return StructPaymentConsent
+	 */
+	protected function retrievePaymentConsent( $consentId ) {
+		return ( new RetrievePaymentConsent() )->setPaymentConsentId( $consentId )->send();
+	}
+
+	/**
+	 * @param int $userId
+	 * @return string
+	 */
+	protected function getAirwallexCustomerIdForUser( $userId ) {
+		return ( new OrderService() )->getAirwallexCustomerId( $userId );
 	}
 
 	public function process_payment( $order_id ) {
@@ -735,12 +768,13 @@ class Card extends WC_Payment_Gateway {
 			if ( 'redirect' === $this->get_option( 'checkout_form_type' ) && ! $tokenIdFromRequest ) {
 				$redirectUrl = $this->get_payment_url( 'airwallex_payment_method_card' );
 				$redirectUrl .= ( strpos( $redirectUrl, '?' ) === false ) ? '?' : '&';
-				$redirectUrl .= 'order_id=' . $order_id;
+				$redirectUrl .= 'order_id=' . $order_id . '&key=' . rawurlencode( $order->get_order_key() );
 				$result['redirect'] = $redirectUrl;
 			} else {
 				$result += [
 					'paymentIntent' => $paymentIntent->getId(),
 					'orderId'       => $order_id,
+					'orderKey'      => $order->get_order_key(),
 					'createConsent' => ! empty( $airwallexCustomerId ) && $containsSubscription,
 					'customerId'    => ! empty( $airwallexCustomerId ) ? $airwallexCustomerId : '',
 					'currency'      => $order->get_currency( '' ),
@@ -899,6 +933,8 @@ class Card extends WC_Payment_Gateway {
 	}
 
 	public function getTokens() {
+		check_ajax_referer( 'wc-airwallex-get-tokens', 'security' );
+
 		$id = get_current_user_id();
 		if (empty($id)) {
 			wp_send_json([

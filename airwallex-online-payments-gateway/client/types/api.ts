@@ -132,6 +132,7 @@ export interface PlaceOrderResponse {
     currency?: string;
     createConsent?: boolean;
     orderId?: string | number;
+    orderKey?: string;
     tokenId?: string | number;
     order_id?: string | number;
 }

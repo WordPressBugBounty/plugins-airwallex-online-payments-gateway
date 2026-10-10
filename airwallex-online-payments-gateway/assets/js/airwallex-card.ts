@@ -24,6 +24,7 @@ interface CardCheckoutResult {
     currency?: string;
     createConsent?: boolean;
     orderId?: string | number;
+    orderKey?: string;
     tokenId?: string | number;
     error?: string | { message?: string };
 }
@@ -52,11 +53,14 @@ jQuery(function ($) {
         return data;
     }
 
-    const getConfirmationUrl = function (confirmationUrl: string, orderId: string | number, paymentIntent: string): string {
+    const getConfirmationUrl = function (confirmationUrl: string, orderId: string | number, paymentIntent: string, orderKey?: string): string {
         const finalConfirmationUrl = new URL(confirmationUrl);
         const params = new URLSearchParams(finalConfirmationUrl.search);
         params.set('order_id', String(orderId));
         params.set('intent_id', paymentIntent);
+        if (orderKey) {
+            params.set('key', orderKey);
+        }
         const airwallexSave = document.getElementById('airwallex-save') as HTMLInputElement | null;
         if (airwallexSave && airwallexSave.checked) {
             params.set('is_airwallex_save_checked', 'true');
@@ -213,6 +217,9 @@ jQuery(function ($) {
         const response = await $.ajax({
             type: 'GET',
             url: awxEmbeddedCardData.getCustomerClientSecretAjaxUrl,
+            data: {
+                security: awxEmbeddedCardData.getCustomerClientSecretNonce,
+            },
         });
         return await Airwallex!.createPaymentConsent({
             customer_id: response.customer_id,
@@ -435,7 +442,7 @@ jQuery(function ($) {
             }
         }
 
-        let targetConfirmationUrl = getConfirmationUrl(confirmationUrl, result.orderId!, result.paymentIntent!);
+        let targetConfirmationUrl = getConfirmationUrl(confirmationUrl, result.orderId!, result.paymentIntent!, result.orderKey);
         if (result.tokenId) {
             targetConfirmationUrl += "&token_id=" + parseInt(String(result.tokenId), 10);
         }
@@ -524,6 +531,9 @@ jQuery(function ($) {
             const res = await $.ajax({
                 type: 'GET',
                 url: awxEmbeddedCardData.getTokensAjaxUrl,
+                data: {
+                    security: awxEmbeddedCardData.getTokensNonce,
+                },
             });
             $("#payment").unblock();
             tokens = res.tokens;
